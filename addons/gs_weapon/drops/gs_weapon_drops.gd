@@ -1,0 +1,695 @@
+class_name GSWeaponDrops
+extends "gs_weapon_drops_push.gd"
+
+## Weapons lying in the world after a player dropped or died with them: the authority simulates
+## each as a rigid body, a client snaps to its resting place. The game carries the signals and
+## answers with [code]mirror_*[/code]; setup is in docs/design.md.
+
+const CHANNEL := "weapon.drop"
+const SETTLE_SPEED := 0.08
+const SETTLE_SEC := 0.6
+## Default of [member GSWeaponDropRules.settle_max_sec]: a drop still wobbling after this long (a thin gun on a slope) is
+## put to rest where it lies; the rule is what applies, 0 there never forces a rest.
+const SETTLE_MAX_SEC := GSWeaponDropRules.DEFAULT_SETTLE_MAX_SEC
+## Cap on how far a thrown weapon may start from the player, so a wall in front cannot swallow it.
+const REACH := 0.5
+## A moving drop this far below where it was dropped or last pushed fell through the world: it goes back on the floor
+## under that point (frozen there the second time), or, with no floor there, to the point once and is then removed.
+const RESCUE_DEPTH := 40.0
+## What [method _rescue_lost] sees outside the tree: no floor (read only, so it never allocates).
+const NO_HIT := {}
+## Times one drop is put back on a floor it fell through before it is frozen on that floor.
+const RESCUE_MAX := 3
+## Seconds between checks that a resting drop still has something under it ([method _check_support]).
+const SUPPORT_EVERY := 0.5
+## A resting drop that could move this far straight down has lost what held it (a prop broken or moved, a door
+## opened, a body gone) and falls again.
+const SUPPORT_GAP := 0.04
+## Default of [member GSWeaponDropRules.refall_max]: times one drop falls again for want of support before it is put on
+## the floor under it and left there; 0 in the rule is unlimited.
+const REFALL_MAX := GSWeaponDropRules.DEFAULT_REFALL_MAX
+
+## A weapon left a hand (or a corpse): [param state] is [code]{id, magazine, reserve}[/code].
+signal dropped(drop_id: int, state: Dictionary, at: Transform3D, velocity: Vector3, owner_id: int)
+## Ammunition moved between a dropped weapon and a carrier; [param state] is what still lies there.
+signal ammo_changed(drop_id: int, state: Dictionary)
+## A weapon left the world: [param taker_id] is who took it, or 0 for expiry and the cap.
+signal removed(drop_id: int, taker_id: int)
+
+## Slots whose weapons never drop (a permanent melee weapon).
+var keep_slots: Array[int] = []
+
+## [code]team_of.call(player_id) -> int[/code]: 0 for no team (free-for-all, teams off). Stamps each drop
+## with its dropper's team and reads the taker's; unset means no teams.
+var team_of: Callable = Callable()
+
+var _next_id: int = 1
+var _order: int = 0
+var _scan_left: float = 0.0
+var _support_left: float = 0.0
+
+
+func count() -> int:
+	return _entries.size()
+
+
+func has_drop(drop_id: int) -> bool:
+	return _entries.has(drop_id)
+
+
+## Drops the weapon [param arsenal] holds, thrown along [param aim] at the class's force, then lets
+## the carrier take a weapon within reach into the slot just emptied. Returns the new drop id, or 0.
+## [param source] is a player class def or null.
+func throw(arsenal: Object, origin: Vector3, aim: Vector3, owner_id: int, source: Object = null,
+		inherit: Vector3 = Vector3.ZERO) -> int:
+	var r := rules.resolve(source)
+	if not is_authority or not r.enabled or not r.key_enabled:
+		return 0
+	var state: Dictionary = arsenal.call(&"drop_current", keep_slots)
+	if state.is_empty():
+		return 0
+	var dir := aim.normalized() if aim.length() > 0.001 else Vector3.FORWARD
+	var velocity := inherit + dir * r.throw_force + Vector3.UP * r.throw_up
+	var id := spawn(state, origin + dir * REACH, velocity, owner_id, r)
+	if r.swap:
+		var _took := _take_near(arsenal, origin, owner_id, rules.resolve(source))
+	return id
+
+
+## Drops [param state] where a player died (no throw, a small tumble).
+func drop_dead(arsenal: Object, origin: Vector3, velocity: Vector3, owner_id: int, source: Object = null) -> int:
+	var r := rules.resolve(source)
+	if not is_authority or not r.enabled or not r.on_death:
+		return 0
+	var state: Dictionary = arsenal.call(&"drop_current", keep_slots)
+	if state.is_empty():
+		return 0
+	return spawn(state, origin, velocity, owner_id, r)
+
+
+## Puts a weapon in the world. [param r] is the rules in force (class overrides applied).
+func spawn(state: Dictionary, origin: Vector3, velocity: Vector3, owner_id: int, r: GSWeaponDropRules = null) -> int:
+	r = r if r != null else rules
+	var id := _next_id
+	_next_id += 1
+	var facing := velocity.normalized() if velocity.length() > 0.1 else Vector3.FORWARD
+	if r.lie_flat:
+		# Its long axis starts horizontal, rolled onto its side, so a throw straight up lands flat, not on end.
+		facing = Vector3(facing.x, 0.0, facing.z)
+		facing = facing.normalized() if facing.length() > 0.05 else Vector3.FORWARD
+	# A drop thrown straight up is colinear with the default up vector and warns.
+	var up := Vector3.FORWARD if absf(facing.dot(Vector3.UP)) > 0.999 else Vector3.UP
+	var basis := Basis.looking_at(facing, up)
+	if r.lie_flat:
+		basis = basis.rotated(facing, deg_to_rad(90.0 + rng.randf_range(-25.0, 25.0)))
+	var at := Transform3D(basis, origin)
+	_make(id, state, at, velocity, owner_id, r.lifetime, r.pickup_delay, _team(owner_id))
+	dropped.emit(id, state, at, velocity, owner_id)
+	# A burst of deaths is held to the cap at once; lifetime waits for the scan.
+	_enforce_cap(r.max_count, id)
+	_enforce_active(id)
+	return id
+
+
+## The weapon within reach whose slot [param arsenal] has empty goes into it. Returns the drop id, or 0.
+## Automatic pickup: does nothing unless [member GSWeaponDropRules.auto_pickup] is on, so a game cannot forget the gate.
+func take_for(arsenal: Object, position: Vector3, taker_id: int, source: Object = null) -> int:
+	if not is_authority or arsenal == null:
+		return 0
+	var r := rules.resolve(source)
+	if not r.auto_pickup:
+		return 0
+	return _take_near(arsenal, position, taker_id, r)
+
+
+func _take_near(arsenal: Object, position: Vector3, taker_id: int, r: GSWeaponDropRules) -> int:
+	if not is_authority or arsenal == null:
+		return 0
+	return _take(arsenal, _nearest(arsenal, position, Vector3.ZERO, r.pickup_radius, _team(taker_id), true), taker_id, r, false, false, position)
+
+
+## The use key. A tap ([param held] false) takes the drop looked at into a free slot, or unloads its ammunition
+## into the same weapon carried (overflow stays); a different weapon is replaced at once. A hold ([GSWeaponUseHold])
+## over the same weapon replaces it fully, attachments trading. Returns the drop id, or 0.
+func use(arsenal: Object, position: Vector3, direction: Vector3, taker_id: int, source: Object = null, held: bool = false) -> int:
+	if not is_authority or arsenal == null:
+		return 0
+	var r := rules.resolve(source)
+	return _take(arsenal, _nearest(arsenal, position, direction, r.use_radius, _team(taker_id)), taker_id, r, held, true, position)
+
+
+## What a "press use" prompt shows for the drop [param position] looks at: {id, weapon, magazine,
+## reserve, can_take}, or empty when none is in reach. Works on a client, from what it was told.
+func prompt_for(arsenal: Object, position: Vector3, direction: Vector3, source: Object = null, taker_team: int = 0) -> Dictionary:
+	var id := _nearest(null, position, direction, rules.resolve(source).use_radius, taker_team)
+	if id == 0:
+		return {}
+	var state: Dictionary = _entries[id]["state"]
+	var can := true
+	if arsenal != null and arsenal.get(&"catalogue") != null:
+		can = arsenal.get(&"catalogue").call(&"get_def", StringName(state["id"])) != null
+	var mode := "take"
+	var hold := false
+	var ammo_ok := false
+	if can and arsenal != null and arsenal.get(&"catalogue") != null:
+		var def: Object = arsenal.get(&"catalogue").call(&"get_def", StringName(state["id"]))
+		var slot_no: int = def.get(&"slot")
+		if bool(arsenal.call(&"carries", StringName(state["id"]))):
+			mode = "ammo"
+			hold = true
+		elif arsenal.call(&"has_slot", slot_no) and arsenal.call(&"weapons_in", slot_no).size() >= int(arsenal.call(&"slot_capacity")):
+			mode = "swap"
+			hold = rules.resolve(source).swap_hold
+		if mode != "take":
+			ammo_ok = _ammo_fits(arsenal, state, def)
+	return {"id": id, "weapon": StringName(state["id"]), "magazine": state.get("magazine", 0),
+		"reserve": state.get("reserve", 0), "can_take": can, "mode": mode, "hold": hold, "ammo_ok": ammo_ok,
+		"at": (_entries[id]["body"] as Node3D).global_position, "fitted": state.has("fit")}
+
+
+## Whether a tap could move any of the drop's rounds into [param arsenal]: the weapon in that slot draws on the same pool and the pool has room.
+func _ammo_fits(arsenal: Object, state: Dictionary, def: Object) -> bool:
+	var pool: StringName = def.get(&"ammo_type")
+	if pool == &"" or int(state.get("reserve", 0)) + int(state.get("magazine", 0)) <= 0:
+		return false
+	var in_slot: Array = arsenal.call(&"weapons_in", def.get(&"slot"))
+	if in_slot.is_empty() or in_slot[0].def.ammo_type != pool:
+		return false
+	var ammo: Object = arsenal.call(&"ammo")
+	return ammo == null or int(ammo.call(&"cap", pool)) <= 0 or int(ammo.call(&"count", pool)) < int(ammo.call(&"cap", pool))
+
+
+## The best drop within [param radius] of [param position]; with [param arsenal], only one whose slot is empty.
+## A drop in front of [param direction] beats one behind at the same distance.
+func _nearest(arsenal: Object, position: Vector3, direction: Vector3, radius: float, taker_team: int = 0, empty_only: bool = false) -> int:
+	if not rules.allow_pickup:
+		return 0
+	var best := 0
+	var best_score := INF
+	for id: int in _entries:
+		var e: Dictionary = _entries[id]
+		if float(e["delay"]) > 0.0:
+			continue
+		if rules.team_only and taker_team != 0 and int(e["team"]) != 0 and int(e["team"]) != taker_team:
+			continue
+		if arsenal != null:
+			var def: Object = arsenal.get(&"catalogue").call(&"get_def", StringName(e["state"]["id"]))
+			if def == null or (empty_only and arsenal.call(&"has_slot", def.get(&"slot"))):
+				continue
+		var offset := (e["body"] as Node3D).global_position - position
+		var d := offset.length()
+		if d > radius:
+			continue
+		var facing := offset.normalized().dot(direction.normalized()) if direction != Vector3.ZERO and d > 0.01 else 0.0
+		var score := d - facing * 0.5
+		if score < best_score:
+			best = id
+			best_score = score
+	return best
+
+
+func _team(player_id: int) -> int:
+	return int(team_of.call(player_id)) if team_of.is_valid() else 0
+
+
+## The team stamped on drop [param drop_id] when it was dropped (0 none).
+func drop_team(drop_id: int) -> int:
+	return int(_entries[drop_id]["team"]) if _entries.has(drop_id) else 0
+
+
+## Takes drop [param best] into [param arsenal]. A free slot takes it with its ammunition and attachments as
+## it lay. The same weapon twice unloads its ammunition into the reserve (the overflow stays), or with
+## [param held] trades fittings. A different weapon already in the slot is swapped out onto the floor at [param taker_at], where the taker stands, not where the taken weapon lay.
+func _take(arsenal: Object, best: int, taker_id: int, r: GSWeaponDropRules = null, held: bool = false, keyed: bool = false, taker_at: Vector3 = Vector3.INF) -> int:
+	if best == 0:
+		return 0
+	var e: Dictionary = _entries[best]
+	var state: Dictionary = e["state"]
+	var id := StringName(state["id"])
+	var def: Object = arsenal.get(&"catalogue").call(&"get_def", id)
+	var swapped: Dictionary = {}
+	var was_current := false
+	if def != null and arsenal.call(&"has_slot", def.get(&"slot")):
+		var slot_no: int = def.get(&"slot")
+		if bool(arsenal.call(&"carries", id)):
+			return _replace_same(arsenal, best, def, taker_id) if held and keyed else _unload(arsenal, best, def, taker_id)
+		var in_slot: Array = arsenal.call(&"weapons_in", slot_no)
+		if in_slot.size() >= int(arsenal.call(&"slot_capacity")):
+			if keyed and not held and r != null and r.swap_hold:
+				return _unload(arsenal, best, def, taker_id) if in_slot[0].def.ammo_type == def.get(&"ammo_type") else 0
+			was_current = int(arsenal.call(&"current_slot")) == slot_no
+			swapped = arsenal.call(&"drop_from_slot", slot_no, keep_slots)
+			if swapped.is_empty():
+				return 0
+	var given: Object = arsenal.call(&"give", id, false)
+	if given == null or not given.get(&"ok"):
+		if not swapped.is_empty():
+			var _undo: Object = arsenal.call(&"give", StringName(swapped["id"]), false)
+			arsenal.call(&"apply_dropped", swapped)
+		return 0
+	arsenal.call(&"apply_dropped", state)
+	if was_current:
+		arsenal.call(&"bring_to_hand", def.get(&"slot"))
+	var where: Vector3 = (e["body"] as Node3D).global_position if not taker_at.is_finite() else taker_at
+	_remove(best, taker_id)
+	if not swapped.is_empty():
+		var _back := spawn(swapped, where, Vector3.UP * 1.5, taker_id, r)
+	return best
+
+
+## Holding the use key over the weapon already in hand replaces it with the drop's: magazine, fitting and fire
+## mode trade places (the one in hand lands on the floor as it was), while the reserve stays with its owner so
+## ammunition is conserved. Returns the drop id, or 0 when the two are identical.
+func _replace_same(arsenal: Object, best: int, def: Object, taker_id: int) -> int:
+	var state: Dictionary = _entries[best]["state"]
+	var slot_no: int = def.get(&"slot")
+	var front: Array = arsenal.call(&"weapons_in", slot_no)
+	if front.is_empty() or front[0].call(&"id") != def.get(&"id"):
+		return 0
+	var mine: Object = front[0]
+	var held_mag: int = mine.magazine
+	var held_fm: int = mine.fire_mode_index
+	var held_fit: Dictionary = {}
+	var traded_fit := arsenal.get(&"attachments") != null
+	if traded_fit:
+		var fitting: Object = arsenal.call(&"fitting_at", slot_no)
+		if fitting != null and not bool(fitting.call(&"is_empty")):
+			held_fit = fitting.call(&"to_dictionary")
+	var new_fit: Dictionary = state.get("fit", {}) if state.get("fit", null) is Dictionary else {}
+	var new_mag := clampi(int(state.get("magazine", 0)), 0, maxi(int(def.get(&"magazine")), 0))
+	var new_fm := int(state.get("fm", 0))
+	if held_mag == new_mag and held_fm == new_fm and (not traded_fit or held_fit == new_fit):
+		return 0
+	if traded_fit and held_fit != new_fit:
+		var incoming := GSWeaponFitting.make(def.get(&"id"))
+		if not new_fit.is_empty():
+			var parsed := GSWeaponFitting.from_dictionary(new_fit)
+			if not parsed.ok:
+				return 0
+			incoming = parsed.value
+		var applied: Object = arsenal.call(&"fit", slot_no, incoming)
+		if applied == null or not bool(applied.get(&"ok")):
+			return 0
+		if held_fit.is_empty():
+			state.erase("fit")
+		else:
+			state["fit"] = held_fit
+	mine.magazine = new_mag
+	mine.fire_mode_index = clampi(new_fm, 0, maxi(mine.def.allowed_fire_modes().size() - 1, 0))
+	state["magazine"] = held_mag
+	if held_fm != 0:
+		state["fm"] = held_fm
+	else:
+		state.erase("fm")
+	_entries[best]["touched"] = _clock
+	ammo_changed.emit(best, state)
+	return best
+
+
+## Moves a dropped weapon's ammunition (reserve first, then the magazine) into [param arsenal]'s pool of
+## the same weapon, as far as the pool has room; what does not fit stays in the drop.
+func _unload(arsenal: Object, best: int, def: Object, taker_id: int) -> int:
+	var state: Dictionary = _entries[best]["state"]
+	var pool: StringName = def.get(&"ammo_type")
+	var reserve := int(state.get("reserve", 0))
+	var mag := int(state.get("magazine", 0))
+	if pool == &"" or reserve + mag <= 0:
+		return 0
+	var added := int(arsenal.call(&"add_ammo", pool, reserve + mag))
+	if added <= 0:
+		return 0
+	if added >= reserve + mag:
+		_remove(best, taker_id)
+		return best
+	var from_reserve := mini(added, reserve)
+	state["reserve"] = reserve - from_reserve
+	state["magazine"] = mag - (added - from_reserve)
+	_entries[best]["touched"] = _clock
+	ammo_changed.emit(best, state)
+	return best
+
+
+## Removes every drop (a new round); each says it is gone.
+func clear() -> void:
+	for id: int in _entries.keys():
+		_remove(id, 0)
+
+
+## Ages, settles and expires the drops. Call every physics frame (the node does when added to a tree).
+func tick(delta: float) -> void:
+	_clock += delta
+	var bad := rules.problems()
+	if not bad.is_empty():
+		# Fail loudly, never clamp: a negative limit is a caller bug, and the drops stay as they were.
+		GSLog.error(CHANNEL, "drop rules invalid; tick skipped", {"problems": "; ".join(bad)})
+		return
+	for id: int in _entries.keys():
+		var e: Dictionary = _entries[id]
+		e["delay"] = maxf(float(e["delay"]) - delta, 0.0)
+		e["age"] = float(e["age"]) + delta
+		var body: RigidBody3D = e["body"]
+		# A slow launch still gathers speed falling; switch CCD on once one tick's travel passes half the box's thinnest side.
+		# Mirrors fall on their own too, so this runs on the client as well.
+		if not bool(e["rest"]) and not body.continuous_cd:
+			var thin: float = minf(minf((e["size"] as Vector3).x, (e["size"] as Vector3).y), (e["size"] as Vector3).z)
+			body.continuous_cd = body.linear_velocity.length() * delta > thin * 0.5
+		if not bool(e["rest"]) and rules.rescue and _rescue(id, e, body):
+			continue
+		if not is_authority:
+			continue
+		if not bool(e["rest"]):
+			if body.linear_velocity.length() < SETTLE_SPEED and body.angular_velocity.length() < SETTLE_SPEED * 2.0:
+				e["still"] = float(e["still"]) + delta
+			else:
+				e["still"] = 0.0
+				e["touched"] = _clock
+			e["moving"] = float(e.get("moving", 0.0)) + delta
+			if float(e["still"]) >= rules.sleep_time and rules.lie_flat and _topple(e, body):
+				e["still"] = 0.0
+			elif float(e["still"]) >= rules.sleep_time:
+				_rest(id, e, body)
+			elif rules.settle_max_sec > 0.0 and float(e["moving"]) >= rules.settle_max_sec:
+				_rest_grounded(id, e, body)
+		elif body.global_position.y < -200.0:
+			_remove(id, 0)
+		elif e.has("ground_in"):
+			e["ground_in"] = int(e["ground_in"]) - 1
+			if int(e["ground_in"]) <= 0:
+				e.erase("ground_in")
+				_ground(id, e, body)
+	if is_authority:
+		_support_left -= delta
+		if _support_left <= 0.0:
+			_support_left = SUPPORT_EVERY
+			var _woke := check_support()
+		_scan_left = minf(_scan_left, rules.scan_interval) - delta
+		if _scan_left <= 0.0:
+			_scan_left = rules.scan_interval
+			scan()
+
+
+## Puts a moving drop back on the floor its centre passed down through since the last tick (the solver tunnels a few in a
+## hundred on a bumpy trimesh under Jolt), or, once [constant RESCUE_DEPTH] below its drop point, on the floor under that point.
+## [code]last[/code] stays above a floor the centre is only slightly into (contact slop). Returns true when it moved or removed it.
+func _rescue(id: int, e: Dictionary, body: RigidBody3D) -> bool:
+	var pos := body.global_position
+	var last: Vector3 = e["last"]
+	if pos.y < (e["origin"] as Vector3).y - RESCUE_DEPTH:
+		return _rescue_lost(id, e, body)
+	if pos.distance_squared_to(last) < 0.000001 or not is_inside_tree():
+		return false
+	var hit := _floor_hit(last, pos)
+	if hit.is_empty():
+		e["last"] = pos
+		return false
+	var n: Vector3 = hit["normal"]
+	var floor_at: Vector3 = hit["position"]
+	if (floor_at - pos).dot(n) <= _support(body, n) + 0.02:
+		return false
+	var count := int(e.get("rescued", 0)) + 1
+	e["rescued"] = count
+	GSLog.debug(CHANNEL, "drop fell through a floor; put back", {"id": id, "times": count})
+	if count > RESCUE_MAX and is_authority:
+		_place(id, e, body, _on_floor(body, floor_at, n, 0.005))
+		_rest(id, e, body)
+	else:
+		_place(id, e, body, _on_floor(body, floor_at, n, 0.15))
+	return true
+
+
+## A drop [constant RESCUE_DEPTH] below its drop point, its tunnel missed: it goes back on the floor straight under the drop
+## point, and the second time it is frozen on it. With no floor there it goes back to the point once and is then
+## removed (it left the world).
+func _rescue_lost(id: int, e: Dictionary, body: RigidBody3D) -> bool:
+	var lost := int(e.get("lost", 0)) + 1
+	e["lost"] = lost
+	var origin: Vector3 = e["origin"]
+	var hit: Dictionary = _floor_hit(origin, origin + Vector3.DOWN * RESCUE_DEPTH) if is_inside_tree() else NO_HIT
+	GSLog.debug(CHANNEL, "drop fell out of the world; put back", {"id": id, "times": lost, "floor": not hit.is_empty()})
+	if hit.is_empty():
+		if is_authority and lost >= 2:
+			_remove(id, 0)
+		else:
+			_place(id, e, body, Transform3D(body.global_basis, origin))
+		return true
+	if lost >= 2 and is_authority:
+		_place(id, e, body, _on_floor(body, hit["position"], hit["normal"], 0.005))
+		_rest(id, e, body)
+	else:
+		_place(id, e, body, _on_floor(body, hit["position"], hit["normal"], 0.15))
+	return true
+
+
+## Moves a moving drop to [param at], still, and tells clients.
+func _place(id: int, e: Dictionary, body: RigidBody3D, at: Transform3D) -> void:
+	body.global_transform = at
+	body.linear_velocity = Vector3.ZERO
+	body.angular_velocity = Vector3.ZERO
+	e["last"] = at.origin
+	e["still"] = 0.0
+	e["moving"] = 0.0
+	if is_authority:
+		_announce_push(id)
+
+
+## Nudges a drop propped on end or edge (its long axis steeper than about 20 degrees) so it falls over before it sleeps.
+## Returns true when it nudged; gives up after a few tries so a drop wedged in a corner still sleeps.
+func _topple(e: Dictionary, body: RigidBody3D) -> bool:
+	if int(e.get("topples", 0)) >= 4:
+		return false
+	var size: Vector3 = e["size"]
+	var axis := 0 if size.x >= size.y and size.x >= size.z else (1 if size.y >= size.z else 2)
+	var long_world: Vector3 = body.global_transform.basis[axis].normalized()
+	if absf(long_world.y) < 0.35:
+		return false
+	e["topples"] = int(e.get("topples", 0)) + 1
+	var away := Vector3(long_world.x, 0.0, long_world.z)
+	away = away.normalized() if away.length() > 0.01 else Vector3.RIGHT
+	body.apply_torque_impulse(Vector3.UP.cross(away) * body.mass * 0.6)
+	body.sleeping = false
+	return true
+
+
+## Authority: wakes every resting drop whose support is gone or moved, so it falls onto what is there now. [method tick]
+## runs it every [constant SUPPORT_EVERY] (a game removing level geometry may call it at once); a drop losing its support
+## [member GSWeaponDropRules.refall_max] times is put down on the floor under it instead. Returns how many it woke.
+func check_support() -> int:
+	# Colliding with nothing, a drop has no support to lose (it rests wherever it was put).
+	if not is_authority or not is_inside_tree() or collision_mask == 0:
+		return 0
+	var woke := 0
+	for id: int in _entries.keys():
+		var e: Dictionary = _entries[id]
+		if not bool(e["rest"]) or e.has("ground_in"):
+			continue
+		var body: RigidBody3D = e["body"]
+		if not body.is_inside_tree():
+			continue
+		var at := body.global_transform
+		if _sweep(body, at, Vector3.DOWN * SUPPORT_GAP).length() < SUPPORT_GAP - 0.0001 or _overlaps(body, at.translated(Vector3.DOWN * SUPPORT_GAP)):
+			continue
+		var times := int(e.get("refalls", 0)) + 1
+		e["refalls"] = times
+		GSLog.debug(CHANNEL, "drop lost what it rested on; falls again", {"id": id, "times": times})
+		if rules.refall_max > 0 and times > rules.refall_max:
+			e["ground_in"] = 1
+			continue
+		_wake(id)
+		body.sleeping = false
+		_announce_push(id)
+		woke += 1
+	return woke
+
+
+## The deferred half of [method _rest_grounded]: a rested drop with no floor right under it goes down onto it, and a
+## drop frozen inside the floor (a stair tread, a crate edge) comes up out of it.
+func _ground(id: int, e: Dictionary, body: RigidBody3D) -> void:
+	if not is_inside_tree():
+		return
+	var start := body.global_transform
+	var flat := Transform3D(_laid_flat(e, body.global_basis), body.global_position)
+	var from := flat if not _overlaps(body, flat) else start
+	var at := _lift_clear(body, from)
+	var down := _sweep_down(body, at, RESCUE_DEPTH)
+	if down.length() >= RESCUE_DEPTH - 0.01:
+		return
+	if from.origin.distance_to(at.origin) < 0.001 and down.length() <= SUPPORT_GAP * 0.5:
+		return # clear and on the floor already (close enough that check_support leaves it be)
+	var landed := at.translated(down)
+	if landed.origin.distance_to(start.origin) < 0.002 and landed.basis.is_equal_approx(start.basis):
+		return
+	down = landed.origin - at.origin
+	body.global_transform = landed
+	GSLog.debug(CHANNEL, "drop rested in the air or in the floor; put on the surface", {"id": id, "fell": snappedf(down.length(), 0.01)})
+	settled.emit(id, body.global_transform)
+
+
+func _physics_process(delta: float) -> void:
+	tick(delta)
+
+
+## Everything lying, for a joiner: [code]{id, state, at, rest}[/code] each.
+func snapshot() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for id: int in _entries:
+		var e: Dictionary = _entries[id]
+		out.append({"id": id, "state": e["state"], "at": (e["body"] as Node3D).global_transform, "rest": e["rest"], "team": e["team"], "life": maxf(float(e["life"]) - float(e["age"]), 0.0) if float(e["life"]) > 0.0 else 0.0})
+	return out
+
+
+## Client side: the authority dropped a weapon.
+func mirror_drop(drop_id: int, state: Dictionary, at: Transform3D, velocity: Vector3, life: float = 0.0, rest: bool = false, team: int = 0) -> void:
+	if _entries.has(drop_id):
+		# Seen already: this is the authority re-announcing it after a push or an ammunition change.
+		mirror_ammo(drop_id, state)
+		if not rest:
+			mirror_pushed(drop_id, at, velocity, Vector3.ZERO)
+		return
+	_make(drop_id, state, at, velocity, 0, life, 0.0, team)
+	if rest:
+		mirror_settled(drop_id, at)
+
+
+func mirror_settled(drop_id: int, at: Transform3D) -> void:
+	if not _entries.has(drop_id):
+		return
+	var e: Dictionary = _entries[drop_id]
+	var body: RigidBody3D = e["body"]
+	body.freeze = true
+	body.global_transform = at
+	e["rest"] = true
+
+
+## Client side: the authority's drop [param drop_id] was pushed; wake it and simulate on from there.
+func mirror_pushed(drop_id: int, at: Transform3D, velocity: Vector3, spin: Vector3) -> void:
+	if not _entries.has(drop_id):
+		return
+	var e: Dictionary = _entries[drop_id]
+	var body: RigidBody3D = e["body"]
+	body.freeze = false
+	body.global_transform = at
+	body.linear_velocity = velocity
+	body.angular_velocity = spin
+	e["rest"] = false
+	e["origin"] = at.origin
+	e["last"] = at.origin
+
+
+## The state, pose and rest flag of a drop, for re-announcing it: {state, at, velocity, rest}, or empty.
+func pose_of(drop_id: int) -> Dictionary:
+	if not _entries.has(drop_id):
+		return {}
+	var e: Dictionary = _entries[drop_id]
+	var body: RigidBody3D = e["body"]
+	return {"state": e["state"], "at": body.global_transform, "velocity": body.linear_velocity, "rest": bool(e.get("rest", false))}
+
+
+## Client side: ammunition left on a dropped weapon changed.
+func mirror_ammo(drop_id: int, state: Dictionary) -> void:
+	if _entries.has(drop_id):
+		_entries[drop_id]["state"] = state
+
+
+func mirror_removed(drop_id: int) -> void:
+	_remove(drop_id, -1, false)
+
+
+func describe() -> Dictionary:
+	return {"count": _entries.size(), "authority": is_authority, "rules": rules.describe()}
+
+
+func _make(id: int, state: Dictionary, at: Transform3D, velocity: Vector3, owner_id: int, life: float, delay: float, team: int = 0) -> void:
+	var weapon := StringName(state["id"])
+	var body: RigidBody3D = null
+	var size := DEFAULT_SIZE
+	var parked: Array = _parked.get(weapon, [])
+	while not parked.is_empty() and body == null:
+		var spare: Array = parked.pop_back()
+		if spare[0].get_meta(&"draws", false) != draws:
+			(spare[0] as Node).free()
+			continue
+		body = spare[0]
+		size = spare[1]
+	if body != null:
+		_configure(body)
+		add_child(body)
+		body.global_transform = at
+		body.freeze = false
+		body.sleeping = false
+	else:
+		var built := _build(weapon, at)
+		body = built[0]
+		size = built[1]
+	body.name = "Drop%d" % id
+	body.continuous_cd = rules.ccd_speed <= 0.0 or velocity.length() >= rules.ccd_speed
+	body.linear_velocity = velocity
+	body.angular_velocity = Vector3(rng.randf_range(-2.0, 2.0), rng.randf_range(-1.0, 1.0), rng.randf_range(-2.0, 2.0)) if is_authority else Vector3.ZERO
+	_order += 1
+	_entries[id] = {"body": body, "state": state, "age": 0.0, "life": life, "delay": delay,
+		"still": 0.0, "rest": false, "size": size, "owner": owner_id, "order": _order, "team": team, "touched": _clock,
+		"origin": at.origin, "last": at.origin}
+	GSLog.debug(CHANNEL, "weapon dropped", {"id": id, "weapon": String(state.get("id", &""))})
+
+
+func _exit_tree() -> void:
+	for weapon: StringName in _parked:
+		for spare: Array in _parked[weapon]:
+			if is_instance_valid(spare[0]):
+				(spare[0] as Node).free()
+	_parked.clear()
+
+
+## One cleanup pass (server): removes every drop past its lifetime, then the [member GSWeaponDropRules.evict] picks until the cap holds.
+## [method tick] runs it every [member GSWeaponDropRules.scan_interval]; a game may call it too. Returns how many it removed.
+func scan() -> int:
+	if not is_authority:
+		return 0
+	var gone := 0
+	for id: int in _entries.keys():
+		var e: Dictionary = _entries[id]
+		if float(e["life"]) > 0.0 and float(e["age"]) >= float(e["life"]):
+			_remove(id, 0)
+			gone += 1
+	return gone + _enforce_cap(rules.max_count)
+
+
+func _enforce_cap(cap: int, keep: int = 0) -> int:
+	var gone := 0
+	while cap > 0 and _entries.size() > cap:
+		var victim := _victim(keep)
+		if victim == 0:
+			break
+		_remove(victim, 0)
+		gone += 1
+	return gone
+
+
+## The drop the cap removes next under [member GSWeaponDropRules.evict], never [param keep]; 0 when there is none.
+func _victim(keep: int) -> int:
+	var ids: Array = _entries.keys()
+	ids.erase(keep)
+	if ids.is_empty():
+		return 0
+	if rules.evict == GSWeaponDropRules.EVICT_RANDOM:
+		return int(ids[rng.randi() % ids.size()])
+	var best := 0
+	var key := INF
+	for id: int in ids:
+		var e: Dictionary = _entries[id]
+		var k := float(e["order"]) if rules.evict == GSWeaponDropRules.EVICT_OLDEST else float(e["touched"]) + float(e["order"]) * 1e-6
+		if k < key:
+			key = k
+			best = id
+	return best
+
+
+func _remove(id: int, taker_id: int, tell: bool = true) -> void:
+	var e: Dictionary = _entries.get(id, {})
+	if e.is_empty():
+		return
+	_entries.erase(id)
+	var body: RigidBody3D = e["body"]
+	if is_instance_valid(body):
+		_park(body, body.get_meta(&"weapon", &""), e["size"])
+	if tell:
+		removed.emit(id, taker_id)

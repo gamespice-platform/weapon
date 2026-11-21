@@ -11,7 +11,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-weapon self-test")
+	print("gs-weapon self-test")
 	print("")
 	# The sections below prove the GDScript tick (and count its steady skips); _test_native_tick turns the native one on.
 	GSWeaponHitscan.native_tick = false
@@ -114,7 +114,7 @@ func _nul_files(dir: String, out: Array) -> void:
 func _test_no_nul_in_sources() -> void:
 	_section("sources hold no NUL byte")
 	var bad: Array = []
-	_nul_files("res://addons/dot_weapon", bad)
+	_nul_files("res://addons/gs_weapon", bad)
 	_nul_files("res://examples", bad)
 	_check(bad.is_empty(), "no .gd or .uid file contains a NUL (a release run fails on one)", str(bad))
 	_done()
@@ -265,7 +265,7 @@ func _names_out_of_text_order(rng: RandomNumberGenerator, prefix: String) -> Dic
 
 
 ## ids() and pools() are lists other programs read: a console's completion offers ids()
-## (game-fatal-contact's `give`), and zee-dot-weapons compares ids() with its own id list. They
+## (game-fatal-contact's `give`), and zee-gs-weapons compares ids() with its own id list. They
 ## sorted with sort(), which orders StringNames by where each was interned, not by text,
 ## so the order differed per process.
 ##

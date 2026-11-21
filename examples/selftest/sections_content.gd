@@ -515,7 +515,7 @@ class StubController extends Node:
 
 
 func _test_player_bridge() -> void:
-	_section("the dot-player bridge")
+	_section("the gs-player bridge")
 
 	var a := GSWeaponPlayerBridge.entity_of("ada")
 	var b := GSWeaponPlayerBridge.entity_of("bob")
@@ -696,7 +696,7 @@ func _test_profiles() -> void:
 func _test_sound_warm() -> void:
 	_section("warm loads every variant a class can play")
 	if GSWeaponSound.count(&"light_fire") == 0:
-		_check(GSWeaponSound.warm([&"light"]).is_empty(), "without dot-audio a warm returns nothing")
+		_check(GSWeaponSound.warm([&"light"]).is_empty(), "without gs-audio a warm returns nothing")
 		_check(GSWeaponSound.warm([]).is_empty(), "no classes is nothing")
 		_check(GSWeaponSound.warm([&"light"], [], false).is_empty(), "no stages and no far is nothing")
 		_check(GSWeaponSound.warm_sounds([&"impact"]).is_empty(), "warm_sounds returns nothing too")
@@ -718,7 +718,7 @@ func _test_sound_held() -> void:
 	_section("stock sounds held after the first pick")
 	var held := GSWeaponSound.keep_streams
 	if GSWeaponSound.count(&"light_fire") == 0:
-		_check(GSWeaponSound.pick(&"light_fire", 3) == null, "without dot-audio a pick is null")
+		_check(GSWeaponSound.pick(&"light_fire", 3) == null, "without gs-audio a pick is null")
 		_done()
 		return
 	var n := GSWeaponSound.count(&"light_fire")

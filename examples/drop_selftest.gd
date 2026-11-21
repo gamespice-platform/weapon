@@ -11,7 +11,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-weapon drop self-test")
+	print("gs-weapon drop self-test")
 	_test_rules()
 	_test_throw_and_swap()
 	_test_pickup_rules()

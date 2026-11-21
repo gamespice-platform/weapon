@@ -44,11 +44,11 @@ func _catalogue_extra() -> GSWeaponDef:
 	return d
 
 
-const _HITSCAN := "res://addons/dot_weapon/behaviour/dot_weapon_hitscan.gd"
-const _PROJECTILE := "res://addons/dot_weapon/behaviour/dot_weapon_projectile.gd"
-const _MELEE := "res://addons/dot_weapon/behaviour/dot_weapon_melee.gd"
-const _BEAM := "res://addons/dot_weapon/behaviour/dot_weapon_beam.gd"
-const _THROWN := "res://addons/dot_weapon/behaviour/dot_weapon_thrown.gd"
+const _HITSCAN := "res://addons/gs_weapon/behaviour/gs_weapon_hitscan.gd"
+const _PROJECTILE := "res://addons/gs_weapon/behaviour/gs_weapon_projectile.gd"
+const _MELEE := "res://addons/gs_weapon/behaviour/gs_weapon_melee.gd"
+const _BEAM := "res://addons/gs_weapon/behaviour/gs_weapon_beam.gd"
+const _THROWN := "res://addons/gs_weapon/behaviour/gs_weapon_thrown.gd"
 const _ROD := "res://fixtures/lightning_rod.gd"
 
 

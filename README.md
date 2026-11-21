@@ -5,7 +5,7 @@ What a player holds and uses: a catalogue of weapon definitions that each name a
 ## Install
 
 1. Get [Godot 4.7](https://godotengine.org/download).
-2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/dot_weapon/`, dot-core's `addons/dot_core/` and [GameSpice Combat](https://github.com/gamespice-platform/combat)'s `addons/dot_combat/` into your project and enable dot-weapon in *Project > Project Settings > Plugins*.
+2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/gs_weapon/`, gs-core's `addons/gs_core/` and [GameSpice Combat](https://github.com/gamespice-platform/combat)'s `addons/gs_combat/` into your project and enable gs-weapon in *Project > Project Settings > Plugins*.
 
 It needs [GameSpice Core](https://github.com/gamespice-platform/core) and GameSpice Combat. [GameSpice Loadout](https://github.com/gamespice-platform/loadout) and [GameSpice Inventory](https://github.com/gamespice-platform/inventory) are optional.
 
@@ -39,7 +39,7 @@ for spawn in outcome.spawns:
 A behaviour is a script that returns what a use produced:
 
 ```gdscript
-extends "res://addons/dot_weapon/behaviour/dot_weapon_behaviour.gd"
+extends "res://addons/gs_weapon/behaviour/gs_weapon_behaviour.gd"
 
 func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
     var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_SPAWN)
@@ -67,7 +67,7 @@ Durations are counted in ticks. A definition that sets `authored_tick_rate` is s
 ## Design rules
 
 - **The script is a path, not a `class_name`.** A GameSpice Cloud pack mounted at runtime does not register its `class_name` globals, so naming by path is what lets downloaded content bring its own weapons.
-- **A behaviour decides that a use happened, never what it hit.** It returns a `GSWeaponOutcome`; dot-combat resolves shots against the world at the tick the trigger was pulled, so a client can predict and the server decide.
+- **A behaviour decides that a use happened, never what it hit.** It returns a `GSWeaponOutcome`; gs-combat resolves shots against the world at the tick the trigger was pulled, so a client can predict and the server decide.
 - **Behaviours are pure functions of the context**: an origin and direction, a tick, an entity id. Scatter comes from a hash of shooter, tick, use index and pellet index rather than a random stream, so a predicted use matches the server's.
 - **Ammunition is pooled by name.** Weapons with the same ammo type share a reserve. A pickup returns how many rounds fitted.
 
@@ -75,7 +75,7 @@ Durations are counted in ticks. A definition that sets `authored_tick_rate` is s
 
 | Bridge | What it does |
 | --- | --- |
-| `GSWeaponPlayerBridge` | Builds a context from a dot-player: origin at the eye, direction along the view, a stable entity number, view model on the weapon mount, an arsenal from a class definition. |
+| `GSWeaponPlayerBridge` | Builds a context from a gs-player: origin at the eye, direction along the view, a stable entity number, view model on the weapon mount, an arsenal from a class definition. |
 | `GSWeaponLoadoutBridge` | Fills an arsenal from what GameSpice Loadout resolved. |
 | `GSWeaponInventoryBridge` | Keeps reserve ammunition matching the bag, which is the truth. |
 

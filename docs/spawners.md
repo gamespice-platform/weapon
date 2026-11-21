@@ -1,6 +1,6 @@
 # Weapon spawners
 
-A generic "something appears here, is taken, and comes back" layer: weapon spawners on a map, ammo and health pickups, a trader's shelf. It lives in `addons/dot_weapon/spawner/` because it draws from the weapon catalogue's ids and tags; nothing in it names a weapon, an entry id is any string the game understands and `kind` says what the game does with it. It places nothing in the world: the server's `GSWeaponSpawner` emits events, the game makes and removes the pickup.
+A generic "something appears here, is taken, and comes back" layer: weapon spawners on a map, ammo and health pickups, a trader's shelf. It lives in `addons/gs_weapon/spawner/` because it draws from the weapon catalogue's ids and tags; nothing in it names a weapon, an entry id is any string the game understands and `kind` says what the game does with it. It places nothing in the world: the server's `GSWeaponSpawner` emits events, the game makes and removes the pickup.
 
 ## Pieces
 
@@ -17,7 +17,7 @@ A generic "something appears here, is taken, and comes back" layer: weapon spawn
 
 ```gdscript
 var spawner := GSWeaponSpawner.new()
-spawner.config.game = "game-x"          # reads cfg/game/game-x/dot_weapon/spawner.yml
+spawner.config.game = "game-x"          # reads cfg/game/game-x/gs_weapon/spawner.yml
 spawner.config.defs = my_weapon_defs    # for pools with a catalogue: block
 spawner.config.load_files()
 spawner.load_map(map_id, GSWeaponSpawnPoint.collect(map_root))   # and/or spawner.add_entities(entities)
@@ -37,7 +37,7 @@ Send each `changed` event over the game's channel and call `view.apply(event)`; 
 
 ## Config
 
-`spawner.yml`, layered by GameSpice Core's `GSAddonConfig` (`cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then `cfg/server/...` for the operator), merged key by key.
+`spawner.yml`, layered by GameSpice Core's `GSAddonConfig` (`cfg/addons/gs_weapon/`, `cfg/game/<game>/gs_weapon/`, then `cfg/server/...` for the operator), merged key by key.
 
 ```yaml
 default_pool: guns
@@ -79,7 +79,7 @@ The parser (`GSYaml`, GameSpice Core v0.1.46 or later) reads one-line flow mappi
 
 ### Scalars through GameSpice Map's per-map files
 
-`GSWeaponSpawnerConfig.MAP_KEYS` is a schema for `GSMapConfig`: `spawner_enabled`, `spawner_respawn_scale`, `spawner_max_scale`, `spawner_seed`, `spawner_pool`. A game adds them to `_map_config_keys()` and routes them in `_map_config_get/_set` to `config.get_setting/set_setting`; then `cfg/game/<game>/dot_map/map/<name>.yml` (and the operator's copy, and `--dot-map.map.spawner_respawn_scale=2`) sets them per map or per map glob, and dot-map restores them on the next map. Apply them before `begin_round`.
+`GSWeaponSpawnerConfig.MAP_KEYS` is a schema for `GSMapConfig`: `spawner_enabled`, `spawner_respawn_scale`, `spawner_max_scale`, `spawner_seed`, `spawner_pool`. A game adds them to `_map_config_keys()` and routes them in `_map_config_get/_set` to `config.get_setting/set_setting`; then `cfg/game/<game>/gs_map/map/<name>.yml` (and the operator's copy, and `--gs-map.map.spawner_respawn_scale=2`) sets them per map or per map glob, and gs-map restores them on the next map. Apply them before `begin_round`.
 
 ## Randomness
 
@@ -87,7 +87,7 @@ A draw is `stream(seed, site id, round).unit_at(n)` with n the site's own draw c
 
 ## Map entities
 
-`add_entities` takes `{classname, origin (Vector3 or [x,y,z]), angle (degrees), props}`. A classname matching a `classes:` glob (or `dot_weapon_spawn`) becomes a site; the class mapping is its defaults and `props` (string values are coerced) come over that. A converter maps a source's weapon entities to such a class and the config decides what they give.
+`add_entities` takes `{classname, origin (Vector3 or [x,y,z]), angle (degrees), props}`. A classname matching a `classes:` glob (or `gs_weapon_spawn`) becomes a site; the class mapping is its defaults and `props` (string values are coerced) come over that. A converter maps a source's weapon entities to such a class and the config decides what they give.
 
 ## Trader and map pickups
 
@@ -112,7 +112,7 @@ It places nothing in the world: it says "item X now lies at P" through [signal c
 
 ```
 var spawner := GSWeaponSpawner.new()
-spawner.config.game = "game-x"          # the cfg/game/<game>/dot_weapon/spawner.yml tier
+spawner.config.game = "game-x"          # the cfg/game/<game>/gs_weapon/spawner.yml tier
 spawner.config.load_files()
 spawner.load_map(map_id, GSWeaponSpawnPoint.collect(map_root))   # or add_entities(doc_entities)
 spawner.changed.connect(func(ev: Array) -> void: send_to_clients(ev))
@@ -124,7 +124,7 @@ spawner.begin_round(now, round_number)  # then spawner.tick(now) every server ti
 
 ### GSWeaponSpawnerConfig: layers and format
 
-[b]Two kinds of setting.[/b] The structure (pools, sites, groups) is `spawner.yml` in each `gs-weapon` tier of [GSAddonConfig]: `cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then the operator's `cfg/server/...` copies, merged weakest first. A top-level `maps:` mapping holds per-map blocks (same keys) under a map id or a glob (`zz_*`, case-insensitive); the more literal characters win. The scalars in [method map_keys] go through GameSpice Map's per-map files instead (`dot_map/map/<name>.yml`), which is where a game's [code]GSGameModule._map_config_get/_set[/code] reach them, so a map can switch spawners off or halve a timer without a block here.
+[b]Two kinds of setting.[/b] The structure (pools, sites, groups) is `spawner.yml` in each `gs-weapon` tier of [GSAddonConfig]: `cfg/addons/gs_weapon/`, `cfg/game/<game>/gs_weapon/`, then the operator's `cfg/server/...` copies, merged weakest first. A top-level `maps:` mapping holds per-map blocks (same keys) under a map id or a glob (`zz_*`, case-insensitive); the more literal characters win. The scalars in [method map_keys] go through GameSpice Map's per-map files instead (`gs_map/map/<name>.yml`), which is where a game's [code]GSGameModule._map_config_get/_set[/code] reach them, so a map can switch spawners off or halve a timer without a block here.
 
 ```
 pools:

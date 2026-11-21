@@ -568,7 +568,7 @@ func _fire_mode_net_checks(cat: GSWeaponCatalogue) -> void:
 
 
 func _test_muzzle() -> void:
-	_section("the muzzle flash bridge falls back without dot-fx or a display")
+	_section("the muzzle flash bridge falls back without gs-fx or a display")
 
 	var d := _rifle()
 	_check(GSWeaponMuzzle.flash_name(d) == "" and GSWeaponMuzzle.flash_name(null) == "", "no profile size is an empty name")
@@ -576,7 +576,7 @@ func _test_muzzle() -> void:
 	_check(GSWeaponMuzzle.flash_name(d) == "big", "the profile's size name is read")
 	var host := Node3D.new()
 	add_child(host)
-	_check(not GSWeaponMuzzle.warm(host, "rifle", d), "warm builds nothing here (no dot-fx or headless)")
+	_check(not GSWeaponMuzzle.warm(host, "rifle", d), "warm builds nothing here (no gs-fx or headless)")
 	_check(not GSWeaponMuzzle.warm(null, "rifle"), "warm with no host is false")
 	_check(GSWeaponMuzzle.attach(host, "rifle", d) == null and host.get_child_count() == 0, "attach returns null and adds nothing here")
 	_check(GSWeaponMuzzle.warm_done() and GSWeaponMuzzle.spare_count() == 0, "nothing warming, nothing waiting")

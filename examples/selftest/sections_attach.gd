@@ -78,7 +78,7 @@ func _test_attach_compat() -> void:
 	var _mode := rifle.fire_mode_at(0)  # fills the held gun's private mode cache; the fitted copy has none
 	var cached := GSWeaponAttachments.stat_delta(rifle, fitted).keys()
 	_check(cached.filter(func(k: String) -> bool: return k.begins_with("_")).is_empty(), "stat_delta never lists a private cache (the menu showed _modes_from_fire +100%)", str(cached))
-	var sight := preload("../../addons/dot_weapon/view/dot_weapon_iron_sight.gd")
+	var sight := preload("../../addons/gs_weapon/view/gs_weapon_iron_sight.gd")
 	var gun := Node3D.new()
 	var box := MeshInstance3D.new()
 	box.mesh = BoxMesh.new()

@@ -3,15 +3,15 @@
 .import/
 /android/
 
-# dot-core and dot-combat are separate repositories. For local development, symlink them:
-#   ln -s ../../dot-core/addons/dot_core addons/dot_core
-#   ln -s ../../dot-combat/addons/dot_combat addons/dot_combat
+# gs-core and gs-combat are separate repositories. For local development, symlink them:
+#   ln -s ../../gs-core/addons/gs_core addons/gs_core
+#   ln -s ../../gs-combat/addons/gs_combat addons/gs_combat
 # Consumers copy all three addons into their own project.
-/addons/dot_core
-/addons/dot_profile
-/addons/dot_combat
-# dot-sim (optional): its native GSSimWeaponSpread runs the hitscan spread tick when present.
-/addons/dot_sim
+/addons/gs_core
+/addons/gs_profile
+/addons/gs_combat
+# gs-sim (optional): its native GSSimWeaponSpread runs the hitscan spread tick when present.
+/addons/gs_sim
 
 # Exports
 build/

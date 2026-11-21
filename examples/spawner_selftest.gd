@@ -37,7 +37,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-weapon spawner self-test")
+	print("gs-weapon spawner self-test")
 	_test_pool()
 	_test_config()
 	_test_cycle()
@@ -257,7 +257,7 @@ func _test_entities_and_marker() -> void:
 	var s := _spawner("m", [])
 	var made := s.add_entities([
 		{"classname": "weapon_spawn_ak", "origin": [1.0, 2.0, 3.0], "angle": 90.0},
-		{"classname": "dot_weapon_spawn", "origin": Vector3(4, 0, 0), "props": {"pool": "stock", "respawn": "7", "id": "shop"}},
+		{"classname": "gs_weapon_spawn", "origin": Vector3(4, 0, 0), "props": {"pool": "stock", "respawn": "7", "id": "shop"}},
 		{"classname": "light", "origin": Vector3.ZERO},
 	])
 	_check(made.size() == 2, "only matching classes become sites")

@@ -1,4 +1,4 @@
-extends "res://addons/dot_weapon/behaviour/dot_weapon_behaviour.gd"
+extends "res://addons/gs_weapon/behaviour/gs_weapon_behaviour.gd"
 
 ## A weapon this addon knows nothing about, written the way a game would write one.
 ##

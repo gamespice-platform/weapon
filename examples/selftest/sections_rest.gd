@@ -291,7 +291,7 @@ func _idle_row_of(a: GSWeaponArsenal) -> PackedFloat64Array:
 
 func _test_reload_shots() -> void:
 	_section("the reload review helper spreads fractions and lays a sheet out")
-	var shots := preload("../../addons/dot_weapon/view/dot_weapon_reload_shots.gd")
+	var shots := preload("../../addons/gs_weapon/view/gs_weapon_reload_shots.gd")
 	var f: PackedFloat64Array = shots.fractions(3)
 	_check(f.size() == 3 and is_equal_approx(f[0], 0.25) and is_equal_approx(f[2], 0.75), "three fractions are a quarter apart, none at an end", str(f))
 	_check(shots.fractions(0).is_empty(), "no frames, no fractions")

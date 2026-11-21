@@ -22,7 +22,7 @@ func _switch_span(arsenal: GSWeaponArsenal, slot: int, from: int) -> int:
 	return t - from
 
 
-## A catalogue whose every row says it was written at 64 Hz, as zee-dot-weapons' does.
+## A catalogue whose every row says it was written at 64 Hz, as zee-gs-weapons' does.
 func _authored_catalogue(rate: int) -> GSWeaponCatalogue:
 	var c := GSWeaponCatalogue.new()
 	for d: GSWeaponDef in [_rifle(), _pistol(), _bow(), _flamer(), _grenade()]:
