@@ -152,9 +152,8 @@ func _laid_flat(e: Dictionary, b: Basis) -> Basis:
 
 ## The box is fixed once built, so both reads are cached on the body.
 func _half_extents(body: RigidBody3D) -> Vector3:
-	var cached: Variant = body.get_meta(&"half_extents", null)
-	if cached != null:
-		return cached
+	if body.has_meta(&"half_extents"):
+		return body.get_meta(&"half_extents")
 	var half := Vector3(0.06, 0.07, 0.35)
 	for c in body.get_children():
 		if c is CollisionShape3D and (c as CollisionShape3D).shape is BoxShape3D:
@@ -165,9 +164,8 @@ func _half_extents(body: RigidBody3D) -> Vector3:
 
 
 func _centre(body: RigidBody3D) -> Vector3:
-	var cached: Variant = body.get_meta(&"shape_centre", null)
-	if cached != null:
-		return cached
+	if body.has_meta(&"shape_centre"):
+		return body.get_meta(&"shape_centre")
 	var centre := Vector3.ZERO
 	for c in body.get_children():
 		if c is CollisionShape3D:
