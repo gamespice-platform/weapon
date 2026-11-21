@@ -1,4 +1,4 @@
-class_name DotWeaponFitting
+class_name GSWeaponFitting
 extends RefCounted
 
 ## What is fitted to one weapon: mount -> attachment id. Ids only, so a server with none of
@@ -9,8 +9,8 @@ var weapon_id: StringName = &""
 var _fitted: Dictionary = {}  ## StringName mount -> StringName attachment id
 
 
-static func make(p_weapon_id: StringName) -> DotWeaponFitting:
-	var f := DotWeaponFitting.new()
+static func make(p_weapon_id: StringName) -> GSWeaponFitting:
+	var f := GSWeaponFitting.new()
 	f.weapon_id = p_weapon_id
 	return f
 
@@ -49,8 +49,8 @@ func is_empty() -> bool:
 	return _fitted.is_empty()
 
 
-func duplicate_fitting() -> DotWeaponFitting:
-	var f := DotWeaponFitting.make(weapon_id)
+func duplicate_fitting() -> GSWeaponFitting:
+	var f := GSWeaponFitting.make(weapon_id)
 	f._fitted = _fitted.duplicate()
 	return f
 
@@ -71,18 +71,18 @@ func to_dictionary() -> Dictionary:
 
 
 ## Strict: a value that is not a string is refused, not coerced. A wire payload is not trusted.
-static func from_dictionary(d: Dictionary) -> DotResult:
+static func from_dictionary(d: Dictionary) -> GSResult:
 	var weapon: Variant = d.get("weapon", "")
 	var mounted: Variant = d.get("mounts", {})
 	if not (weapon is String) or not (mounted is Dictionary):
-		return DotResult.fail(DotError.CODE_PARSE, "A fitting needs a weapon string and a mounts dictionary.")
-	var f := DotWeaponFitting.make(StringName(weapon as String))
+		return GSResult.fail(GSError.CODE_PARSE, "A fitting needs a weapon string and a mounts dictionary.")
+	var f := GSWeaponFitting.make(StringName(weapon as String))
 	for m: Variant in (mounted as Dictionary).keys():
 		var id: Variant = (mounted as Dictionary)[m]
 		if not (m is String) or not (id is String):
-			return DotResult.fail(DotError.CODE_PARSE, "A fitting maps mount text to attachment id text.")
+			return GSResult.fail(GSError.CODE_PARSE, "A fitting maps mount text to attachment id text.")
 		f.fit(StringName(m as String), StringName(id as String))
-	return DotResult.success(f)
+	return GSResult.success(f)
 
 
 func describe() -> Dictionary:
@@ -90,4 +90,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponFitting(%s: %s)" % [String(weapon_id), key()]
+	return "GSWeaponFitting(%s: %s)" % [String(weapon_id), key()]

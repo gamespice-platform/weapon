@@ -1,10 +1,10 @@
-class_name DotWeaponPlayerBridge
+class_name GSWeaponPlayerBridge
 extends RefCounted
 
-## Fills a [DotWeaponContext] from a player, and hangs a view model on their hands.
+## Fills a [GSWeaponContext] from a player, and hangs a view model on their hands.
 ##
 ## [b]GameSpice Player is not a dependency and is not named here.[/b] Same rule as
-## [DotWeaponLoadoutBridge]: a script that mentions a [code]class_name[/code] the
+## [GSWeaponLoadoutBridge]: a script that mentions a [code]class_name[/code] the
 ## project does not have fails to parse and takes every script referencing it down with
 ## it, so everything below is duck-typed. A "player" here is any node that answers
 ## [code]player_key[/code], and everything else is optional.
@@ -15,7 +15,7 @@ extends RefCounted
 ## to. Each of those is one line and each of them is wrong in at least one game.
 ##
 ## [codeblock]
-## var ctx := DotWeaponPlayerBridge.context_for(player, tick, index)
+## var ctx := GSWeaponPlayerBridge.context_for(player, tick, index)
 ## var outcome := arsenal.use(ctx)
 ## [/codeblock]
 
@@ -50,8 +50,8 @@ static func context_for(
 	tick: int,
 	index: int = 0,
 	charge: float = 1.0
-) -> DotWeaponContext:
-	var ctx := DotWeaponContext.new()
+) -> GSWeaponContext:
+	var ctx := GSWeaponContext.new()
 	ctx.tick = tick
 	ctx.index = index
 	ctx.charge = charge
@@ -85,10 +85,10 @@ static func context_for(
 	return ctx
 
 
-## A context holding only the motion facts, for [member DotWeaponArsenal.idle_posture]: no entity, eye
+## A context holding only the motion facts, for [member GSWeaponArsenal.idle_posture]: no entity, eye
 ## or direction, which is most of what [method context_for] costs.
-static func posture_for(player: Node, tick: int = 0) -> DotWeaponContext:
-	var ctx := DotWeaponContext.new()
+static func posture_for(player: Node, tick: int = 0) -> GSWeaponContext:
+	var ctx := GSWeaponContext.new()
 	ctx.tick = tick
 	if player == null:
 		return ctx
@@ -106,14 +106,14 @@ static func posture_for(player: Node, tick: int = 0) -> DotWeaponContext:
 ## a motion, in that order. Either may be missing.
 static func _controllers_of(player: Node) -> Array:
 	var out: Array = []
-	var switch: Variant = _component(player, "DotPlayerControllerSwitch")
+	var switch: Variant = _component(player, "GSPlayerControllerSwitch")
 
 	if switch != null and (switch as Node).has_method(&"active_controller"):
 		var active: Variant = (switch as Node).call(&"active_controller")
 		if active is Node:
 			out.append(active)
 
-	var controller: Variant = _component(player, "DotPlayerController")
+	var controller: Variant = _component(player, "GSPlayerController")
 
 	if controller is Node:
 		out.append(controller)
@@ -136,7 +136,7 @@ static func _eye_from(player: Node, controllers: Array) -> Transform3D:
 		if node.has_method(&"eye_transform"):
 			return node.call(&"eye_transform") as Transform3D
 
-	var character: Variant = _component(player, "DotPlayerChar")
+	var character: Variant = _component(player, "GSPlayerChar")
 
 	if character is Node and (character as Node).has_method("eye_height"):
 		var feet := _body_transform(player)
@@ -145,7 +145,7 @@ static func _eye_from(player: Node, controllers: Array) -> Transform3D:
 			feet.origin + Vector3.UP * float((character as Node).call("eye_height"))
 		)
 
-	DotLog.debug(
+	GSLog.debug(
 		CHANNEL,
 		"no controller or character to take an eye position from; using the body",
 		{"player": str(player.get("player_key"))}
@@ -165,7 +165,7 @@ static func _motion_from(controllers: Array) -> Dictionary:
 	return {}
 
 ## Whether [method posture_for] would return the settled posture: speed 0, on the ground, not crouched, sliding, wall
-## running or sprinting. The cheap question [member DotWeaponArsenal.idle_still] asks; it builds no context.
+## running or sprinting. The cheap question [member GSWeaponArsenal.idle_still] asks; it builds no context.
 static func still_for(player: Node) -> bool:
 	if player == null:
 		return true
@@ -188,7 +188,7 @@ static func attach_view_model(
 	if player == null or view_model == null:
 		return false
 
-	var character: Variant = _component(player, "DotPlayerChar")
+	var character: Variant = _component(player, "GSPlayerChar")
 
 	if not (character is Node) or not (character as Node).has_method("attachment"):
 		return false
@@ -209,23 +209,23 @@ static func attach_view_model(
 ##
 ## Duck-typed against GameSpice Player Class: a class definition answers
 ## [code]loadout_id[/code], and a game maps that to weapons with [param mapping] — the
-## same seam [DotWeaponLoadoutBridge] uses, because an id space is a game's to decide.
+## same seam [GSWeaponLoadoutBridge] uses, because an id space is a game's to decide.
 static func give_class_loadout(
-	arsenal: DotWeaponArsenal,
+	arsenal: GSWeaponArsenal,
 	class_def: Object,
 	mapping: Dictionary = {}
-) -> DotResult:
+) -> GSResult:
 	if arsenal == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No arsenal to fill.")
+		return GSResult.fail(GSError.CODE_INVALID, "No arsenal to fill.")
 
 	if class_def == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No class to read a loadout from.")
+		return GSResult.fail(GSError.CODE_INVALID, "No class to read a loadout from.")
 
 	var loadout_id := StringName(str(class_def.get("loadout_id")))
 
 	if loadout_id == &"":
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"That class names no loadout.",
 			"A class with no loadout_id is legal — a spectator class, or a mode where "
 			+ "the game decides — so this is a state rather than a mistake."
@@ -234,11 +234,11 @@ static func give_class_loadout(
 	var ids: Variant = mapping.get(String(loadout_id), null)
 
 	if ids == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"Nothing maps loadout '%s' to weapons." % String(loadout_id),
 			"dot-weapon deliberately does not own the id space between a loadout and a "
-			+ "weapon; the game supplies the table. See DotWeaponLoadoutBridge."
+			+ "weapon; the game supplies the table. See GSWeaponLoadoutBridge."
 		)
 
 	arsenal.clear()
@@ -249,7 +249,7 @@ static func give_class_loadout(
 		if res.ok:
 			given += 1
 
-	return DotResult.success(given)
+	return GSResult.success(given)
 
 
 static func _component(player: Node, type_name: String) -> Object:

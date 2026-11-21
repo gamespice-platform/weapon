@@ -6,29 +6,29 @@ Why the addon is shaped the way it is. The one-line rules are in [CLAUDE.md](../
 
 **A weapon is a document that names a behaviour script by path.**
 
-`DotWeaponDef` carries only what the arsenal's state machine needs: a slot, deploy and holster times, what counts as a use, what a use costs, and how it is reloaded. It says nothing about what a use *does*. That belongs to the `DotWeaponBehaviour` at `behaviour_path`.
+`GSWeaponDef` carries only what the arsenal's state machine needs: a slot, deploy and holster times, what counts as a use, what a use costs, and how it is reloaded. It says nothing about what a use *does*. That belongs to the `GSWeaponBehaviour` at `behaviour_path`.
 
 Everything else follows from that line. A bow works because `Fire.CHARGE` accumulates draw and the behaviour decides what the draw is worth; the definition needs no `draw_strength` field, so adding a bow edits no file in this addon.
 
 ## Why it is not one fat resource
 
-dot-combat's old `weapons/` folder was exactly that: a `DotWeapon` with `pellets`, `spread_bloom`, `projectile_gravity`, `splash_radius` and thirty more fields. It described the guns game-fatal-contact shipped very well, and it could not describe a bow. A bow's damage comes from how long it was drawn, there was no field for that, and adding one means editing the addon. A game that has to edit an addon to add a weapon has a fork rather than a dependency, and the whole point of this family is that nothing should require one.
+dot-combat's old `weapons/` folder was exactly that: a `GSWeapon` with `pellets`, `spread_bloom`, `projectile_gravity`, `splash_radius` and thirty more fields. It described the guns game-fatal-contact shipped very well, and it could not describe a bow. A bow's damage comes from how long it was drawn, there was no field for that, and adding one means editing the addon. A game that has to edit an addon to add a weapon has a fork rather than a dependency, and the whole point of this family is that nothing should require one.
 
-Typed tuning is still available without a fat resource: `DotWeaponTuning` is a resource a game subclasses with its own `@export`s, and `DotWeaponBallistics` is the shipped one most of the stock behaviours read. `DotWeaponDef.params` (an untyped dictionary) exists for weapons delivered inside a content pack, which cannot register a `class_name`; a field present in both wins from `tuning`.
+Typed tuning is still available without a fat resource: `GSWeaponTuning` is a resource a game subclasses with its own `@export`s, and `GSWeaponBallistics` is the shipped one most of the stock behaviours read. `GSWeaponDef.params` (an untyped dictionary) exists for weapons delivered inside a content pack, which cannot register a `class_name`; a field present in both wins from `tuning`.
 
 ## The three objects
 
 | | |
 | --- | --- |
-| `DotWeaponContext` | What a behaviour is told about one use, and nothing it could cheat with. An origin and a direction, not a camera. A tick, not a clock. An entity id, not a node. |
-| `DotWeaponBehaviour` | What a use does. Overridable hooks (`_use`, `_release`, `_tick`, `_can_use`, `_deploy`, `_holster`, `_reloaded`, `_setup`), each defaulting to nothing, so a behaviour that only shoots overrides exactly one. |
-| `DotWeaponOutcome` | What the use produced. `DotShot`s for GameSpice Combat to resolve, `DotWeaponSpawn`s for the game to put in the world, and free-form events for anything else. |
+| `GSWeaponContext` | What a behaviour is told about one use, and nothing it could cheat with. An origin and a direction, not a camera. A tick, not a clock. An entity id, not a node. |
+| `GSWeaponBehaviour` | What a use does. Overridable hooks (`_use`, `_release`, `_tick`, `_can_use`, `_deploy`, `_holster`, `_reloaded`, `_setup`), each defaulting to nothing, so a behaviour that only shoots overrides exactly one. |
+| `GSWeaponOutcome` | What the use produced. `GSShot`s for GameSpice Combat to resolve, `GSWeaponSpawn`s for the game to put in the world, and free-form events for anything else. |
 
 ## Four rules for a behaviour, and they all break quietly
 
 **1. Be a pure function of the context.** A predicted use is simulated at least twice and once more per reconciliation replay. A behaviour that reads a wall clock, a node, an input device or a random stream gives a different answer on each run, nothing errors, and the symptom is "hit registration feels bad".
 
-**2. Apply nothing.** Return an outcome. A behaviour that reached into a `DotHealth` is a client deciding who dies.
+**2. Apply nothing.** Return an outcome. A behaviour that reached into a `GSHealth` is a client deciding who dies.
 
 **3. Keep state in `state`, not in a member.** The arsenal serialises `state` across the wire and restores it on a correction. A field written on the behaviour survives neither, and a bow whose draw is in a member silently un-draws itself on the first correction.
 
@@ -38,7 +38,7 @@ Typed tuning is still available without a fat resource: `DotWeaponTuning` is a r
 
 Every duration on a definition is in ticks. A weapon measured in seconds fires at two different rates on a 64 Hz server and a 128 Hz one, which is two different games. A game that tunes in rounds per minute converts once, in its own content file.
 
-Ticks, but ticks at which rate? A pack is written once and runs on servers at 64, 128 or 60 Hz. `DotWeaponDef.authored_tick_rate` says which rate a row's counts were written at, and `DotWeaponArsenal.tick_rate` says which rate the simulation runs at; the arsenal scales every duration it reads (deploy, holster, use and burst interval, charge, reload, reload start, and an outcome's `cooldown_ticks`) through `ticks_for`, and a charge through `charge_for`. zee-dot-weapons and zed-dot-weapons set 64, so their weapons fire, reload and deploy in the same wall-clock time at 128 Hz as at 64.
+Ticks, but ticks at which rate? A pack is written once and runs on servers at 64, 128 or 60 Hz. `GSWeaponDef.authored_tick_rate` says which rate a row's counts were written at, and `GSWeaponArsenal.tick_rate` says which rate the simulation runs at; the arsenal scales every duration it reads (deploy, holster, use and burst interval, charge, reload, reload start, and an outcome's `cooldown_ticks`) through `ticks_for`, and a charge through `charge_for`. zee-dot-weapons and zed-dot-weapons set 64, so their weapons fire, reload and deploy in the same wall-clock time at 128 Hz as at 64.
 
 Decisions, each with the alternative that was wrong:
 
@@ -55,35 +55,35 @@ Decisions, each with the alternative that was wrong:
 
 ## `select()` refuses the slot a switch is already heading to
 
-`DotWeaponCommand.slot` says "zero means no change", and a networked game naturally carries the slot it wants on every tick anyway, because that is what survives a lost packet. During a switch the old slot is still current, so a `select()` that only refused the current slot restarted the holster on every repeat and the switch never finished. See [history](history.md#a-slot-asked-for-every-tick-never-arrived).
+`GSWeaponCommand.slot` says "zero means no change", and a networked game naturally carries the slot it wants on every tick anyway, because that is what survives a lost packet. During a switch the old slot is still current, so a `select()` that only refused the current slot restarted the holster on every repeat and the switch never finished. See [history](history.md#a-slot-asked-for-every-tick-never-arrived).
 
 ## Spread lives in GameSpice Combat, not here
 
-Behaviours set `DotShot.spread`; GameSpice Combat's `DotShot.scatter()` turns it into pellet directions with `DotSpread`. Moving `DotSpread` alongside the weapons would have put the same integer hash in two addons, which is the duplication this family guards hardest against. Scatter is a property of a shot, and a shot is GameSpice Combat's.
+Behaviours set `GSShot.spread`; GameSpice Combat's `GSShot.scatter()` turns it into pellet directions with `GSSpread`. Moving `GSSpread` alongside the weapons would have put the same integer hash in two addons, which is the duplication this family guards hardest against. Scatter is a property of a shot, and a shot is GameSpice Combat's.
 
-`DotWeaponRecoil` does live here, because recoil is weapon feel rather than hit resolution. `kick()` takes floats rather than a weapon, which is what lets a behaviour compute a kick from the charge it was held at.
+`GSWeaponRecoil` does live here, because recoil is weapon feel rather than hit resolution. `kick()` takes floats rather than a weapon, which is what lets a behaviour compute a kick from the charge it was held at.
 
 ## The accuracy model
 
-Every gun-like weapon has a class (rifle, smg, lmg, sniper, shotgun, pistol; `accuracy_class`, else its tags, else words in its id) whose row in `DotWeaponAccuracyClass` fills each "Accuracy model" and recoil-posture field of `DotWeaponBallistics` left at -1, so every weapon feels distinct without a profile naming each number, and a profile (`extra: tuning:`) or a server's overriding profile sets any of them per weapon.
+Every gun-like weapon has a class (rifle, smg, lmg, sniper, shotgun, pistol; `accuracy_class`, else its tags, else words in its id) whose row in `GSWeaponAccuracyClass` fills each "Accuracy model" and recoil-posture field of `GSWeaponBallistics` left at -1, so every weapon feels distinct without a profile naming each number, and a profile (`extra: tuning:`) or a server's overriding profile sets any of them per weapon.
 
 The cone is: the posture spread (still to moving by a speed that rises at once and settles back over `settle_ticks`), plus `spread_hip` unless aiming, times `spread_slide` (sliding, wall-running) or `spread_sprint`, plus a flinch from `ctx.hurt_tick` shed over 0.4 s, through `sv_spread_*` when enabled, plus bloom (times `bloom_crouch` crouched), times `spread_aim` aiming, times `sv_spread_scale` (0 fires dead straight). Bloom only sheds `bloom_delay_ticks` after the last shot, never inside the gun's own use interval: before that rule a gun firing every 5 ticks shed most of its bloom between shots, which is why a held machine gun flew in a straight line. Recoil is multiplied by `recoil_aim`, `recoil_crouch` and `recoil_move`; `recoil_camera` is the per-weapon camera share that otherwise `sv_recoil_punch` sets, and `sv_recoil_scale 0` removes the kick.
 
 Everything is in `state` and a function of the context, so the predicting client draws and fires the same cone as the server (suite section "server and predicted client agree"); `arsenal.spread_now()` is that cone, and the shots land uniformly inside it (section "the crosshair cone is the shots' real spread").
 
-## `DotShot` describes itself
+## `GSShot` describes itself
 
-The split from GameSpice Combat was possible because `DotShot` stopped pointing at a weapon. The resolver used to read `shot.weapon.damage`, `shot.weapon.max_range` and `shot.weapon.delivery`, which made "what GameSpice Combat can resolve" the same question as "what that one resource can describe". It now carries the numbers the resolver needs, so a trap, a turret or an environmental hazard can produce one with no weapon anywhere near it.
+The split from GameSpice Combat was possible because `GSShot` stopped pointing at a weapon. The resolver used to read `shot.weapon.damage`, `shot.weapon.max_range` and `shot.weapon.delivery`, which made "what GameSpice Combat can resolve" the same question as "what that one resource can describe". It now carries the numbers the resolver needs, so a trap, a turret or an environmental hazard can produce one with no weapon anywhere near it.
 
-`DotCombatNetSync` carries health; `DotWeaponNetSync` carries the slot, magazine and reserve. A game using both concatenates the two spec lists. Ammunition is owner-only, because exact counts are information an opponent should not have.
+`GSCombatNetSync` carries health; `GSWeaponNetSync` carries the slot, magazine and reserve. A game using both concatenates the two spec lists. Ammunition is owner-only, because exact counts are information an opponent should not have.
 
 ## Optional neighbours are duck-typed
 
-dot-net, dot-loadout, dot-inventory and dot-player are not dependencies, and no script here names one of their classes: a script that mentions a `class_name` the project does not have fails to parse and takes every script referencing it down with it. So `DotWeaponCommand.write()` takes its writer as `Variant`, `DotWeaponNetSync` only describes specs and leaves the bridge to the host game, and the three bridges are duck-typed:
+dot-net, dot-loadout, dot-inventory and dot-player are not dependencies, and no script here names one of their classes: a script that mentions a `class_name` the project does not have fails to parse and takes every script referencing it down with it. So `GSWeaponCommand.write()` takes its writer as `Variant`, `GSWeaponNetSync` only describes specs and leaves the bridge to the host game, and the three bridges are duck-typed:
 
-- `DotWeaponLoadoutBridge` fills an arsenal from a resolved GameSpice Loadout (`[slot, item]` pairs); it is the item-to-weapon table every game that adopted both had written by hand.
-- `DotWeaponInventoryBridge` keeps reserve ammunition and a bag agreeing. The bag is the truth and the arsenal is a view of it; the other direction creates ammunition.
-- `DotWeaponPlayerBridge` fills a `DotWeaponContext` from a player (eye origin, camera direction, stable entity number, a view-model mount).
+- `GSWeaponLoadoutBridge` fills an arsenal from a resolved GameSpice Loadout (`[slot, item]` pairs); it is the item-to-weapon table every game that adopted both had written by hand.
+- `GSWeaponInventoryBridge` keeps reserve ammunition and a bag agreeing. The bag is the truth and the arsenal is a view of it; the other direction creates ammunition.
+- `GSWeaponPlayerBridge` fills a `GSWeaponContext` from a player (eye origin, camera direction, stable entity number, a view-model mount).
 
 ## The extension point is tested
 
@@ -93,36 +93,36 @@ dot-net, dot-loadout, dot-inventory and dot-player are not dependencies, and no 
 
 A scope, a suppressor or a longer magazine is logic every game needs (which mount, which gun, what it changes, what a watcher must see), so it lives here and not in a weapons pack (which would be copied per pack) or in GameSpice Loadout (which says what a player brought, not how a weapon's numbers change). A pack supplies the attachment rows and the models for the sockets named by each mount.
 
-A `DotWeaponDef` lists its `mounts`; a `DotWeaponAttachment` names one mount, which weapons or tags it fits, and numbers to scale and add on the definition or its tuning (an unknown field is an error, not a silent skip). A `DotWeaponFitting` is ids only (mount to attachment id), so a content-less server validates, stores and replicates it against its `DotWeaponAttachments` catalogue.
+A `GSWeaponDef` lists its `mounts`; a `GSWeaponAttachment` names one mount, which weapons or tags it fits, and numbers to scale and add on the definition or its tuning (an unknown field is an error, not a silent skip). A `GSWeaponFitting` is ids only (mount to attachment id), so a content-less server validates, stores and replicates it against its `GSWeaponAttachments` catalogue.
 
-**Applying copies.** `DotWeaponAttachments.apply` deep-duplicates the definition (tuning included) and mutates the copy; the catalogue's row is shared by every carrier and mutating it would fit everybody's rifle. An empty fitting returns the shared definition itself. `DotWeaponArsenal.fit` swaps the slot's definition for the copy and clamps the magazine.
+**Applying copies.** `GSWeaponAttachments.apply` deep-duplicates the definition (tuning included) and mutates the copy; the catalogue's row is shared by every carrier and mutating it would fit everybody's rifle. An empty fitting returns the shared definition itself. `GSWeaponArsenal.fit` swaps the slot's definition for the copy and clamps the magazine.
 
 **The wire is a packed index.** `encode` writes, per mount in text order, the 1-based position of the attachment among `choices_for(def)[mount]` (0 is none) in just enough bits; `FITTED_BITS` is 16 and a weapon needing more does not replicate its fitting. That makes **both machines share the same attachment catalogue**, as they share the weapon catalogue: differing catalogues decode the same bits into different attachments.
 
-`DotWeaponNetSync.fitting_specs()` is separate from `specs()` because games register `specs()` on carriers that have no `net_fitted` property; adding a spec there would break their registration. `pull` and `push` touch `net_fitted` only when the object has it.
+`GSWeaponNetSync.fitting_specs()` is separate from `specs()` because games register `specs()` on carriers that have no `net_fitted` property; adding a spec there would break their registration. `pull` and `push` touch `net_fitted` only when the object has it.
 
 ## Carry weight
 
-`DotWeaponCarry` is one object a game shares between its arsenals (`arsenal.carry`); null or `enabled = false` is the old behaviour: no limit, one weapon per slot. Weight is `DotWeaponDef.weight` times `multiplier` times every modifier's factor; the limit is `base_limit` plus the backpack tier's bonus, scaled and shifted by the modifiers. A modifier is just a named source the game sets and clears (`set_modifier(&"box_x", weight_factor, limit_factor, limit_add)`), so no game-specific concept lives here.
+`GSWeaponCarry` is one object a game shares between its arsenals (`arsenal.carry`); null or `enabled = false` is the old behaviour: no limit, one weapon per slot. Weight is `GSWeaponDef.weight` times `multiplier` times every modifier's factor; the limit is `base_limit` plus the backpack tier's bonus, scaled and shifted by the modifiers. A modifier is just a named source the game sets and clears (`set_modifier(&"box_x", weight_factor, limit_factor, limit_add)`), so no game-specific concept lives here.
 
 `give` is refused with `CODE_QUOTA` when it would put the carrier over the limit (a swap for a lighter weapon is always allowed). A slot holds `slot_capacity` weapons: the one in hand and a shelf behind it; `cycle_slot` rotates them, and the snapshot carries the shelf and `backpack_tier`. Going over after a limit change is the game's choice: `speed_scale()` slows (SLOW) or `enforce_limit()` returns the ids it dropped (DROP); the arsenal never deletes in SLOW mode.
 
 ## Muzzle flash
 
-A profile may say `extra: {muzzle_flash: big|medium|small|very_small|none}` (it lands in `DotWeaponDef.params`; `none` is also what a suppressed weapon gets). `DotWeaponMuzzle.attach(parent, category, def, first_person)` builds GameSpice FX's `DotMuzzleFlash` under a muzzle point and `fire()` plays it per shot; with no GameSpice FX, no display or size none it returns null. The view-model and world-model muzzles live in zee-dot-weapons (`ZeeShotFx`), which calls this.
+A profile may say `extra: {muzzle_flash: big|medium|small|very_small|none}` (it lands in `GSWeaponDef.params`; `none` is also what a suppressed weapon gets). `GSWeaponMuzzle.attach(parent, category, def, first_person)` builds GameSpice FX's `GSMuzzleFlash` under a muzzle point and `fire()` plays it per shot; with no GameSpice FX, no display or size none it returns null. The view-model and world-model muzzles live in zee-dot-weapons (`ZeeShotFx`), which calls this.
 
 ## Ballistics
 
-`DotWeaponBallistics` carries the bullet fields (`muzzle_velocity`, `bullet_gravity`, `drag`, `falloff_start`, `falloff_min`, `penetration`, `ricochet_chance`, `tracer_interval`, `bullet_mass`); they reach profiles as `extra: tuning:` keys automatically. `muzzle_velocity` 0 stays hitscan. `DotWeaponTrajectory` (math/) is the pure maths: fixed 1/120 s sub-steps with a ray per step, `fly`, `drop_at`, `falloff`, `through`, the bot solver `solve_pitch`/`lead`, scope `holdover`/`holdover_mils`/`holdover_marks` (a reticle's range marks for a given zero) and `ricochet` (shallow-angle bounce from a caller-supplied roll; not yet wired into the bridge, no bullet-hole decals yet). The batched bullet node, lag compensation, tracers and cvars are not built yet.
+`GSWeaponBallistics` carries the bullet fields (`muzzle_velocity`, `bullet_gravity`, `drag`, `falloff_start`, `falloff_min`, `penetration`, `ricochet_chance`, `tracer_interval`, `bullet_mass`); they reach profiles as `extra: tuning:` keys automatically. `muzzle_velocity` 0 stays hitscan. `GSWeaponTrajectory` (math/) is the pure maths: fixed 1/120 s sub-steps with a ray per step, `fly`, `drop_at`, `falloff`, `through`, the bot solver `solve_pitch`/`lead`, scope `holdover`/`holdover_mils`/`holdover_marks` (a reticle's range marks for a given zero) and `ricochet` (shallow-angle bounce from a caller-supplied roll; not yet wired into the bridge, no bullet-hole decals yet). The batched bullet node, lag compensation, tracers and cvars are not built yet.
 
-`DotWeaponBallisticsRules` (`sv_ballistics`, off by default, plus `_velocity`, `_drop`, `_drag`, `_reach`, `_max_bullets`) is the global switch; it extends `DotWeaponCvarRules`, the shared cvar plumbing (`DotWeaponRecoilRules` still carries its own copy). `DotWeaponBullets` (runtime/) holds every bullet in packed arrays in one node: `spawn`, `step(tick)` from the server tick, `cast_fn`, and dot-combat-style `rewind_fn`/`restore_fn` driven by each bullet's `lag_ticks`; it emits `hit`, `tracer`, `expired`. Nothing spawns bullets from the behaviours yet.
+`GSWeaponBallisticsRules` (`sv_ballistics`, off by default, plus `_velocity`, `_drop`, `_drag`, `_reach`, `_max_bullets`) is the global switch; it extends `GSWeaponCvarRules`, the shared cvar plumbing (`GSWeaponRecoilRules` still carries its own copy). `GSWeaponBullets` (runtime/) holds every bullet in packed arrays in one node: `spawn`, `step(tick)` from the server tick, `cast_fn`, and dot-combat-style `rewind_fn`/`restore_fn` driven by each bullet's `lag_ticks`; it emits `hit`, `tracer`, `expired`. Nothing spawns bullets from the behaviours yet.
 
-`DotWeaponBulletBridge` (bridge/) is the drop-in for `combat.resolve_shot(shot, view_tick)`: `bridge.resolve_shot(shot, tuning, view_tick)`. With `arsenal.ballistics_rules` off it is exactly the old call; on, the hitscan behaviour has set `shot.deferred`, and the bridge flies one bullet per pellet using GameSpice Combat's own `trace`, `rewind_fn`/`restore_fn` and `apply_damage`. Call `bridge.tick(tick)` each server tick. `DotWeaponTracers` draws the `tracer` signal as ribbons in one mesh; `tools/screenshot.sh out.png` renders `examples/tracer_demo`. Not yet wired in any game's resolve path.
+`GSWeaponBulletBridge` (bridge/) is the drop-in for `combat.resolve_shot(shot, view_tick)`: `bridge.resolve_shot(shot, tuning, view_tick)`. With `arsenal.ballistics_rules` off it is exactly the old call; on, the hitscan behaviour has set `shot.deferred`, and the bridge flies one bullet per pellet using GameSpice Combat's own `trace`, `rewind_fn`/`restore_fn` and `apply_damage`. Call `bridge.tick(tick)` each server tick. `GSWeaponTracers` draws the `tracer` signal as ribbons in one mesh; `tools/screenshot.sh out.png` renders `examples/tracer_demo`. Not yet wired in any game's resolve path.
 
-`DotWeaponAmmoType`/`DotWeaponAmmoTypes` (core/, API 13) are rounds as `ammo` profiles (`name`, `damage`, `velocity`, `drag`, `armour_pierce`, all multipliers except pierce, a 0..1 share of armour ignored); `arsenal.load_ammo(weapon_id, ammo_id)` selects the loaded round (server side, not in snapshots), the hitscan behaviour stamps it on the deferred shot as meta `ammo`, and the bridge (`bridge.ammo_types`) flies a cached copy of the tuning with the velocity and drag multipliers and scales damage. `DotWeaponHitzones` (`bridge.hitzones`) is armour per `DotHitGroup` name (`{head: 0.5}` halves head damage), scaled by an optional `presence_fn(entity)` and by the round's `armour_pierce`; dot-combat's group multipliers still apply in `apply_damage`. Everything is null or unset by default and only reached when `sv_ballistics` is on, so an unset game and every existing pack behave identically.
+`GSWeaponAmmoType`/`GSWeaponAmmoTypes` (core/, API 13) are rounds as `ammo` profiles (`name`, `damage`, `velocity`, `drag`, `armour_pierce`, all multipliers except pierce, a 0..1 share of armour ignored); `arsenal.load_ammo(weapon_id, ammo_id)` selects the loaded round (server side, not in snapshots), the hitscan behaviour stamps it on the deferred shot as meta `ammo`, and the bridge (`bridge.ammo_types`) flies a cached copy of the tuning with the velocity and drag multipliers and scales damage. `GSWeaponHitzones` (`bridge.hitzones`) is armour per `GSHitGroup` name (`{head: 0.5}` halves head damage), scaled by an optional `presence_fn(entity)` and by the round's `armour_pierce`; dot-combat's group multipliers still apply in `apply_damage`. Everything is null or unset by default and only reached when `sv_ballistics` is on, so an unset game and every existing pack behave identically.
 
-`DotWeaponDrops` fits each drop's collision box from the weapon look (`look_of`), also on a headless server where `draws` is false: the server builds the look once per weapon, measures it, caches the fit and frees it. Falling back to the default box there makes the server rest at a different height from the client, and the client mesh then sinks 4 to 18 cm into the floor after the snap to the server transform.
+`GSWeaponDrops` fits each drop's collision box from the weapon look (`look_of`), also on a headless server where `draws` is false: the server builds the look once per weapon, measures it, caches the fit and frees it. Falling back to the default box there makes the server rest at a different height from the client, and the client mesh then sinks 4 to 18 cm into the floor after the snap to the server transform.
 
 ## Dropping weapons in the world
 
-`DotWeaponDrops` setup, on the authority: `drops.rules = DotWeaponDropRules.new()`, `drops.is_authority = true`, optionally `drops.look_of = func(weapon_id): return world_model_for(weapon_id)` (a Node3D), connect `drops.dropped` to the net send, and call `drops.throw(arsenal, eye_origin, aim_dir, owner_id, class_def)` on the drop key. A client answers the game's messages with the `mirror_*` methods.
+`GSWeaponDrops` setup, on the authority: `drops.rules = GSWeaponDropRules.new()`, `drops.is_authority = true`, optionally `drops.look_of = func(weapon_id): return world_model_for(weapon_id)` (a Node3D), connect `drops.dropped` to the net send, and call `drops.throw(arsenal, eye_origin, aim_dir, owner_id, class_def)` on the drop key. A client answers the game's messages with the `mirror_*` methods.

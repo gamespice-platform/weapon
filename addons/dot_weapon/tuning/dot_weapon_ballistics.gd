@@ -1,13 +1,13 @@
 @tool
-class_name DotWeaponBallistics
-extends DotWeaponTuning
+class_name GSWeaponBallistics
+extends GSWeaponTuning
 
 ## Tuning for anything that sends damage down a line: a gun, a bow, a crossbow, a
 ## railgun, a thrown knife.
 ##
 ## Shipped because it is the tuning four of the five behaviours in this addon read, and
 ## because a game whose weapons are all guns should not have to invent it. A game whose
-## weapons are not all guns writes its own [DotWeaponTuning] and this one goes unused.
+## weapons are not all guns writes its own [GSWeaponTuning] and this one goes unused.
 
 @export_group("Damage")
 
@@ -15,11 +15,11 @@ extends DotWeaponTuning
 @export_range(0.0, 10000.0, 0.5, "or_greater") var damage: float = 20.0
 
 ## What kind of damage. Null lets GameSpice Combat's default stand.
-@export var damage_type: DotDamageType = null
+@export var damage_type: GSDamageType = null
 
 ## Damage at zero charge, as a fraction of [member damage].
 ##
-## Only read by a [constant DotWeaponDef.Fire.CHARGE] weapon. A bow at half draw does
+## Only read by a [constant GSWeaponDef.Fire.CHARGE] weapon. A bow at half draw does
 ## not do half damage in most games that ship one; it does rather less, which is what
 ## makes holding the draw worth the vulnerability.
 @export_range(0.0, 1.0, 0.01) var min_charge_damage: float = 0.25
@@ -36,7 +36,7 @@ extends DotWeaponTuning
 @export var fixed_pattern: bool = false
 
 ## Counts edits to the accuracy fields below (the ones a hitscan cone reads), so a holder of a copy of them (GameSpice Sim's
-## native spread tick, see [DotWeaponHitscan]) refreshes it on a change without comparing every field each tick. Not
+## native spread tick, see [GSWeaponHitscan]) refreshes it on a change without comparing every field each tick. Not
 ## saved; only a change of it means anything. One element, not an int, so the numeric field walks (stat deltas, the
 ## profile overlay) never see it as a tuning number.
 var accuracy_revision := PackedInt64Array([0])
@@ -92,7 +92,7 @@ var accuracy_revision := PackedInt64Array([0])
 		bloom_max = value
 		accuracy_revision[0] += 1
 
-## Degrees of bloom shed per tick, at [member DotWeaponDef.authored_tick_rate] when the
+## Degrees of bloom shed per tick, at [member GSWeaponDef.authored_tick_rate] when the
 ## definition names one (the hitscan behaviour scales it to the running rate).
 @export_range(0.0, 10.0, 0.001) var bloom_recovery: float = 0.15:
 	set(value):
@@ -102,7 +102,7 @@ var accuracy_revision := PackedInt64Array([0])
 @export_group("Accuracy model")
 
 ## The class whose defaults fill every -1 below: rifle, smg, lmg, sniper, shotgun, pistol; "" infers it
-## from tags and id ([DotWeaponAccuracyClass]).
+## from tags and id ([GSWeaponAccuracyClass]).
 @export var accuracy_class: String = "":
 	set(value):
 		accuracy_class = value
@@ -145,7 +145,7 @@ var accuracy_revision := PackedInt64Array([0])
 		settle_ticks = value
 		accuracy_revision[0] += 1
 
-## Degrees a hit taken adds, shed over [constant DotWeaponAccuracyClass.FLINCH_SEC]. -1 takes the class default.
+## Degrees a hit taken adds, shed over [constant GSWeaponAccuracyClass.FLINCH_SEC]. -1 takes the class default.
 @export_range(-1.0, 45.0, 0.01) var spread_flinch: float = -1.0:
 	set(value):
 		spread_flinch = value
@@ -165,7 +165,7 @@ var accuracy_revision := PackedInt64Array([0])
 ## Degrees of sideways kick per use. Alternates side to side.
 @export_range(0.0, 20.0, 0.01) var recoil_yaw: float = 0.15
 
-## Extra share of the kick added per consecutive shot of a burst (see [DotWeaponRecoilRules]).
+## Extra share of the kick added per consecutive shot of a burst (see [GSWeaponRecoilRules]).
 @export_range(0.0, 1.0, 0.01) var recoil_build: float = 0.06
 
 ## Most the burst may add, as a share of the base kick.
@@ -191,7 +191,7 @@ var accuracy_revision := PackedInt64Array([0])
 
 @export_group("Ballistics")
 
-## Muzzle velocity in m/s. 0 keeps the weapon hitscan; above 0 a simulated bullet is used (see [DotWeaponTrajectory]).
+## Muzzle velocity in m/s. 0 keeps the weapon hitscan; above 0 a simulated bullet is used (see [GSWeaponTrajectory]).
 @export_range(0.0, 3000.0, 1.0, "or_greater") var muzzle_velocity: float = 0.0
 
 ## Gravity multiplier on the bullet (1 = world gravity). Bullet drop.
@@ -224,7 +224,7 @@ var accuracy_revision := PackedInt64Array([0])
 
 @export_range(0.0, 10000.0, 0.5, "or_greater") var splash_damage: float = 0.0
 
-@export var splash_type: DotDamageType = null
+@export var splash_type: GSDamageType = null
 
 @export var splash_hurts_owner: bool = true
 
@@ -245,28 +245,28 @@ var accuracy_revision := PackedInt64Array([0])
 @export_range(1, 100000, 1) var life_ticks: int = 384
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if damage < 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "damage cannot be negative.")
+		return GSResult.fail(GSError.CODE_INVALID, "damage cannot be negative.")
 
 	if max_range <= 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "max_range must be positive.")
+		return GSResult.fail(GSError.CODE_INVALID, "max_range must be positive.")
 
 	if pellets < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "pellets must be at least 1.")
+		return GSResult.fail(GSError.CODE_INVALID, "pellets must be at least 1.")
 
 	if splash_radius > 0.0 and splash_damage <= 0.0:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A splash radius with no splash damage does nothing. Set both or neither."
 		)
 
 	if min_speed > speed:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "min_speed is above speed."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "min_speed is above speed."
 		)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## The class default gap scale from a weapon's tags: scoped guns sit a little open, automatics a little tight.
@@ -289,7 +289,7 @@ func accuracy(key: String, klass: String) -> float:
 	var own: Variant = get(key)
 	if own != null and float(own) >= 0.0:
 		return float(own)
-	return DotWeaponAccuracyClass.preset(klass, key)
+	return GSWeaponAccuracyClass.preset(klass, key)
 
 
 ## The cone half-angle while moving at a smoothed [param motion] (0 still, 1 at the reference speed).

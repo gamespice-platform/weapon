@@ -1,9 +1,9 @@
-class_name DotWeaponInventoryBridge
+class_name GSWeaponInventoryBridge
 extends RefCounted
 
 ## Keeps an arsenal's reserve ammunition and a bag's contents agreeing with each other.
 ##
-## [b]Duck-typed throughout, for the reason [DotWeaponLoadoutBridge] gives[/b]:
+## [b]Duck-typed throughout, for the reason [GSWeaponLoadoutBridge] gives[/b]:
 ## GameSpice Inventory is not a dependency and is not named here.
 ##
 ## [b]The bag is the truth and the arsenal is a view of it.[/b] The opposite direction
@@ -18,7 +18,7 @@ extends RefCounted
 ## [code]count[/code]. [param pools] maps an item id to an ammunition pool name; an
 ## item with no entry is not ammunition and is skipped.
 static func load_ammo(
-	arsenal: DotWeaponArsenal,
+	arsenal: GSWeaponArsenal,
 	items: Array,
 	pools: Dictionary
 ) -> int:
@@ -53,7 +53,7 @@ static func load_ammo(
 ## Returns a dictionary of pool name to the count the bag should hold, for a caller to
 ## apply through GameSpice Inventory's own operations — which is the only thing allowed to
 ## change a container, because it is the thing that validates a change.
-static func ammo_counts(arsenal: DotWeaponArsenal) -> Dictionary:
+static func ammo_counts(arsenal: GSWeaponArsenal) -> Dictionary:
 	if arsenal == null:
 		return {}
 
@@ -68,7 +68,7 @@ static func ammo_counts(arsenal: DotWeaponArsenal) -> Dictionary:
 ## Every weapon the arsenal is carrying, as `[slot, weapon id]` rows.
 ##
 ## For a bag that shows what is in hand alongside what is stowed.
-static func carried(arsenal: DotWeaponArsenal) -> Array[Dictionary]:
+static func carried(arsenal: GSWeaponArsenal) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 
 	if arsenal == null:

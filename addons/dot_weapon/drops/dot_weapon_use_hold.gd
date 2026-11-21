@@ -1,4 +1,4 @@
-class_name DotWeaponUseHold
+class_name GSWeaponUseHold
 extends RefCounted
 
 ## Tells a tap of the use key from a hold. Feed it the key state every frame: a release before

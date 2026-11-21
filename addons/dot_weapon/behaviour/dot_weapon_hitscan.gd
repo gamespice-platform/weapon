@@ -1,21 +1,21 @@
-class_name DotWeaponHitscan
-extends DotWeaponBehaviour
+class_name GSWeaponHitscan
+extends GSWeaponBehaviour
 
 ## A weapon whose damage arrives the instant it is used: a rifle, a pistol, a shotgun,
 ## a railgun.
 ##
-## Produces [DotShot]s for GameSpice Combat to resolve against a world rewound to the tick
+## Produces [GSShot]s for GameSpice Combat to resolve against a world rewound to the tick
 ## the trigger was pulled on. It applies nothing itself.
 ##
-## Reads a [DotWeaponBallistics], from [member DotWeaponDef.tuning] or from
-## [member DotWeaponDef.params] under the same key names.
+## Reads a [GSWeaponBallistics], from [member GSWeaponDef.tuning] or from
+## [member GSWeaponDef.params] under the same key names.
 
 ## Degrees of bloom currently piled up. Kept in [member state] so it survives the wire
 ## and a rollback; a bloom held in a plain member desynchronises on the first correction
 ## and the only symptom is a weapon that is more accurate on one machine than the other.
 const _BLOOM := &"bloom"
 
-## The smoothed movement multiplier of [DotWeaponSpreadRules], and the cone last computed.
+## The smoothed movement multiplier of [GSWeaponSpreadRules], and the cone last computed.
 const _FACTOR := &"spread_factor"
 const _NOW := &"spread_now"
 ## Ticks since the last use, and the smoothed motion (0 still, 1 at the reference speed) that settles.
@@ -28,8 +28,8 @@ var _class_id: StringName = &""
 var _class_key_set: bool = false
 var _class: String = ""
 ## The class presets of [member _class] that every cone and settle reads, set with it in [method _class_of]:
-## [constant DotWeaponAccuracyClass.PRESETS] is a constant, so they hold until the class changes. A ballistics field of 0
-## or more still wins over its preset and is read each time, as [method DotWeaponBallistics.accuracy] does.
+## [constant GSWeaponAccuracyClass.PRESETS] is a constant, so they hold until the class changes. A ballistics field of 0
+## or more still wins over its preset and is read each time, as [method GSWeaponBallistics.accuracy] does.
 var _pre_hip: float = 0.0
 var _pre_slide: float = 1.0
 var _pre_sprint: float = 1.0
@@ -41,16 +41,16 @@ var _pre_settle: float = 0.0
 var _shown: float = -1.0
 ## Set by [method rest_tick]: the skipped ticks did not compute the cone, [method spread_now] does it when asked.
 var _shown_stale: bool = false
-var _settled: DotWeaponContext = null
+var _settled: GSWeaponContext = null
 
 ## Off: every context tick computes the cone, for an A/B of the steady skip (see [method _steady_holds]); results agree.
 static var steady_skip: bool = true
 
-## On (the default) and GameSpice Sim's `weapon` module loaded: a context tick runs natively ([code]DotSimWeaponSpread[/code],
+## On (the default) and GameSpice Sim's `weapon` module loaded: a context tick runs natively ([code]GSSimWeaponSpread[/code],
 ## bit for bit this script's [method _tick], state written in place); off, or without GameSpice Sim, the script below runs.
 ## Results agree to the bit, so it is only an A/B switch. Named through [ClassDB] only, so this parses without GameSpice Sim.
 static var native_tick: bool = true
-const _NATIVE_CLASS := &"DotSimWeaponSpread"
+const _NATIVE_CLASS := &"GSSimWeaponSpread"
 # -1 unknown, 0 absent, 1 present: whether GameSpice Sim registered the class, asked once a process.
 static var _native_present: int = -1
 
@@ -58,15 +58,15 @@ static var _native_present: int = -1
 # (object and accuracy_revision), the definition's tick fields, the class and the running rate for the tuning row; the
 # rules (object and revision), the crosshair setting and the rate for the frame. Any change re-sends that row.
 var _native: Object = null
-var _native_b: DotWeaponBallistics = null
+var _native_b: GSWeaponBallistics = null
 var _native_b_rev: int = -1
-var _native_def: DotWeaponDef = null
+var _native_def: GSWeaponDef = null
 var _native_interval: int = 0
 var _native_authored: int = 0
 var _native_class: String = ""
 var _native_rate: int = 0
 var _native_framed: bool = false
-var _native_rules: DotWeaponSpreadRules = null
+var _native_rules: GSWeaponSpreadRules = null
 var _native_rules_rev: int = -1
 var _native_cone: bool = false
 var _native_frame_rate: int = 0
@@ -76,8 +76,8 @@ var _native_idle: int = -1
 
 # The last context tick that was a fixed point: everything it read, and the cone it computed.
 var _steady: bool = false
-var _steady_b: DotWeaponBallistics = null
-var _steady_rules: DotWeaponSpreadRules = null
+var _steady_b: GSWeaponBallistics = null
+var _steady_rules: GSWeaponSpreadRules = null
 var _steady_cone: bool = false
 var _steady_airborne: bool = false
 var _steady_crouched: bool = false
@@ -97,13 +97,13 @@ var _steady_class: String = ""
 var _steady_tuning := PackedFloat64Array()
 
 
-func _ballistics() -> DotWeaponBallistics:
-	if def != null and def.tuning is DotWeaponBallistics:
+func _ballistics() -> GSWeaponBallistics:
+	if def != null and def.tuning is GSWeaponBallistics:
 		return def.tuning
 	return null
 
 
-func _tick(ctx: DotWeaponContext) -> void:
+func _tick(ctx: GSWeaponContext) -> void:
 	var b := _ballistics()
 	if b == null:
 		return
@@ -117,7 +117,7 @@ func _tick(ctx: DotWeaponContext) -> void:
 
 	# Read from the arsenal once a tick: the native check, the steady check, the factor, the cone and the tracking below
 	# all ask for the same rules.
-	var rules_object: DotWeaponSpreadRules = null
+	var rules_object: GSWeaponSpreadRules = null
 	var cone := false
 	if ctx != null:
 		rules_object = _rules_object()
@@ -195,7 +195,7 @@ static func _dot_sim_loaded() -> bool:
 	return false
 
 
-func _native_ready(b: DotWeaponBallistics, rules_object: DotWeaponSpreadRules, cone: bool) -> bool:
+func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, cone: bool) -> bool:
 	if _native == null:
 		if _native_present < 0:
 			_native_present = 1 if ClassDB.class_exists(_NATIVE_CLASS) else 0
@@ -238,9 +238,9 @@ func _native_ready(b: DotWeaponBallistics, rules_object: DotWeaponSpreadRules, c
 	return true
 
 
-## The tuning row of [code]DotSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
+## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
 ## tick-count terms at the running rate, and each accuracy term already the field when 0 or more, else the class preset.
-func _native_tuning(b: DotWeaponBallistics) -> PackedFloat64Array:
+func _native_tuning(b: GSWeaponBallistics) -> PackedFloat64Array:
 	_class_of(b)
 	return PackedFloat64Array([
 		b.spread, b.spread_moving, b.spread_speed_ref, b.spread_airborne, b.spread_crouched, b.bloom, b.bloom_max,
@@ -254,8 +254,8 @@ func _native_tuning(b: DotWeaponBallistics) -> PackedFloat64Array:
 	])
 
 
-## The frame's rules row of [code]DotSimWeaponSpread.set_frame[/code]; empty for no rules object.
-static func _native_rules_row(r: DotWeaponSpreadRules, rate: int) -> PackedFloat64Array:
+## The frame's rules row of [code]GSSimWeaponSpread.set_frame[/code]; empty for no rules object.
+static func _native_rules_row(r: GSWeaponSpreadRules, rate: int) -> PackedFloat64Array:
 	if r == null:
 		return PackedFloat64Array()
 	return PackedFloat64Array([
@@ -265,7 +265,7 @@ static func _native_rules_row(r: DotWeaponSpreadRules, rate: int) -> PackedFloat
 
 
 ## This context as the native posture row, written into the one row the behaviour keeps.
-func _native_posture(ctx: DotWeaponContext) -> PackedFloat64Array:
+func _native_posture(ctx: GSWeaponContext) -> PackedFloat64Array:
 	var row := _native_row
 	row[0] = ctx.speed
 	row[1] = 1.0 if ctx.airborne else 0.0
@@ -282,7 +282,7 @@ func _native_posture(ctx: DotWeaponContext) -> PackedFloat64Array:
 ## A context tick with the inputs of the kept fixed point: the same ballistics, rules and tuning, the same posture, a
 ## state still at that point (motion, factor, bloom and the shown cone) and no flinch. Its [method _tick] would write the
 ## values already there and compute the kept cone, so only the ticks since the last use (counted above) move.
-func _steady_holds(b: DotWeaponBallistics, ctx: DotWeaponContext, rules_object: DotWeaponSpreadRules, cone: bool) -> bool:
+func _steady_holds(b: GSWeaponBallistics, ctx: GSWeaponContext, rules_object: GSWeaponSpreadRules, cone: bool) -> bool:
 	if b != _steady_b or rules_object != _steady_rules or cone != _steady_cone:
 		return false
 	if ctx.airborne != _steady_airborne or ctx.crouched != _steady_crouched or ctx.aiming != _steady_aiming:
@@ -306,7 +306,7 @@ func _steady_holds(b: DotWeaponBallistics, ctx: DotWeaponContext, rules_object: 
 	return _class_of(b) == _steady_class
 
 
-func _steady_keep(b: DotWeaponBallistics, ctx: DotWeaponContext, rules_object: DotWeaponSpreadRules, cone: bool, motion: float) -> void:
+func _steady_keep(b: GSWeaponBallistics, ctx: GSWeaponContext, rules_object: GSWeaponSpreadRules, cone: bool, motion: float) -> void:
 	_steady = true
 	_steady_b = b
 	_steady_rules = rules_object
@@ -333,7 +333,7 @@ func _steady_keep(b: DotWeaponBallistics, ctx: DotWeaponContext, rules_object: D
 
 
 ## Every ballistics number the cone reads, against the kept ones: a tuning edited in place (a console, a scaled aim) is seen.
-func _tuning_same(b: DotWeaponBallistics) -> bool:
+func _tuning_same(b: GSWeaponBallistics) -> bool:
 	var t := _steady_tuning
 	return (
 		t[0] == b.spread and t[1] == b.spread_moving and t[2] == b.spread_speed_ref and t[3] == b.spread_airborne
@@ -343,12 +343,12 @@ func _tuning_same(b: DotWeaponBallistics) -> bool:
 
 
 ## Whether the flinch term of [method _spread_with] is above zero at this context's tick.
-func _flinching(ctx: DotWeaponContext) -> bool:
+func _flinching(ctx: GSWeaponContext) -> bool:
 	if ctx.hurt_tick < 0 or ctx.tick < ctx.hurt_tick:
 		return false
 	var running := running_tick_rate()
 	var rate := float(maxi(running, 1)) if running > 0 else 64.0
-	return 1.0 - float(ctx.tick - ctx.hurt_tick) / (DotWeaponAccuracyClass.FLINCH_SEC * rate) > 0.0
+	return 1.0 - float(ctx.tick - ctx.hurt_tick) / (GSWeaponAccuracyClass.FLINCH_SEC * rate) > 0.0
 
 
 ## A crosshair gets the cone the last tick computed, so it cannot disagree with the shot.
@@ -361,15 +361,15 @@ func spread_now() -> float:
 
 
 ## The cone the skipped rest ticks would have computed: the settled posture over today's state, rules and tuning.
-func _refresh_shown(b: DotWeaponBallistics) -> void:
+func _refresh_shown(b: GSWeaponBallistics) -> void:
 	_shown_stale = false
 	_shown = _spread_for(b, _settled_ctx())
 
 
-## A carrier that stands still on the ground, unhurt and not aiming: what [member DotWeaponArsenal.idle_still] stands for.
-func _settled_ctx() -> DotWeaponContext:
+## A carrier that stands still on the ground, unhurt and not aiming: what [member GSWeaponArsenal.idle_still] stands for.
+func _settled_ctx() -> GSWeaponContext:
 	if _settled == null:
-		_settled = DotWeaponContext.new()
+		_settled = GSWeaponContext.new()
 	return _settled
 
 
@@ -411,7 +411,7 @@ func rest_tick(still: Callable) -> bool:
 	return true
 
 
-## [method DotWeaponBehaviour.idle_row] on the native twin: [method rest_tick] and [method _tick] with the row's posture,
+## [method GSWeaponBehaviour.idle_row] on the native twin: [method rest_tick] and [method _tick] with the row's posture,
 ## bit for bit, in one call. Declines (nothing changed) without GameSpice Sim, a refused row, a twin built before
 ## `idle`, or a crosshair cone held at a steady fixed point (only the script's rest tick keeps that).
 func idle_row(row: PackedFloat64Array, rest: bool) -> int:
@@ -436,7 +436,7 @@ func idle_row(row: PackedFloat64Array, rest: bool) -> int:
 ## [method idle_row] with the arsenal's rules, crosshair and rate handed in. When all the native rows were made from is
 ## provably unchanged (def, ballistics and rules at the same revision, tick fields, class key, crosshair, rate),
 ## [method _native_ready] would send nothing, so the native call runs at once; else, or at idle_gate 0, [method idle_row].
-func idle_row_framed(row: PackedFloat64Array, rest: bool, rules: DotWeaponSpreadRules, crosshair: bool, rate: int) -> int:
+func idle_row_framed(row: PackedFloat64Array, rest: bool, rules: GSWeaponSpreadRules, crosshair: bool, rate: int) -> int:
 	if idle_gate == 0:
 		return idle_row(row, rest)
 	var cone := crosshair and rules != null
@@ -450,7 +450,7 @@ func idle_row_framed(row: PackedFloat64Array, rest: bool, rules: DotWeaponSpread
 	return _native_idle_call(row, rest, cone)
 
 
-func _idle_gate_holds(rules: DotWeaponSpreadRules, cone: bool, rate: int) -> bool:
+func _idle_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool:
 	var b := _native_b
 	if not native_tick or _native_idle != 1 or not _native_framed or b == null or def != _native_def:
 		return false
@@ -467,7 +467,7 @@ func _idle_gate_holds(rules: DotWeaponSpreadRules, cone: bool, rate: int) -> boo
 
 # Idle gate 2: what the arsenal handed in must be what idle_row reads, and a gate that held must leave _native_ready
 # nothing to send.
-func _idle_gate_verify(held: bool, rules: DotWeaponSpreadRules, cone: bool, rate: int) -> void:
+func _idle_gate_verify(held: bool, rules: GSWeaponSpreadRules, cone: bool, rate: int) -> void:
 	var read_rules := _rules_object()
 	var read_cone := read_rules != null and bool(arsenal.get(&"crosshair_cone"))
 	var miss := ""
@@ -508,8 +508,8 @@ func _native_idle_call(row: PackedFloat64Array, rest: bool, cone: bool) -> int:
 
 
 ## Needs a context while enabled spread rules follow the carrier, a crosshair follows an idle player
-## ([member DotWeaponArsenal.crosshair_cone]) or the cone settles, unless the arsenal has an
-## [member DotWeaponArsenal.idle_posture] to stand in for it.
+## ([member GSWeaponArsenal.crosshair_cone]) or the cone settles, unless the arsenal has an
+## [member GSWeaponArsenal.idle_posture] to stand in for it.
 func tick_needs_context() -> bool:
 	# A provided posture answers every want below, so a server (which sets one) skips the arsenal reads.
 	if _posture_provided():
@@ -530,13 +530,13 @@ func _posture_provided() -> bool:
 	return arsenal != null and (arsenal.get(&"idle_posture") as Callable).is_valid()
 
 
-## The accuracy class of this weapon (see [DotWeaponAccuracyClass]).
+## The accuracy class of this weapon (see [GSWeaponAccuracyClass]).
 func accuracy_class() -> String:
 	return _class_of(_ballistics())
 
 
 # Takes the ballistics the caller already holds: a tick asks for the class up to three times.
-func _class_of(b: DotWeaponBallistics) -> String:
+func _class_of(b: GSWeaponBallistics) -> String:
 	var explicit := b.accuracy_class if b != null else ""
 	var id: StringName = def.id if def != null else &""
 	# Compared field by field, not as one formatted key: every spread read asks this, every tick.
@@ -545,14 +545,14 @@ func _class_of(b: DotWeaponBallistics) -> String:
 	_class_key_set = true
 	_class_key = explicit
 	_class_id = id
-	_class = DotWeaponAccuracyClass.resolve(explicit, def.tags if def != null else [], id)
-	_pre_hip = DotWeaponAccuracyClass.preset(_class, "spread_hip")
-	_pre_slide = DotWeaponAccuracyClass.preset(_class, "spread_slide")
-	_pre_sprint = DotWeaponAccuracyClass.preset(_class, "spread_sprint")
-	_pre_flinch = DotWeaponAccuracyClass.preset(_class, "spread_flinch")
-	_pre_crouch = DotWeaponAccuracyClass.preset(_class, "bloom_crouch")
-	_pre_aim = DotWeaponAccuracyClass.preset(_class, "spread_aim")
-	_pre_settle = DotWeaponAccuracyClass.preset(_class, "settle")
+	_class = GSWeaponAccuracyClass.resolve(explicit, def.tags if def != null else [], id)
+	_pre_hip = GSWeaponAccuracyClass.preset(_class, "spread_hip")
+	_pre_slide = GSWeaponAccuracyClass.preset(_class, "spread_slide")
+	_pre_sprint = GSWeaponAccuracyClass.preset(_class, "spread_sprint")
+	_pre_flinch = GSWeaponAccuracyClass.preset(_class, "spread_flinch")
+	_pre_crouch = GSWeaponAccuracyClass.preset(_class, "bloom_crouch")
+	_pre_aim = GSWeaponAccuracyClass.preset(_class, "spread_aim")
+	_pre_settle = GSWeaponAccuracyClass.preset(_class, "settle")
 	return _class
 
 
@@ -561,7 +561,7 @@ func bloom_delay_ticks() -> int:
 	return _bloom_delay_of(_ballistics())
 
 
-func _bloom_delay_of(b: DotWeaponBallistics) -> int:
+func _bloom_delay_of(b: GSWeaponBallistics) -> int:
 	var own := _class_ticks_of(b, b.bloom_delay_ticks, "bloom_delay") if b != null else 0
 	var interval := scaled_ticks(def.use_interval_ticks) if def != null else 0
 	return maxi(own, interval + 1)
@@ -571,17 +571,17 @@ func _class_ticks(own: int, key: String) -> int:
 	return _class_ticks_of(_ballistics(), own, key)
 
 
-func _class_ticks_of(b: DotWeaponBallistics, own: int, key: String) -> int:
+func _class_ticks_of(b: GSWeaponBallistics, own: int, key: String) -> int:
 	if own >= 0:
 		return scaled_ticks(own)
 	var rate := running_tick_rate()
 	if rate <= 0:
 		rate = def.authored_tick_rate if def != null and def.authored_tick_rate > 0 else 64
-	return roundi(DotWeaponAccuracyClass.preset(_class_of(b), key) * float(rate))
+	return roundi(GSWeaponAccuracyClass.preset(_class_of(b), key) * float(rate))
 
 
 ## _class_ticks_of(b, b.settle_ticks, "settle") with the kept preset: a slowing carrier asks it every tick.
-func _settle_ticks_of(b: DotWeaponBallistics) -> int:
+func _settle_ticks_of(b: GSWeaponBallistics) -> int:
 	if b.settle_ticks >= 0:
 		return scaled_ticks(b.settle_ticks)
 	var rate := running_tick_rate()
@@ -591,7 +591,7 @@ func _settle_ticks_of(b: DotWeaponBallistics) -> int:
 	return roundi(_pre_settle * float(rate))
 
 
-func _motion_of(b: DotWeaponBallistics, ctx: DotWeaponContext) -> float:
+func _motion_of(b: GSWeaponBallistics, ctx: GSWeaponContext) -> float:
 	return clampf(ctx.speed / maxf(0.001, b.spread_speed_ref), 0.0, 1.0)
 
 
@@ -599,25 +599,25 @@ func _cone_tracked() -> bool:
 	return _rules_object() != null and bool(arsenal.get(&"crosshair_cone"))
 
 
-func _rules_object() -> DotWeaponSpreadRules:
-	return arsenal.get(&"spread_rules") as DotWeaponSpreadRules if arsenal != null else null
+func _rules_object() -> GSWeaponSpreadRules:
+	return arsenal.get(&"spread_rules") as GSWeaponSpreadRules if arsenal != null else null
 
 
-func _rules() -> DotWeaponSpreadRules:
+func _rules() -> GSWeaponSpreadRules:
 	var rules := _rules_object()
 	return rules if rules != null and rules.enabled else null
 
 
 ## The cone for this context: posture, settling motion, hip, flinch and the server rules, plus bloom;
 ## aiming then tightens the whole, and `sv_spread_scale` scales it.
-func _spread_for(b: DotWeaponBallistics, ctx: DotWeaponContext) -> float:
+func _spread_for(b: GSWeaponBallistics, ctx: GSWeaponContext) -> float:
 	return _spread_with(b, ctx, _rules())
 
 
 ## [method _spread_for] under [param rules] (null for none), for a caller that already holds them;
 ## [param every] is [method _rules_object], enabled or not.
 func _spread_with(
-	b: DotWeaponBallistics, ctx: DotWeaponContext, rules: DotWeaponSpreadRules, every: DotWeaponSpreadRules = _rules_object()
+	b: GSWeaponBallistics, ctx: GSWeaponContext, rules: GSWeaponSpreadRules, every: GSWeaponSpreadRules = _rules_object()
 ) -> float:
 	var motion := maxf(float(state.get(_MOTION, 0.0)), _motion_of(b, ctx))
 	return _spread_at(b, ctx, rules, every, motion, float(state.get(_FACTOR, 1.0)), float(state.get(_BLOOM, 0.0)))
@@ -625,7 +625,7 @@ func _spread_with(
 
 ## [method _spread_with] with the state's motion, factor and bloom already read (a tick has them from its own writes).
 func _spread_at(
-	b: DotWeaponBallistics, ctx: DotWeaponContext, rules: DotWeaponSpreadRules, every: DotWeaponSpreadRules,
+	b: GSWeaponBallistics, ctx: GSWeaponContext, rules: GSWeaponSpreadRules, every: GSWeaponSpreadRules,
 	motion: float, factor: float, bloom_state: float
 ) -> float:
 	# Each term is b.accuracy(key, class) without its by-name lookups (an idle moving carrier computes this every tick):
@@ -641,7 +641,7 @@ func _spread_at(
 	if ctx.hurt_tick >= 0 and ctx.tick >= ctx.hurt_tick:
 		var running := running_tick_rate()
 		var rate := float(maxi(running, 1)) if running > 0 else 64.0
-		var left := 1.0 - float(ctx.tick - ctx.hurt_tick) / (DotWeaponAccuracyClass.FLINCH_SEC * rate)
+		var left := 1.0 - float(ctx.tick - ctx.hurt_tick) / (GSWeaponAccuracyClass.FLINCH_SEC * rate)
 		out += (b.spread_flinch if b.spread_flinch >= 0.0 else _pre_flinch) * clampf(left, 0.0, 1.0)
 	if rules != null:
 		out = rules.apply(out, factor)
@@ -659,7 +659,7 @@ func _spread_at(
 
 
 ## The weapon's own recoil multiplier for this posture (aim, crouch, moving or airborne).
-func recoil_posture(b: DotWeaponBallistics, ctx: DotWeaponContext) -> float:
+func recoil_posture(b: GSWeaponBallistics, ctx: GSWeaponContext) -> float:
 	var klass := accuracy_class()
 	var f := 1.0
 	if ctx.aiming:
@@ -671,7 +671,7 @@ func recoil_posture(b: DotWeaponBallistics, ctx: DotWeaponContext) -> float:
 	return f
 
 
-func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var b := _ballistics()
 
 	var damage := b.damage_at(ctx.charge) if b != null else tune_float(&"damage", 20.0)
@@ -684,9 +684,9 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 	else:
 		spread = tune_float(&"spread", 0.0)
 
-	var out := DotWeaponOutcome.of(DotWeaponOutcome.KIND_SHOT)
+	var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_SHOT)
 
-	var shot := DotShot.make(def.id, ctx.entity, ctx.tick, ctx.index)
+	var shot := GSShot.make(def.id, ctx.entity, ctx.tick, ctx.index)
 	shot.origin = ctx.origin
 	shot.direction = ctx.direction
 	shot.spread = spread
@@ -703,22 +703,22 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 		shot.splash_type = b.splash_type
 		shot.splash_hurts_owner = b.splash_hurts_owner
 
-	var rr := DotWeaponRecoilRules.of(arsenal)
+	var rr := GSWeaponRecoilRules.of(arsenal)
 	var bullet_offset := Vector2.ZERO
 	if b != null and rr != null:
 		bullet_offset = rr.apply(out, b, state, ctx, def.id, running_tick_rate(), recoil_posture(b, ctx))
-		shot.direction = DotWeaponRecoilRules.offset_direction(shot.direction, bullet_offset)
+		shot.direction = GSWeaponRecoilRules.offset_direction(shot.direction, bullet_offset)
 
-	# A simulated bullet is flown by DotWeaponBulletBridge; the shot is deferred so GameSpice Combat only
+	# A simulated bullet is flown by GSWeaponBulletBridge; the shot is deferred so GameSpice Combat only
 	# records its endpoint. Off (the default) this line never runs and the shot is unchanged.
-	if DotWeaponBallisticsRules.simulates(arsenal.get(&"ballistics_rules") as DotWeaponBallisticsRules if arsenal != null else null, b):
+	if GSWeaponBallisticsRules.simulates(arsenal.get(&"ballistics_rules") as GSWeaponBallisticsRules if arsenal != null else null, b):
 		shot.deferred = true
 		var round_id: StringName = arsenal.call("ammo_of", def.id) if arsenal.has_method("ammo_of") else &""
 		if round_id != &"":
 			shot.set_meta(&"ammo", round_id)
 
 	if arsenal != null and arsenal.has_method("round_for") and not shot.deferred:
-		var ammo := arsenal.call("round_for", def.id) as DotWeaponAmmoType
+		var ammo := arsenal.call("round_for", def.id) as GSWeaponAmmoType
 		if ammo != null:
 			shot.penetration = ammo.make_penetration()
 			shot.set_meta(&"ammo", ammo.id)
@@ -729,7 +729,7 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 	if b != null:
 		if rr == null:
 			var scale := recoil_posture(b, ctx)
-			var flat := arsenal.get(&"recoil_rules") as DotWeaponRecoilRules if arsenal != null else null
+			var flat := arsenal.get(&"recoil_rules") as GSWeaponRecoilRules if arsenal != null else null
 			if flat != null:
 				scale *= flat.scale
 			out.recoil = Vector2(b.recoil_pitch, b.recoil_yaw) * scale

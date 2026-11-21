@@ -1,6 +1,6 @@
 extends "sections_knives.gd"
 
-## DotWeaponHitscan.native_tick: a context tick through GameSpice Sim's DotSimWeaponSpread must leave what the GDScript tick
+## GSWeaponHitscan.native_tick: a context tick through GameSpice Sim's GSSimWeaponSpread must leave what the GDScript tick
 ## leaves, bit for bit. Random weapons tick twice, once each way, on shared tuning, rules and arsenal objects edited
 ## mid-run (each edit must reach the cached native rows); then the rest streams run with the native tick on one arsenal.
 ## Without GameSpice Sim loaded every check passes as a skip, so the count stays fixed.
@@ -18,14 +18,14 @@ class NativeArsenal:
 
 func _test_native_tick() -> void:
 	_section("the native spread tick matches the GDScript tick")
-	var present := ClassDB.class_exists(&"DotSimWeaponSpread")
-	var native_was := DotWeaponHitscan.native_tick
+	var present := ClassDB.class_exists(&"GSSimWeaponSpread")
+	var native_was := GSWeaponHitscan.native_tick
 	if not present:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
 		# Then the idle gate's four.
 		for i in range(4 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4):
-			_check(true, "skip: DotSimWeaponSpread not loaded")
+			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
 
@@ -40,9 +40,9 @@ func _test_native_tick() -> void:
 	var first_miss := ""
 	for i in range(_NATIVE_CASES):
 		var w := _native_case(rng)
-		var hn: DotWeaponHitscan = w[0]
-		var hs: DotWeaponHitscan = w[1]
-		var ctx := DotWeaponContext.new()
+		var hn: GSWeaponHitscan = w[0]
+		var hs: GSWeaponHitscan = w[1]
+		var ctx := GSWeaponContext.new()
 		var hold := 0
 		for t in range(_NATIVE_TICKS):
 			if hold <= 0:
@@ -59,9 +59,9 @@ func _test_native_tick() -> void:
 					d[&"since_use"] = 0
 					d[&"bloom"] = bloom
 			var none := rng.randf() < 0.1
-			DotWeaponHitscan.native_tick = true
+			GSWeaponHitscan.native_tick = true
 			hn._tick(null if none else ctx)
-			DotWeaponHitscan.native_tick = false
+			GSWeaponHitscan.native_tick = false
 			hs._tick(null if none else ctx)
 			ticks += 1
 			if not none:
@@ -77,7 +77,7 @@ func _test_native_tick() -> void:
 				first_miss = "case %d tick %d: %s" % [i, t, miss]
 		if hs._native != null:
 			script_clean = false
-	DotWeaponHitscan.native_tick = native_was
+	GSWeaponHitscan.native_tick = native_was
 
 	_check(first_miss == "", "%d ticks of %d random weapons: state and cone match the GDScript tick, key for key and bit for bit" % [ticks, _NATIVE_CASES], first_miss)
 	_check(native_ran and steady_off, "every context tick of the native twin ran natively and kept no steady fixed point (%d)" % shown_ticks)
@@ -102,19 +102,19 @@ func _check_native_rest_streams(native_was: bool) -> void:
 			all_same = false
 			detail = res["detail"]
 	_rest_native = false
-	DotWeaponHitscan.native_tick = native_was
-	DotWeaponHitscan.steady_skip = true
+	GSWeaponHitscan.native_tick = native_was
+	GSWeaponHitscan.steady_skip = true
 	_check(all_same, "the rest streams agree with the native tick on one arsenal: outcomes, snapshots, state and cone", detail)
 
 
 ## The rest streams again, with that arsenal's idle ticks as one native call from a posture row (idle_tick_row). The
-## idle gate runs its verify mode here (DotWeaponBehaviour.idle_gate 2): _check_idle_gate counts what it found.
+## idle gate runs its verify mode here (GSWeaponBehaviour.idle_gate 2): _check_idle_gate counts what it found.
 func _check_native_row_streams(native_was: bool) -> void:
 	_rest_native = true
 	_rest_row = true
-	_gate_row_misses = DotWeaponBehaviour.idle_gate_misses
-	var gate_was := DotWeaponBehaviour.idle_gate
-	DotWeaponBehaviour.idle_gate = 2
+	_gate_row_misses = GSWeaponBehaviour.idle_gate_misses
+	var gate_was := GSWeaponBehaviour.idle_gate
+	GSWeaponBehaviour.idle_gate = 2
 	var all_same := true
 	var detail := ""
 	for mode: String in _MODES:
@@ -124,34 +124,34 @@ func _check_native_row_streams(native_was: bool) -> void:
 			detail = res["detail"]
 	_rest_row = false
 	_rest_native = false
-	DotWeaponBehaviour.idle_gate = gate_was
-	_gate_row_misses = DotWeaponBehaviour.idle_gate_misses - _gate_row_misses
-	DotWeaponHitscan.native_tick = native_was
-	DotWeaponHitscan.steady_skip = true
+	GSWeaponBehaviour.idle_gate = gate_was
+	_gate_row_misses = GSWeaponBehaviour.idle_gate_misses - _gate_row_misses
+	GSWeaponHitscan.native_tick = native_was
+	GSWeaponHitscan.steady_skip = true
 	_check(all_same, "the rest streams agree with the idle row on one arsenal: outcomes, snapshots, state and cone", detail)
 
 
 var _gate_row_misses := 0
 
 
-## DotWeaponBehaviour.idle_gate: the gated idle row (1) and its verify mode (2) leave what the plain one (0) leaves, bit
+## GSWeaponBehaviour.idle_gate: the gated idle row (1) and its verify mode (2) leave what the plain one (0) leaves, bit
 ## for bit, over three behaviours on one random weapon edited mid-run (tuning, rules, class, rate, crosshair) with uses and
 ## script ticks between rows; then a posed tick_needs_context answers as the plain one for every kind of weapon.
 func _check_idle_gate(native_was: bool) -> void:
-	var gate_was := DotWeaponBehaviour.idle_gate
-	var misses_was := DotWeaponBehaviour.idle_gate_misses
+	var gate_was := GSWeaponBehaviour.idle_gate
+	var misses_was := GSWeaponBehaviour.idle_gate_misses
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261118
 	var rows := 0
 	var held := 0
 	var first_miss := ""
-	DotWeaponHitscan.native_tick = true
+	GSWeaponHitscan.native_tick = true
 	for i in range(_NATIVE_CASES):
 		var w := _native_case(rng)
-		var hs: Array[DotWeaponHitscan] = [w[0], w[1], DotWeaponHitscan.new()]
+		var hs: Array[GSWeaponHitscan] = [w[0], w[1], GSWeaponHitscan.new()]
 		hs[2].setup(w[3], w[4])
 		var arsenal: NativeArsenal = w[4]
-		var ctx := DotWeaponContext.new()
+		var ctx := GSWeaponContext.new()
 		var hold := 0
 		for t in range(_NATIVE_TICKS):
 			if hold <= 0:
@@ -168,18 +168,18 @@ func _check_idle_gate(native_was: bool) -> void:
 					h.state[&"bloom"] = bloom
 			if rng.randf() < 0.05:
 				# A script context tick between rows: it may leave a steady fixed point the rows must decline on.
-				DotWeaponHitscan.native_tick = false
+				GSWeaponHitscan.native_tick = false
 				for h in hs:
 					h._tick(ctx)
-				DotWeaponHitscan.native_tick = true
+				GSWeaponHitscan.native_tick = true
 			var row := PackedFloat64Array([ctx.speed, float(ctx.airborne), float(ctx.crouched), float(ctx.aiming),
 					float(ctx.sliding), float(ctx.sprinting), float(ctx.wall_running), ctx.tick, ctx.hurt_tick])
 			var rest := rng.randf() < 0.5
-			var rules: DotWeaponSpreadRules = arsenal.spread_rules
+			var rules: GSWeaponSpreadRules = arsenal.spread_rules
 			var rate: int = arsenal.tick_rate
 			var took: Array[int] = []
 			for g in range(3):
-				DotWeaponBehaviour.idle_gate = g
+				GSWeaponBehaviour.idle_gate = g
 				if g == 1 and hs[1]._idle_gate_holds(rules, arsenal.crosshair_cone and rules != null, rate):
 					held += 1
 				took.append(hs[g].idle_row_framed(row, rest, rules, arsenal.crosshair_cone, rate))
@@ -190,21 +190,21 @@ func _check_idle_gate(native_was: bool) -> void:
 					miss = "took %s shown %s/%s stale %s/%s" % [took, hs[0]._shown, hs[g]._shown, hs[0]._shown_stale, hs[g]._shown_stale]
 				if miss != "" and first_miss == "":
 					first_miss = "gate %d case %d tick %d: %s" % [g, i, t, miss]
-	DotWeaponBehaviour.idle_gate = gate_was
-	DotWeaponHitscan.native_tick = native_was
-	var misses := DotWeaponBehaviour.idle_gate_misses - misses_was
+	GSWeaponBehaviour.idle_gate = gate_was
+	GSWeaponHitscan.native_tick = native_was
+	var misses := GSWeaponBehaviour.idle_gate_misses - misses_was
 	_check(first_miss == "", "%d idle rows of %d random weapons: gate 1 and its verify mode leave what gate 0 leaves, key for key and bit for bit" % [rows, _NATIVE_CASES], first_miss)
 	_check(held > rows / 2 and misses == 0, "the gate held on most rows (%d of %d) and its verify mode found nothing" % [held, rows], "held %d misses %d" % [held, misses])
 	_check(_gate_row_misses == 0, "the rest streams' idle rows under the verify mode: the arsenal's frame is the one idle_row reads, the gate never stale", str(_gate_row_misses))
 
 	var cat := _catalogue()
 	var a := _arsenal(cat)
-	var ctx := DotWeaponContext.new()
-	a.idle_posture = func() -> DotWeaponContext: return ctx
+	var ctx := GSWeaponContext.new()
+	a.idle_posture = func() -> GSWeaponContext: return ctx
 	var differ := ""
 	for id in cat.ids():
 		var made := cat.instantiate(id, a)
-		var b: DotWeaponBehaviour = made.value if made.ok else null
+		var b: GSWeaponBehaviour = made.value if made.ok else null
 		if b == null or b.tick_needs_context_posed() != b.tick_needs_context():
 			differ += "%s " % id
 	_drop(a)
@@ -216,14 +216,14 @@ func _check_native_missing_class(native_was: bool) -> void:
 	var cat := _catalogue()
 	var a := _arsenal(cat)
 	a.give(&"rifle")
-	var h := a.current().behaviour as DotWeaponHitscan
-	var present_was := DotWeaponHitscan._native_present
-	DotWeaponHitscan._native_present = 0
-	DotWeaponHitscan.native_tick = true
+	var h := a.current().behaviour as GSWeaponHitscan
+	var present_was := GSWeaponHitscan._native_present
+	GSWeaponHitscan._native_present = 0
+	GSWeaponHitscan.native_tick = true
 	h._tick(_ctx(0))
 	_check(h._native == null and h.state.has(&"since_use"), "without the class the GDScript tick runs")
-	DotWeaponHitscan._native_present = present_was
-	DotWeaponHitscan.native_tick = native_was
+	GSWeaponHitscan._native_present = present_was
+	GSWeaponHitscan.native_tick = native_was
 	_drop(a)
 
 
@@ -231,7 +231,7 @@ func _check_native_missing_class(native_was: bool) -> void:
 ## A random weapon on a stub arsenal, as GameSpice Sim's parity test builds it: [native behaviour, script behaviour, ballistics,
 ## def, arsenal]. Both behaviours share the def, tuning and arsenal, so an edit reaches both.
 func _native_case(rng: RandomNumberGenerator) -> Array:
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.spread = rng.randf_range(0.0, 3.0)
 	b.spread_moving = rng.randf_range(0.0, 8.0)
 	b.spread_speed_ref = [0.1, 3.0, 6.0, rng.randf_range(0.5, 12.0)][rng.randi_range(0, 3)]
@@ -245,7 +245,7 @@ func _native_case(rng: RandomNumberGenerator) -> Array:
 	b.settle_ticks = -1 if rng.randf() < 0.5 else rng.randi_range(0, 12)
 	for f: StringName in [&"spread_aim", &"spread_hip", &"spread_sprint", &"spread_slide", &"spread_flinch", &"bloom_crouch"]:
 		b.set(f, -1.0 if rng.randf() < 0.5 else rng.randf_range(0.0, 2.0))
-	var def := DotWeaponDef.new()
+	var def := GSWeaponDef.new()
 	def.id = StringName(["ak", "mp5", "awp", "deagle", "m3", "x"][rng.randi_range(0, 5)])
 	def.tuning = b
 	def.authored_tick_rate = [0, 64, 128][rng.randi_range(0, 2)]
@@ -256,9 +256,9 @@ func _native_case(rng: RandomNumberGenerator) -> Array:
 	var pick := rng.randi_range(0, 2)
 	if pick > 0:
 		arsenal.spread_rules = _native_rules_roll(rng, pick == 2)
-	var hn := DotWeaponHitscan.new()
+	var hn := GSWeaponHitscan.new()
 	hn.setup(def, arsenal)
-	var hs := DotWeaponHitscan.new()
+	var hs := GSWeaponHitscan.new()
 	hs.setup(def, arsenal)
 	return [hn, hs, b, def, arsenal]
 
@@ -267,8 +267,8 @@ func _native_class_roll(rng: RandomNumberGenerator) -> String:
 	return ["", "rifle", "smg", "lmg", "sniper", "shotgun", "pistol"][rng.randi_range(0, 6)]
 
 
-func _native_rules_roll(rng: RandomNumberGenerator, enabled: bool) -> DotWeaponSpreadRules:
-	var r := DotWeaponSpreadRules.new()
+func _native_rules_roll(rng: RandomNumberGenerator, enabled: bool) -> GSWeaponSpreadRules:
+	var r := GSWeaponSpreadRules.new()
 	r.enabled = enabled
 	r.scale = rng.randf_range(0.5, 2.0)
 	for f: StringName in [&"mult_hip", &"mult_aim", &"mult_stand", &"mult_walk", &"mult_run", &"mult_air", &"mult_sprint", &"mult_slide", &"mult_crouch"]:
@@ -283,8 +283,8 @@ func _native_rules_roll(rng: RandomNumberGenerator, enabled: bool) -> DotWeaponS
 ## One edit the cached native rows must see: a ballistics field, the class, the def's tick fields, the arsenal's rate,
 ## crosshair or rules (a field, on/off, a new object or none). Returns 1.
 func _native_edit(rng: RandomNumberGenerator, w: Array) -> int:
-	var b: DotWeaponBallistics = w[2]
-	var def: DotWeaponDef = w[3]
+	var b: GSWeaponBallistics = w[2]
+	var def: GSWeaponDef = w[3]
 	var arsenal: NativeArsenal = w[4]
 	match rng.randi_range(0, 11):
 		0: b.spread = rng.randf_range(0.0, 3.0)
@@ -298,7 +298,7 @@ func _native_edit(rng: RandomNumberGenerator, w: Array) -> int:
 		8: arsenal.crosshair_cone = not arsenal.crosshair_cone
 		9:
 			if arsenal.spread_rules != null:
-				var r: DotWeaponSpreadRules = arsenal.spread_rules
+				var r: GSWeaponSpreadRules = arsenal.spread_rules
 				match rng.randi_range(0, 3):
 					0: r.mult_stand = rng.randf_range(0.3, 2.5)
 					1: r.recovery = rng.randf_range(0.5, 12.0)
@@ -310,7 +310,7 @@ func _native_edit(rng: RandomNumberGenerator, w: Array) -> int:
 
 
 ## A random posture: often still, at the rules' thresholds, or flinching.
-func _native_posture_roll(rng: RandomNumberGenerator, ctx: DotWeaponContext, h: DotWeaponHitscan) -> void:
+func _native_posture_roll(rng: RandomNumberGenerator, ctx: GSWeaponContext, h: GSWeaponHitscan) -> void:
 	var r := h._rules_object()
 	var speeds := [0.0, 0.0, rng.randf_range(0.0, 10.0), rng.randf_range(0.0, 1.0)]
 	if r != null:

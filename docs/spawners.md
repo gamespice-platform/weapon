@@ -1,26 +1,26 @@
 # Weapon spawners
 
-A generic "something appears here, is taken, and comes back" layer: weapon spawners on a map, ammo and health pickups, a trader's shelf. It lives in `addons/dot_weapon/spawner/` because it draws from the weapon catalogue's ids and tags; nothing in it names a weapon, an entry id is any string the game understands and `kind` says what the game does with it. It places nothing in the world: the server's `DotWeaponSpawner` emits events, the game makes and removes the pickup.
+A generic "something appears here, is taken, and comes back" layer: weapon spawners on a map, ammo and health pickups, a trader's shelf. It lives in `addons/dot_weapon/spawner/` because it draws from the weapon catalogue's ids and tags; nothing in it names a weapon, an entry id is any string the game understands and `kind` says what the game does with it. It places nothing in the world: the server's `GSWeaponSpawner` emits events, the game makes and removes the pickup.
 
 ## Pieces
 
 | Class | Role |
 | --- | --- |
-| `DotWeaponSpawnSite` | plain data for one place: `id`, `position`, `rotation_y`, `pool`, `item` (fixed), `filter`, `respawn_seconds`, `respawn_jitter`, `initial_delay`, `max_alive`, `one_shot`, `lifetime_seconds`, `group`, `kind`, `enabled`, `data` |
-| `DotWeaponSpawnPoint` | the `Node3D` marker a mapper places (exports of the same fields; `collect(root)`) |
-| `DotWeaponSpawnPool` | weighted entries `{id, kind, weight, tags, data}`; `candidates(filter)`, `pick(filter, unit)`; built from config with an optional `catalogue:` block that adds every `DotWeaponDef` whose tags match |
-| `DotWeaponSpawnerConfig` | the layered file, `MAP_KEYS` (scalars for GameSpice Map), `get_setting`/`set_setting` |
-| `DotWeaponSpawner` | server: `load_map`, `add_entities`, `begin_round`, `tick`, `take`, `roll`, `snapshot`; signals `changed(event)`, `spawned`, `taken` |
-| `DotWeaponSpawnView` | client mirror: `apply(event)`, `apply_snapshot(snap)`; signals `appeared`, `vanished` |
+| `GSWeaponSpawnSite` | plain data for one place: `id`, `position`, `rotation_y`, `pool`, `item` (fixed), `filter`, `respawn_seconds`, `respawn_jitter`, `initial_delay`, `max_alive`, `one_shot`, `lifetime_seconds`, `group`, `kind`, `enabled`, `data` |
+| `GSWeaponSpawnPoint` | the `Node3D` marker a mapper places (exports of the same fields; `collect(root)`) |
+| `GSWeaponSpawnPool` | weighted entries `{id, kind, weight, tags, data}`; `candidates(filter)`, `pick(filter, unit)`; built from config with an optional `catalogue:` block that adds every `GSWeaponDef` whose tags match |
+| `GSWeaponSpawnerConfig` | the layered file, `MAP_KEYS` (scalars for GameSpice Map), `get_setting`/`set_setting` |
+| `GSWeaponSpawner` | server: `load_map`, `add_entities`, `begin_round`, `tick`, `take`, `roll`, `snapshot`; signals `changed(event)`, `spawned`, `taken` |
+| `GSWeaponSpawnView` | client mirror: `apply(event)`, `apply_snapshot(snap)`; signals `appeared`, `vanished` |
 
 ## Server use
 
 ```gdscript
-var spawner := DotWeaponSpawner.new()
+var spawner := GSWeaponSpawner.new()
 spawner.config.game = "game-x"          # reads cfg/game/game-x/dot_weapon/spawner.yml
 spawner.config.defs = my_weapon_defs    # for pools with a catalogue: block
 spawner.config.load_files()
-spawner.load_map(map_id, DotWeaponSpawnPoint.collect(map_root))   # and/or spawner.add_entities(entities)
+spawner.load_map(map_id, GSWeaponSpawnPoint.collect(map_root))   # and/or spawner.add_entities(entities)
 spawner.changed.connect(send_event_to_clients)   # [&"spawn", inst, site, item, kind, pos, rot_y, data] / [&"take", inst, taker]
 spawner.spawned.connect(make_pickup)             # (instance, site, item, kind, at)
 spawner.begin_round(now, round_number)           # every round: new seeded draw
@@ -37,7 +37,7 @@ Send each `changed` event over the game's channel and call `view.apply(event)`; 
 
 ## Config
 
-`spawner.yml`, layered by GameSpice Core's `DotAddonConfig` (`cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then `cfg/server/...` for the operator), merged key by key.
+`spawner.yml`, layered by GameSpice Core's `GSAddonConfig` (`cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then `cfg/server/...` for the operator), merged key by key.
 
 ```yaml
 default_pool: guns
@@ -75,11 +75,11 @@ maps:                       # per-map blocks, same keys; id or glob, the more li
         respawn: 20
 ```
 
-The parser (`DotYaml`, GameSpice Core v0.1.46 or later) reads one-line flow mappings (`{a: 1}`) and lists (`[a, b]`). A site's fields come from, weakest first: the marker or entity, `sites:` in the file, the matching `maps:` blocks. Site keys accept `respawn`/`max`/`lifetime` as short names. A filter is `tags_any`, `tags_all`, `tags_none`, `ids` (lists or `"a, b"`); weight 0 removes an entry.
+The parser (`GSYaml`, GameSpice Core v0.1.46 or later) reads one-line flow mappings (`{a: 1}`) and lists (`[a, b]`). A site's fields come from, weakest first: the marker or entity, `sites:` in the file, the matching `maps:` blocks. Site keys accept `respawn`/`max`/`lifetime` as short names. A filter is `tags_any`, `tags_all`, `tags_none`, `ids` (lists or `"a, b"`); weight 0 removes an entry.
 
 ### Scalars through GameSpice Map's per-map files
 
-`DotWeaponSpawnerConfig.MAP_KEYS` is a schema for `DotMapConfig`: `spawner_enabled`, `spawner_respawn_scale`, `spawner_max_scale`, `spawner_seed`, `spawner_pool`. A game adds them to `_map_config_keys()` and routes them in `_map_config_get/_set` to `config.get_setting/set_setting`; then `cfg/game/<game>/dot_map/map/<name>.yml` (and the operator's copy, and `--dot-map.map.spawner_respawn_scale=2`) sets them per map or per map glob, and dot-map restores them on the next map. Apply them before `begin_round`.
+`GSWeaponSpawnerConfig.MAP_KEYS` is a schema for `GSMapConfig`: `spawner_enabled`, `spawner_respawn_scale`, `spawner_max_scale`, `spawner_seed`, `spawner_pool`. A game adds them to `_map_config_keys()` and routes them in `_map_config_get/_set` to `config.get_setting/set_setting`; then `cfg/game/<game>/dot_map/map/<name>.yml` (and the operator's copy, and `--dot-map.map.spawner_respawn_scale=2`) sets them per map or per map glob, and dot-map restores them on the next map. Apply them before `begin_round`.
 
 ## Randomness
 
@@ -106,15 +106,15 @@ Ammo for a weapon found is the game's. The spawner does not know a pickup was mo
 
 ## Reference moved from the class docs
 
-### DotWeaponSpawner: usage and determinism
+### GSWeaponSpawner: usage and determinism
 
 It places nothing in the world: it says "item X now lies at P" through [signal changed] and the game makes the pickup (a loot entry, a node, a trader's shelf). When the game's pickup is used it calls [method take], which frees the slot and starts the timer. Time is whatever clock the game passes to [method tick], so a test can drive it.
 
 ```
-var spawner := DotWeaponSpawner.new()
+var spawner := GSWeaponSpawner.new()
 spawner.config.game = "game-x"          # the cfg/game/<game>/dot_weapon/spawner.yml tier
 spawner.config.load_files()
-spawner.load_map(map_id, DotWeaponSpawnPoint.collect(map_root))   # or add_entities(doc_entities)
+spawner.load_map(map_id, GSWeaponSpawnPoint.collect(map_root))   # or add_entities(doc_entities)
 spawner.changed.connect(func(ev: Array) -> void: send_to_clients(ev))
 spawner.begin_round(now, round_number)  # then spawner.tick(now) every server tick
 # on use:  var r := spawner.take(instance, player_id)   # r.value = {item, kind, site, data}
@@ -122,9 +122,9 @@ spawner.begin_round(now, round_number)  # then spawner.tick(now) every server ti
 
 [b]Determinism.[/b] A draw is `stream(seed, site, round).unit_at(n)`, n the site's own draw count, so the same seed, map and round give the same items whatever order sites tick in; a new round changes them.
 
-### DotWeaponSpawnerConfig: layers and format
+### GSWeaponSpawnerConfig: layers and format
 
-[b]Two kinds of setting.[/b] The structure (pools, sites, groups) is `spawner.yml` in each `gs-weapon` tier of [DotAddonConfig]: `cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then the operator's `cfg/server/...` copies, merged weakest first. A top-level `maps:` mapping holds per-map blocks (same keys) under a map id or a glob (`zz_*`, case-insensitive); the more literal characters win. The scalars in [method map_keys] go through GameSpice Map's per-map files instead (`dot_map/map/<name>.yml`), which is where a game's [code]DotGameModule._map_config_get/_set[/code] reach them, so a map can switch spawners off or halve a timer without a block here.
+[b]Two kinds of setting.[/b] The structure (pools, sites, groups) is `spawner.yml` in each `gs-weapon` tier of [GSAddonConfig]: `cfg/addons/dot_weapon/`, `cfg/game/<game>/dot_weapon/`, then the operator's `cfg/server/...` copies, merged weakest first. A top-level `maps:` mapping holds per-map blocks (same keys) under a map id or a glob (`zz_*`, case-insensitive); the more literal characters win. The scalars in [method map_keys] go through GameSpice Map's per-map files instead (`dot_map/map/<name>.yml`), which is where a game's [code]GSGameModule._map_config_get/_set[/code] reach them, so a map can switch spawners off or halve a timer without a block here.
 
 ```
 pools:
@@ -143,4 +143,4 @@ game:                   # free-form block for the game
       primary: 500
 ```
 
-DotYaml (GameSpice Core v0.1.46 or later) reads one-line flow mappings as well as block style; an older GameSpice Core refuses `{a: 1}`, so block style is the portable form.
+GSYaml (GameSpice Core v0.1.46 or later) reads one-line flow mappings as well as block style; an older GameSpice Core refuses `{a: 1}`, so block style is the portable form.

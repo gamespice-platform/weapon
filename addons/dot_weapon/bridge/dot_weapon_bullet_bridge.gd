@@ -1,32 +1,32 @@
-class_name DotWeaponBulletBridge
+class_name GSWeaponBulletBridge
 extends Node
 
 ## Flies simulated bullets for GameSpice Combat: a drop-in for `combat.resolve_shot(shot, view_tick)`.
 ## Rules off or no muzzle velocity: exactly `combat.resolve_shot`. On: one bullet per pellet, and
 ## rays, hitboxes, rewind and damage stay GameSpice Combat's own, so a game writes none.
 
-signal bullet_hit(id: int, damage: DotDamage)
+signal bullet_hit(id: int, damage: GSDamage)
 ## Before the world is rewound for a bullet of [param owner_id] (a game keeps the shooter in place).
 signal rewinding(owner_id: int)
 ## A simulated bullet left the muzzle: what a game sends a remote client so it can fly the same path.
 signal bullet_spawned(id: int, owner_id: int, weapon_id: StringName, origin: Vector3, velocity: Vector3)
 
-var combat: DotCombatManager = null
-var bullets: DotWeaponBullets = null
+var combat: GSCombatManager = null
+var bullets: GSWeaponBullets = null
 ## Optional: rounds by id (shot meta `ammo`, set from the arsenal's loaded round). Null changes nothing.
-var ammo_types: DotWeaponAmmoTypes = null
+var ammo_types: GSWeaponAmmoTypes = null
 ## Optional: armour per hit zone. Null changes nothing.
-var hitzones: DotWeaponHitzones = null
+var hitzones: GSWeaponHitzones = null
 var _shots: Dictionary = {}
 var _ammo: Dictionary = {}
 var _flight: Dictionary = {}
 var _ids_by_shot: Dictionary = {}
 
 
-## [param rules] is the shared [DotWeaponBallisticsRules]; call once the manager is set up.
-func setup(manager: DotCombatManager, rules: DotWeaponBallisticsRules, tick_rate: int = 64) -> void:
+## [param rules] is the shared [GSWeaponBallisticsRules]; call once the manager is set up.
+func setup(manager: GSCombatManager, rules: GSWeaponBallisticsRules, tick_rate: int = 64) -> void:
 	combat = manager
-	bullets = DotWeaponBullets.new()
+	bullets = GSWeaponBullets.new()
 	bullets.name = "Bullets"
 	bullets.rules = rules
 	bullets.tick_rate = tick_rate
@@ -42,12 +42,12 @@ func setup(manager: DotCombatManager, rules: DotWeaponBallisticsRules, tick_rate
 
 
 ## Resolve [param shot] fired by a weapon with [param tuning]. Returns the shot either way.
-func resolve_shot(shot: DotShot, tuning: DotWeaponBallistics, view_tick: float = -1.0) -> DotShot:
+func resolve_shot(shot: GSShot, tuning: GSWeaponBallistics, view_tick: float = -1.0) -> GSShot:
 	var res := combat.resolve_shot(shot, view_tick)
-	if bullets == null or not shot.deferred or not DotWeaponBallisticsRules.simulates(bullets.rules, tuning):
+	if bullets == null or not shot.deferred or not GSWeaponBallisticsRules.simulates(bullets.rules, tuning):
 		return res
 	var lag := maxf(float(shot.tick) - view_tick, 0.0) if view_tick >= 0.0 else 0.0
-	var ammo: DotWeaponAmmoType = ammo_types.get_type(shot.get_meta(&"ammo", &"")) if ammo_types != null else null
+	var ammo: GSWeaponAmmoType = ammo_types.get_type(shot.get_meta(&"ammo", &"")) if ammo_types != null else null
 	var flown := _flown(tuning, ammo)
 	for dir in shot.pellets:
 		var id := bullets.spawn(shot.attacker, shot.origin, dir, flown, lag)
@@ -66,7 +66,7 @@ func tick(now_tick: float) -> void:
 
 
 ## The tuning a round flies with; one copy per (tuning, round) so the bullet node's cache holds.
-func _flown(tuning: DotWeaponBallistics, ammo: DotWeaponAmmoType) -> DotWeaponBallistics:
+func _flown(tuning: GSWeaponBallistics, ammo: GSWeaponAmmoType) -> GSWeaponBallistics:
 	if ammo == null or not ammo.alters_flight():
 		return tuning
 	var key := [tuning.get_instance_id(), ammo.get_instance_id()]
@@ -98,9 +98,9 @@ func _restore() -> void:
 		combat.restore_fn.call()
 
 
-func _on_hit(id: int, owner_id: int, info: Dictionary, distance: float, mult: float, _tuning: DotWeaponBallistics) -> void:
-	var shot: DotShot = _shots.get(id)
-	var ammo: DotWeaponAmmoType = _ammo.get(id)
+func _on_hit(id: int, owner_id: int, info: Dictionary, distance: float, mult: float, _tuning: GSWeaponBallistics) -> void:
+	var shot: GSShot = _shots.get(id)
+	var ammo: GSWeaponAmmoType = _ammo.get(id)
 	_shots.erase(id)
 	_ammo.erase(id)
 	var hit: Variant = info.get("trace")
@@ -113,7 +113,7 @@ func _on_hit(id: int, owner_id: int, info: Dictionary, distance: float, mult: fl
 	var scale := mult * (ammo.damage if ammo != null else 1.0)
 	if hitzones != null:
 		scale *= hitzones.multiplier(hit.group, hit.entity, ammo.armour_pierce if ammo != null else 0.0)
-	var damage := DotDamage.make(owner_id, victim, shot.damage * scale * combat.config.damage_scale, type)
+	var damage := GSDamage.make(owner_id, victim, shot.damage * scale * combat.config.damage_scale, type)
 	damage.hit_group = hit.group
 	damage.limb = hit.limb
 	damage.context["entity"] = hit.entity

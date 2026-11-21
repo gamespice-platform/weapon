@@ -1,4 +1,4 @@
-class_name DotWeaponProfiles
+class_name GSWeaponProfiles
 extends RefCounted
 
 ## Loads weapons from `weapon` profiles (the `cfg/addons`, `cfg/game`, `cfg/server/addons` and `cfg/server/game` tiers).
@@ -10,9 +10,9 @@ const FIRE_MODES := ["semi", "auto", "burst", "charge", "hold"]
 const OPS := ["set", "mul", "add"]
 
 
-## The common keys (the [DotWeaponDef] fields a pack rarely subclasses). Anything else goes under `extra:`.
+## The common keys (the [GSWeaponDef] fields a pack rarely subclasses). Anything else goes under `extra:`.
 static func schema() -> Array:
-	var f := DotProfileSet.field
+	var f := GSProfileSet.field
 	return [
 		f.call("name", "string", ""),
 		f.call("description", "string", ""),
@@ -55,7 +55,7 @@ static func profile_schemas() -> Dictionary:
 
 ## The schema of an upgrade. `set`, `mul` and `add` name keys of the weapon (schema or `extra:`).
 static func upgrade_schema() -> Array:
-	var f := DotProfileSet.field
+	var f := GSProfileSet.field
 	return [
 		f.call("name", "string", ""),
 		f.call("description", "string", ""),
@@ -69,9 +69,9 @@ static func upgrade_schema() -> Array:
 
 
 ## A profile set for weapons of [param addon] and [param game]; [param roots] overrides the config roots (tests).
-## [param layer] (a Dictionary, see [member DotWeaponProfileGroup.runtime]) is shared as the set's runtime layer, so live edits reach it.
-static func make_set(addon: String, game: String, roots: PackedStringArray = PackedStringArray(), layer: Variant = null) -> DotProfileSet:
-	var s := DotProfileSet.create(addon, game, KIND, schema())
+## [param layer] (a Dictionary, see [member GSWeaponProfileGroup.runtime]) is shared as the set's runtime layer, so live edits reach it.
+static func make_set(addon: String, game: String, roots: PackedStringArray = PackedStringArray(), layer: Variant = null) -> GSProfileSet:
+	var s := GSProfileSet.create(addon, game, KIND, schema())
 	s.roots = roots
 	if layer is Dictionary:
 		s.runtime = layer
@@ -79,26 +79,26 @@ static func make_set(addon: String, game: String, roots: PackedStringArray = Pac
 
 
 ## Copies every script variable of [param from] onto [param into], so holders of [param into] see a rebuilt definition.
-static func refresh_def(into: DotWeaponDef, from: DotWeaponDef) -> void:
+static func refresh_def(into: GSWeaponDef, from: GSWeaponDef) -> void:
 	for p: Dictionary in from.get_property_list():
 		if int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE:
 			into.set(p["name"], from.get(p["name"]))
 
 
 ## Weapon ids found on disk, sorted; opens no file.
-static func list_ids(profiles: DotProfileSet) -> PackedStringArray:
+static func list_ids(profiles: GSProfileSet) -> PackedStringArray:
 	return profiles.list_ids()
 
 
 ## One weapon as a flat dictionary: `extra:` keys, then the schema keys over them.
-static func flat(profile: DotProfile) -> Dictionary:
+static func flat(profile: GSProfile) -> Dictionary:
 	var out: Dictionary = profile.extra.duplicate(true)
 	out.merge(profile.values.duplicate(true), true)
 	return out
 
 
-## Fills the common [DotWeaponDef] fields from [param c] for the keys it holds; the rest is the pack's.
-static func apply_common(d: DotWeaponDef, c: Dictionary) -> void:
+## Fills the common [GSWeaponDef] fields from [param c] for the keys it holds; the rest is the pack's.
+static func apply_common(d: GSWeaponDef, c: Dictionary) -> void:
 	if c.has("name"):
 		d.display_name = String(c["name"])
 	if c.has("description"):
@@ -120,11 +120,11 @@ static func apply_common(d: DotWeaponDef, c: Dictionary) -> void:
 	if c.has("fire_mode"):
 		var i := FIRE_MODES.find(str(c["fire_mode"]))
 		if i >= 0:
-			d.fire_mode = i as DotWeaponDef.Fire
+			d.fire_mode = i as GSWeaponDef.Fire
 	if c.has("fire_modes"):
 		var modes := PackedStringArray()
 		for m in c["fire_modes"]:
-			if DotWeaponDef.fire_mode_named(str(m)) >= 0:
+			if GSWeaponDef.fire_mode_named(str(m)) >= 0:
 				modes.append(str(m).to_lower())
 		d.fire_modes = modes
 	for k in ["slot", "authored_tick_rate", "deploy_ticks", "holster_ticks", "use_interval_ticks", "burst_count",
@@ -143,22 +143,22 @@ static func apply_common(d: DotWeaponDef, c: Dictionary) -> void:
 		d.crosshair_scale = float(c["crosshair_scale"])
 
 
-## Loads one profile into a [DotWeaponDef] of the common fields, with [member DotWeaponDef.params] taken from `extra:`.
+## Loads one profile into a [GSWeaponDef] of the common fields, with [member GSWeaponDef.params] taken from `extra:`.
 ## The value of the result.
-static func load_def(profiles: DotProfileSet, id: String) -> DotResult:
+static func load_def(profiles: GSProfileSet, id: String) -> GSResult:
 	var res := profiles.load_profile(id)
 	if not res.ok:
 		return res
-	var d := DotWeaponDef.new()
+	var d := GSWeaponDef.new()
 	d.id = StringName(id)
 	apply_common(d, res.value.values)
 	d.params = res.value.extra.duplicate(true)
-	return DotResult.success(d)
+	return GSResult.success(d)
 
 
 ## Menu entries `{id, category, icon, sort, hidden}` for the visible weapons, sorted by sort then id.
 ## Reads each profile's yml, never a model or script.
-static func menu_entries(profiles: DotProfileSet, include_hidden: bool = false) -> Array:
+static func menu_entries(profiles: GSProfileSet, include_hidden: bool = false) -> Array:
 	var out: Array = []
 	for id in profiles.list_ids():
 		var res := profiles.load_profile(id)
@@ -180,42 +180,42 @@ static func menu_entries(profiles: DotProfileSet, include_hidden: bool = false) 
 
 
 ## The upgrade set of weapon [param id] (`weapon/<id>/upgrades`).
-static func upgrade_set(profiles: DotProfileSet, id: String) -> DotProfileSet:
+static func upgrade_set(profiles: GSProfileSet, id: String) -> GSProfileSet:
 	return profiles.child_set(id, UPGRADES, upgrade_schema())
 
 
 ## Upgrade ids of weapon [param id], sorted; opens no file.
-static func list_upgrades(profiles: DotProfileSet, id: String) -> PackedStringArray:
+static func list_upgrades(profiles: GSProfileSet, id: String) -> PackedStringArray:
 	return upgrade_set(profiles, id).list_ids()
 
 
 ## Applies the upgrades [param ids], in order, to [param base] (a flat weapon dictionary).
 ## Per upgrade `set` runs, then `mul`, then `add`; a `requires` id must come earlier in the list.
 ## Value: `{values, cost}`, [param base] itself is untouched.
-static func apply_upgrades(base: Dictionary, ups: DotProfileSet, ids: Array) -> DotResult:
+static func apply_upgrades(base: Dictionary, ups: GSProfileSet, ids: Array) -> GSResult:
 	var out: Dictionary = base.duplicate(true)
 	var done := {}
 	var cost := 0
 	for raw_id in ids:
 		var uid := str(raw_id)
 		if done.has(uid):
-			return DotResult.fail(DotError.CODE_INVALID, "upgrade %s applied twice" % uid)
+			return GSResult.fail(GSError.CODE_INVALID, "upgrade %s applied twice" % uid)
 		var res := ups.load_profile(uid)
 		if not res.ok:
 			return res
-		var u: DotProfile = res.value
+		var u: GSProfile = res.value
 		for req in u.get_value("requires", []):
 			if not done.has(str(req)):
-				return DotResult.fail(DotError.CODE_INVALID, "upgrade %s needs %s first" % [uid, str(req)])
+				return GSResult.fail(GSError.CODE_INVALID, "upgrade %s needs %s first" % [uid, str(req)])
 		for op in OPS:
 			var mods: Dictionary = u.get_value(op, {})
 			for key in mods:
 				var applied := _apply_op(out, str(key), op, mods[key])
 				if applied != "":
-					return DotResult.fail(DotError.CODE_INVALID, "upgrade %s: %s" % [uid, applied])
+					return GSResult.fail(GSError.CODE_INVALID, "upgrade %s: %s" % [uid, applied])
 		cost += int(u.get_value("cost", 0))
 		done[uid] = true
-	return DotResult.success({"values": out, "cost": cost})
+	return GSResult.success({"values": out, "cost": cost})
 
 
 ## An error text, or "" when [param op] was applied to [param key] in [param c].
@@ -238,7 +238,7 @@ static func _apply_op(c: Dictionary, key: String, op: String, v: Variant) -> Str
 	c[key] = int(round(n)) if cur is int else n
 	return ""
 
-# Overlay of profiles on a pack's code-built defs: only keys a file sets ([member DotProfile.file_keys])
+# Overlay of profiles on a pack's code-built defs: only keys a file sets ([member GSProfile.file_keys])
 # change a def. `extra: tuning:` and `extra: params:` hold the tuning numbers and the def's params;
 # upgrades name them flat (`tuning.damage`, `params.x`, `magazine`).
 const OVERLAY_CHANNEL := "weapon.profiles"
@@ -248,8 +248,8 @@ const OVERLAY_SKIP := ["menu", "enabled"]
 
 
 ## The profile set of [param addon] for a code-built pack (see [method tune]); a mounted pack's cfg root ([param pack_root]) is the weakest root.
-static func overlay_set(addon: String, game: String = "", pack_root: String = "", base_roots: PackedStringArray = PackedStringArray(), layer: Variant = null) -> DotProfileSet:
-	var roots := base_roots if not base_roots.is_empty() else DotProfileSet.default_roots()
+static func overlay_set(addon: String, game: String = "", pack_root: String = "", base_roots: PackedStringArray = PackedStringArray(), layer: Variant = null) -> GSProfileSet:
+	var roots := base_roots if not base_roots.is_empty() else GSProfileSet.default_roots()
 	if pack_root != "":
 		roots = PackedStringArray([pack_root]) + roots
 	return make_set(addon, game, roots, layer)
@@ -257,7 +257,7 @@ static func overlay_set(addon: String, game: String = "", pack_root: String = ""
 
 ## Lays the profiles over [param defs] in place; a profile with no weapon here is ignored with a WARN.
 ## Returns the profiles that failed to load (their weapons keep the builder's numbers).
-static func tune(defs: Array[DotWeaponDef], set: DotProfileSet) -> PackedStringArray:
+static func tune(defs: Array[GSWeaponDef], set: GSProfileSet) -> PackedStringArray:
 	var errors := PackedStringArray()
 	var ids := set.list_ids()
 	if ids.is_empty():
@@ -271,7 +271,7 @@ static func tune(defs: Array[DotWeaponDef], set: DotProfileSet) -> PackedStringA
 		var res := set.load_profile(id)
 		if not res.ok:
 			errors.append(res.error.message)
-			DotLog.error(OVERLAY_CHANNEL, "weapon profile skipped", {"id": id, "why": res.error.message})
+			GSLog.error(OVERLAY_CHANNEL, "weapon profile skipped", {"id": id, "why": res.error.message})
 			continue
 		apply_flat(by_id[id], file_flat(res.value))
 	set.clear_cache()
@@ -279,20 +279,20 @@ static func tune(defs: Array[DotWeaponDef], set: DotProfileSet) -> PackedStringA
 
 
 ## The keys [param p]'s files set, as the flat form [method flat_of] writes.
-static func file_flat(p: DotProfile) -> Dictionary:
+static func file_flat(p: GSProfile) -> Dictionary:
 	var out := {}
 	for path in p.file_keys:
 		var parts := String(path).split(".")
-		if parts[0] == DotProfileSet.EXTRA_KEY:
+		if parts[0] == GSProfileSet.EXTRA_KEY:
 			if parts.size() > 2:
-				out[".".join(parts.slice(1))] = DotYaml.at(p.extra, ".".join(parts.slice(1)))
+				out[".".join(parts.slice(1))] = GSYaml.at(p.extra, ".".join(parts.slice(1)))
 		elif parts[0] not in OVERLAY_SKIP:
 			out[parts[0]] = p.values[parts[0]]
 	return out
 
 
 ## Applies a flat dictionary (see [method flat_of]) to [param def]; unknown tuning keys are logged and skipped.
-static func apply_flat(def: DotWeaponDef, values: Dictionary) -> void:
+static func apply_flat(def: GSWeaponDef, values: Dictionary) -> void:
 	var common := {}
 	for key: String in values:
 		if key.begins_with(OVERLAY_TUNING + "."):
@@ -305,9 +305,9 @@ static func apply_flat(def: DotWeaponDef, values: Dictionary) -> void:
 	apply_common(def, common)
 
 
-static func _set_tuning(def: DotWeaponDef, name: String, value: Variant) -> void:
+static func _set_tuning(def: GSWeaponDef, name: String, value: Variant) -> void:
 	if def.tuning == null or not (name in def.tuning) or typeof(def.tuning.get(name)) not in [TYPE_INT, TYPE_FLOAT, TYPE_BOOL, TYPE_STRING]:
-		DotLog.warn(OVERLAY_CHANNEL, "unknown tuning key in profile; ignored", {"weapon": String(def.id), "key": name})
+		GSLog.warn(OVERLAY_CHANNEL, "unknown tuning key in profile; ignored", {"weapon": String(def.id), "key": name})
 		return
 	def.tuning.set(name, _coerce(def.tuning.get(name), value))
 
@@ -324,7 +324,7 @@ static func _coerce(current: Variant, given: Variant) -> Variant:
 
 
 ## Every tunable of [param def] as one flat dictionary: the schema keys, `tuning.*` and `params.*`.
-static func flat_of(def: DotWeaponDef) -> Dictionary:
+static func flat_of(def: GSWeaponDef) -> Dictionary:
 	var out := {
 		"name": def.display_name, "description": def.description,
 		"tags": Array(def.tags).map(func(t: StringName) -> String: return String(t)),
@@ -352,7 +352,7 @@ static func flat_of(def: DotWeaponDef) -> Dictionary:
 
 
 ## The yml text of [param def]'s builder numbers: what the shipped `weapon/<id>.yml` holds.
-static func to_yaml(def: DotWeaponDef, addon_title: String) -> String:
+static func to_yaml(def: GSWeaponDef, addon_title: String) -> String:
 	var fl := flat_of(def)
 	var top: PackedStringArray = ["# %s: %s. Durations are ticks at %d Hz; delete a key to keep the builder's value." % [addon_title, def.id, def.authored_tick_rate]]
 	var tuning: PackedStringArray = []
@@ -393,12 +393,12 @@ static func profile_path(addon: String, id: String, root: String = "res://cfg") 
 
 
 ## [param def] with the upgrades [param ids] applied, a copy; value `{def, cost}`.
-static func upgraded(def: DotWeaponDef, ids: Array, set: DotProfileSet) -> DotResult:
+static func upgraded(def: GSWeaponDef, ids: Array, set: GSProfileSet) -> GSResult:
 	var ups := upgrade_set(set, String(def.id))
 	var res := apply_upgrades(flat_of(def), ups, ids)
 	ups.clear_cache()
 	if not res.ok:
 		return res
-	var copy := def.duplicate(true) as DotWeaponDef
+	var copy := def.duplicate(true) as GSWeaponDef
 	apply_flat(copy, res.value["values"])
-	return DotResult.success({"def": copy, "cost": res.value["cost"]})
+	return GSResult.success({"def": copy, "cost": res.value["cost"]})

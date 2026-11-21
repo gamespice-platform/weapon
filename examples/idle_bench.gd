@@ -1,7 +1,7 @@
 extends "selftest/harness.gd"
 
 ## Micro-benchmark of an idle hitscan carrier, the way a server's stand-in is ticked (idle_posture bound to
-## DotWeaponPlayerBridge.posture_for), with spread rules on, off, and on with crosshair_cone as FC runs it: microseconds per
+## GSWeaponPlayerBridge.posture_for), with spread rules on, off, and on with crosshair_cone as FC runs it: microseconds per
 ## call of each piece.
 ## Run: godot --headless --path . res://examples/idle_bench.tscn -- --rounds=20000
 
@@ -11,7 +11,7 @@ class FakePlayer extends Node3D:
 
 	func component(type_name: StringName) -> Object:
 		match String(type_name):
-			"DotPlayerController", "DotFpsController":
+			"GSPlayerController", "GSFpsController":
 				return ctrl
 			_:
 				return null
@@ -38,7 +38,7 @@ class FakeController extends Node:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -67,18 +67,18 @@ func _run() -> void:
 		a.give(&"rifle")
 		a.crosshair_cone = mode == "on, crosshair_cone"
 		if rules_on:
-			a.spread_rules = DotWeaponSpreadRules.new()
+			a.spread_rules = GSWeaponSpreadRules.new()
 			a.spread_rules.enabled = true
-		a.idle_posture = DotWeaponPlayerBridge.posture_for.bind(player)
-		var cmd := DotWeaponCommand.new()
+		a.idle_posture = GSWeaponPlayerBridge.posture_for.bind(player)
+		var cmd := GSWeaponCommand.new()
 		print("-- spread rules %s" % mode)
 		_time("is_idle_for", rounds, func() -> void: a.is_idle_for(cmd, null))
-		_time("posture_for (provider)", rounds, func() -> void: DotWeaponPlayerBridge.posture_for(player, 5))
+		_time("posture_for (provider)", rounds, func() -> void: GSWeaponPlayerBridge.posture_for(player, 5))
 		var beh := a.current().behaviour
-		var ctx := DotWeaponPlayerBridge.posture_for(player, 5)
+		var ctx := GSWeaponPlayerBridge.posture_for(player, 5)
 		_time("behaviour.tick(posture ctx)", rounds, func() -> void: beh.tick(ctx))
 		_time("behaviour.tick(null)", rounds, func() -> void: beh.tick(null))
-		_time("still_for (the skip's question)", rounds, func() -> void: DotWeaponPlayerBridge.still_for(player))
+		_time("still_for (the skip's question)", rounds, func() -> void: GSWeaponPlayerBridge.still_for(player))
 		for i in range(3):
 			a.idle_tick()
 		a.idle_rest_skip = false
@@ -97,8 +97,8 @@ func _run() -> void:
 			player.ctrl.velocity = Vector3(3.0 + float(step[0] % 50) * 0.05, 0.0, 0.0)
 			if a.is_idle_for(cmd, null):
 				a.idle_tick())
-		var b: DotWeaponBallistics = a.current().def.tuning
-		var moving := DotWeaponPlayerBridge.posture_for(player, 5)
+		var b: GSWeaponBallistics = a.current().def.tuning
+		var moving := GSWeaponPlayerBridge.posture_for(player, 5)
 		_time("behaviour.tick(moving ctx)", rounds, func() -> void:
 			step[0] += 1
 			moving.speed = 3.0 + float(step[0] % 50) * 0.05

@@ -39,11 +39,11 @@ class KnifeController extends RefCounted:
 	var state: KnifeState = KnifeState.new()
 
 
-## The duck-typed player DotWeaponKnives reads.
+## The duck-typed player GSWeaponKnives reads.
 class KnifePlayer extends RefCounted:
-	var arsenal: DotWeaponArsenal = null
+	var arsenal: GSWeaponArsenal = null
 	var controller: KnifeController = KnifeController.new()
-	var health: DotHealth = null
+	var health: GSHealth = null
 
 	func is_alive() -> bool:
 		return health == null or health.alive
@@ -62,8 +62,8 @@ func _test_knives() -> void:
 	_test_knife_wire()
 
 
-func _knife_layer(players: Dictionary) -> DotWeaponKnives:
-	var k := DotWeaponKnives.new()
+func _knife_layer(players: Dictionary) -> GSWeaponKnives:
+	var k := GSWeaponKnives.new()
 	k.tick_rate = RATE
 	k.player_for = func(id: int): return players.get(id, null)
 	k.player_ids = func() -> Array: return players.keys()
@@ -77,14 +77,14 @@ func _knife_player(boomerang: bool) -> KnifePlayer:
 	var knife := c.get_def(&"knife")
 	knife.mounts = [&"grip"] as Array[StringName]
 	var a := _arsenal(c)
-	var cat := DotWeaponAttachments.new()
+	var cat := GSWeaponAttachments.new()
 	var att := _att("boomerang", &"grip")
-	att.params_set = {DotWeaponKnives.PARAM_BOOMERANG: true}
+	att.params_set = {GSWeaponKnives.PARAM_BOOMERANG: true}
 	var _added := cat.add(att)
 	a.attachments = cat
 	var _given := a.give(&"knife", true)
 	if boomerang:
-		var f := DotWeaponFitting.make(&"knife")
+		var f := GSWeaponFitting.make(&"knife")
 		f.fit(&"grip", &"boomerang")
 		var _fitted := a.fit(knife.slot, f)
 	a.bring_to_hand(knife.slot)
@@ -93,22 +93,22 @@ func _knife_player(boomerang: bool) -> KnifePlayer:
 	return p
 
 
-func _aim(down: bool) -> DotWeaponCommand:
-	var c := DotWeaponCommand.new()
-	c.set_button(DotWeaponCommand.BUTTON_AIM, down)
+func _aim(down: bool) -> GSWeaponCommand:
+	var c := GSWeaponCommand.new()
+	c.set_button(GSWeaponCommand.BUTTON_AIM, down)
 	return c
 
 
 func _test_knife_charge() -> void:
 	_section("thrown knife: charged throw")
-	var rules := DotWeaponKnives.DEFAULT_RULES.duplicate()
-	_check(not bool(rules["charge"]) and DotWeaponKnives.power_fraction(rules, 0.0) == 1.0, "charge is off by default and throws at full power")
+	var rules := GSWeaponKnives.DEFAULT_RULES.duplicate()
+	_check(not bool(rules["charge"]) and GSWeaponKnives.power_fraction(rules, 0.0) == 1.0, "charge is off by default and throws at full power")
 	var p := _knife_player(false)
 	var players := {1: p}
 	var layer := _knife_layer(players)
 	var press := _aim(true)
 	layer.input(1, p, press)
-	_check(layer.count() == 1 and not press.is_pressed(DotWeaponCommand.BUTTON_AIM), "without charge the press throws at once and takes the aim key")
+	_check(layer.count() == 1 and not press.is_pressed(GSWeaponCommand.BUTTON_AIM), "without charge the press throws at once and takes the aim key")
 	_close(layer.entries()[0].velocity.length(), 40.0, "at the full speed")
 	layer.clear()
 
@@ -117,21 +117,21 @@ func _test_knife_charge() -> void:
 	p.arsenal.bring_to_hand(4)
 	var first := _aim(true)
 	layer.input(1, p, first)
-	_check(layer.count() == 0 and layer.charge_of(1) == 0.0 and not first.is_pressed(DotWeaponCommand.BUTTON_AIM), "with charge the press winds up, empty meter, aim key taken")
+	_check(layer.count() == 0 and layer.charge_of(1) == 0.0 and not first.is_pressed(GSWeaponCommand.BUTTON_AIM), "with charge the press winds up, empty meter, aim key taken")
 	for i in RATE / 2:
 		layer.input(1, p, _aim(true))
 	_close(layer.charge_of(1), 0.5, "half a second of holding half fills a one-second meter")
 	layer.input(1, p, _aim(false))
 	_check(layer.count() == 1 and layer.charge_of(1) == -1.0 and not p.arsenal.carries(&"knife"), "the release throws it")
 	_close(layer.entries()[0].velocity.length(), 40.0 * lerpf(0.35, 1.0, 0.5), "at the power the meter showed")
-	_close(DotWeaponKnives.power_fraction(layer.rules, 5.0), 1.0, "a long hold is full power")
+	_close(GSWeaponKnives.power_fraction(layer.rules, 5.0), 1.0, "a long hold is full power")
 	layer.rules["charge_sec"] = 0.0
-	_close(DotWeaponKnives.power_fraction(layer.rules, 0.0), 1.0, "charge_sec 0 is full power at once")
+	_close(GSWeaponKnives.power_fraction(layer.rules, 0.0), 1.0, "charge_sec 0 is full power at once")
 	layer.clear()
 	p.arsenal.bring_to_hand(4)
 	layer.rules["charge_sec"] = 1.0
 	layer.input(1, p, _aim(true))
-	p.health = DotHealth.new()
+	p.health = GSHealth.new()
 	p.health.alive = false
 	layer.input(1, p, _aim(true))
 	_check(layer.charge_of(1) == -1.0 and layer.count() == 0, "dying cancels the wind-up")
@@ -143,13 +143,13 @@ func _test_knife_charge() -> void:
 func _test_knife_boomerang_loop() -> void:
 	_section("thrown knife: boomerang out, circle, back")
 	var p := _knife_player(true)
-	_check(DotWeaponKnives.is_boomerang(p.arsenal.current_def()), "the Boomerang attachment marks the fitted knife")
+	_check(GSWeaponKnives.is_boomerang(p.arsenal.current_def()), "the Boomerang attachment marks the fitted knife")
 	var layer := _knife_layer({1: p})
 	layer.rules["boomerang_distance"] = 18.0
 	layer.rules["boomerang_radius"] = 5.0
 	layer.rules["boomerang_catch"] = 0.0
 	layer.input(1, p, _aim(true))
-	var k: DotWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
+	var k: GSWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
 	_check(k != null and k.boomerang and layer.glides(k.id) and k.state.has("fit"), "the throw glides as a boomerang and keeps the fitting")
 	var origin := p.muzzle_position()
 	var aim := k.velocity.normalized()
@@ -164,7 +164,7 @@ func _test_knife_boomerang_loop() -> void:
 	var ticks := ceili(k.path_len / (k.speed / RATE)) + 2
 	for t in ticks:
 		layer.tick(t + 1, 1.0 / RATE)
-		if k.phase != DotWeaponKnives.Phase.FLY or not k.glide:
+		if k.phase != GSWeaponKnives.Phase.FLY or not k.glide:
 			break
 		apex = maxf(apex, k.at.distance_to(origin))
 		along_max = maxf(along_max, (k.at - origin).dot(aim))
@@ -188,7 +188,7 @@ func _test_knife_boomerang_loop() -> void:
 	_check(k.velocity.y < 0.0 and k.bounces >= 1, "then falls there and can no longer hurt anyone")
 	var curve := _boomerang_curve_checks()
 	var twins := _boomerang_twin_checks()
-	for l: DotWeaponKnives in [layer, curve] + twins:
+	for l: GSWeaponKnives in [layer, curve] + twins:
 		l.clear()
 		l.queue_free()
 	_done()
@@ -196,14 +196,14 @@ func _test_knife_boomerang_loop() -> void:
 
 func _test_knife_boomerang_catch() -> void:
 	_section("thrown knife: boomerang caught in the air")
-	_check(float(DotWeaponKnives.DEFAULT_RULES["boomerang_catch"]) > 0.0, "a returning Boomerang is caught by default")
+	_check(float(GSWeaponKnives.DEFAULT_RULES["boomerang_catch"]) > 0.0, "a returning Boomerang is caught by default")
 	var p := _knife_player(true)
 	var layer := _knife_layer({1: p})
 	layer.rules["boomerang_distance"] = 12.0
 	layer.rules["boomerang_radius"] = 3.0
 	layer.rules["boomerang_catch"] = 1.5
 	layer.input(1, p, _aim(true))
-	var k: DotWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
+	var k: GSWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
 	_check(k != null and not p.arsenal.carries(&"knife"), "the hand is empty while the knife flies")
 	var ticks := ceili(k.path_len / (k.speed / RATE)) + 2
 	var caught_at := -1.0
@@ -219,7 +219,7 @@ func _test_knife_boomerang_catch() -> void:
 	_check(layer.count() == 0 and p.arsenal.carries(&"knife"), "it comes back into the thrower's hand without touching the floor")
 	_check(caught_at >= 0.0 and caught_at < 1.5 + k.speed / RATE + 0.01, "caught within reach of the hand", "%.2f m" % caught_at)
 	_check(not out_leg_caught, "never caught on the way out")
-	_check(DotWeaponKnives.is_boomerang(p.arsenal.current_def()), "the caught knife keeps its Boomerang fitting")
+	_check(GSWeaponKnives.is_boomerang(p.arsenal.current_def()), "the caught knife keeps its Boomerang fitting")
 	layer.clear()
 	layer.queue_free()
 	# Walked away from the throw point: it flies past the empty spot and falls there.
@@ -228,7 +228,7 @@ func _test_knife_boomerang_catch() -> void:
 	away.rules["boomerang_distance"] = 12.0
 	away.rules["boomerang_radius"] = 3.0
 	away.input(1, q, _aim(true))
-	var qk: DotWeaponKnives.Knife = away.entries()[0] if away.count() == 1 else null
+	var qk: GSWeaponKnives.Knife = away.entries()[0] if away.count() == 1 else null
 	q.controller.state.position = Vector3(0.0, 0.0, 30.0)
 	for t in ceili(qk.path_len / (qk.speed / RATE)) + 2:
 		away.tick(t + 1, 1.0 / RATE)
@@ -240,14 +240,14 @@ func _test_knife_boomerang_catch() -> void:
 
 func _test_knife_boomerang_empty_hand() -> void:
 	_section("thrown knife: boomerang thrower waits bare-handed")
-	_check(bool(DotWeaponKnives.DEFAULT_RULES["boomerang_empty_hand"]), "the thrower waits bare-handed by default")
+	_check(bool(GSWeaponKnives.DEFAULT_RULES["boomerang_empty_hand"]), "the thrower waits bare-handed by default")
 	var p := _knife_with_sidearm()
 	var knife_slot: int = p.arsenal.current_slot()
 	var layer := _knife_layer({1: p})
 	layer.rules["boomerang_distance"] = 12.0
 	layer.rules["boomerang_radius"] = 3.0
 	layer.input(1, p, _aim(true))
-	var k: DotWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
+	var k: GSWeaponKnives.Knife = layer.entries()[0] if layer.count() == 1 else null
 	_check(k != null and p.arsenal.current_slot() == 0, "the throw leaves the hand empty, not on the next weapon", str(p.arsenal.current_slot()))
 	for t in ceili(k.path_len / (k.speed / RATE)) + 2:
 		layer.tick(t + 1, 1.0 / RATE)
@@ -262,7 +262,7 @@ func _test_knife_boomerang_empty_hand() -> void:
 	away.rules["boomerang_distance"] = 12.0
 	away.rules["boomerang_radius"] = 3.0
 	away.input(1, q, _aim(true))
-	var qk: DotWeaponKnives.Knife = away.entries()[0] if away.count() == 1 else null
+	var qk: GSWeaponKnives.Knife = away.entries()[0] if away.count() == 1 else null
 	q.controller.state.position = Vector3(0.0, 0.0, 30.0)
 	var waited := true
 	for t in ceili(qk.path_len / (qk.speed / RATE)) + 2:
@@ -289,7 +289,7 @@ func _test_knife_boomerang_empty_hand() -> void:
 func _knife_with_sidearm() -> KnifePlayer:
 	var p := _knife_player(true)
 	var knife_slot: int = p.arsenal.current_slot()
-	var c: DotWeaponCatalogue = p.arsenal.catalogue
+	var c: GSWeaponCatalogue = p.arsenal.catalogue
 	for id: StringName in c.ids():
 		if c.get_def(id).slot != knife_slot and p.arsenal.give(id, true).ok:
 			break
@@ -298,12 +298,12 @@ func _knife_with_sidearm() -> KnifePlayer:
 
 
 ## A default boomerang curves right and lands on the origin; returns the layer to free.
-func _boomerang_curve_checks() -> DotWeaponKnives:
+func _boomerang_curve_checks() -> GSWeaponKnives:
 	var curve := _knife_layer({})
 	curve.rules["boomerang_distance"] = 10.0
 	curve.rules["boomerang_radius"] = 3.0
 	var cid := curve.throw(1, Vector3.ZERO, Vector3.FORWARD, Vector3.ZERO, 1.0, true)
-	var ck: DotWeaponKnives.Knife = curve.entries()[0]
+	var ck: GSWeaponKnives.Knife = curve.entries()[0]
 	var far_x := 0.0
 	for t in ceili(ck.path_len / (ck.speed / RATE)) + 2:
 		curve.tick(t + 1, 1.0 / RATE)
@@ -320,19 +320,19 @@ func _boomerang_curve_checks() -> DotWeaponKnives:
 func _boomerang_twin_checks() -> Array:
 	var a := _knife_layer({})
 	var b := _knife_layer({})
-	for layer2: DotWeaponKnives in [a, b]:
+	for layer2: GSWeaponKnives in [a, b]:
 		layer2.rules["boomerang_left"] = true
 		var _id := layer2.throw(1, Vector3(1.0, 1.5, 2.0), Vector3(0.3, 0.2, -1.0), Vector3(0.5, 0.0, 0.0), 0.8, true)
 		for t in 40:
 			layer2.tick(t + 1, 1.0 / RATE)
-	var ka: DotWeaponKnives.Knife = a.entries()[0]
-	var kb: DotWeaponKnives.Knife = b.entries()[0]
+	var ka: GSWeaponKnives.Knife = a.entries()[0]
+	var kb: GSWeaponKnives.Knife = b.entries()[0]
 	_check(ka.at == kb.at and ka.velocity == kb.velocity, "two servers fly it bit-identically")
 	_check(ka.turn.length() > 0.0 and ka.turn.dot(ka.path_dir.cross(ka.path_side)) > 0.0, "the circling leg carries a turn for clients to fly")
 	var sharp := _knife_layer({})
 	sharp.rules["boomerang_radius"] = 0.0
 	var sk_id := sharp.throw(1, Vector3.ZERO, Vector3.FORWARD, Vector3.ZERO, 1.0, true)
-	var sk: DotWeaponKnives.Knife = sharp.entries()[0]
+	var sk: GSWeaponKnives.Knife = sharp.entries()[0]
 	for t in ceili(sk.path_len / (sk.speed / RATE)) + 2:
 		sharp.tick(t + 1, 1.0 / RATE)
 		if not sk.glide:
@@ -350,7 +350,7 @@ func _test_knife_boomerang_home() -> void:
 	var layer := _knife_layer({1: p})
 	layer.rules["boomerang_to_thrower"] = true
 	layer.input(1, p, _aim(true))
-	var k: DotWeaponKnives.Knife = layer.entries()[0]
+	var k: GSWeaponKnives.Knife = layer.entries()[0]
 	p.controller.state.position = Vector3(-4.0, 0.0, 3.0)
 	var caught := -1
 	for t in 400:
@@ -360,26 +360,26 @@ func _test_knife_boomerang_home() -> void:
 			break
 	_check(caught > 20, "it comes back to the thrower who moved", str(caught))
 	p.arsenal.bring_to_hand(4)
-	_check(p.arsenal.carries(&"knife") and DotWeaponKnives.is_boomerang(p.arsenal.current_def()), "into the hand, Boomerang still fitted")
+	_check(p.arsenal.carries(&"knife") and GSWeaponKnives.is_boomerang(p.arsenal.current_def()), "into the hand, Boomerang still fitted")
 	layer.queue_free()
 	_done()
 
 
 func _test_knife_boomerang_stick() -> void:
 	_section("thrown knife: boomerang sticks in a survivor")
-	var manager := DotCombatManager.new()
+	var manager := GSCombatManager.new()
 	manager.register_service = false
-	manager.trace = DotTraceFlat.with_floor(0.0)
-	manager.rules = DotDamageRules.new()
-	manager.config = DotCombatConfig.new()
+	manager.trace = GSTraceFlat.with_floor(0.0)
+	manager.rules = GSDamageRules.new()
+	manager.config = GSCombatConfig.new()
 	manager.config.tick_rate = RATE
 	add_child(manager)
 	var body := _bridge_target(-6.0)
-	var health: DotHealth = null
+	var health: GSHealth = null
 	for c in body.get_children():
-		if c is DotHitboxSet:
-			(c as DotHitboxSet).register_with(manager, 2)
-		elif c is DotHealth:
+		if c is GSHitboxSet:
+			(c as GSHitboxSet).register_with(manager, 2)
+		elif c is GSHealth:
 			health = c
 	manager.register_health(2, health)
 	var thrower := _knife_player(true)
@@ -393,10 +393,10 @@ func _test_knife_boomerang_stick() -> void:
 	layer.rules["damage"] = 10.0
 	layer.rules["boomerang_distance"] = 0.0
 	layer.input(1, thrower, _aim(true))
-	var k: DotWeaponKnives.Knife = layer.entries()[0]
+	var k: GSWeaponKnives.Knife = layer.entries()[0]
 	for t in 20:
 		layer.tick(t + 1, 1.0 / RATE)
-	_check(k.phase == DotWeaponKnives.Phase.STUCK and k.victim == 2 and health.alive and health.health < 100.0, "it hurts and stays in a victim who lives", "%d %s" % [k.phase, health.health])
+	_check(k.phase == GSWeaponKnives.Phase.STUCK and k.victim == 2 and health.alive and health.health < 100.0, "it hurts and stays in a victim who lives", "%d %s" % [k.phase, health.health])
 	_check(k.riding, "riding the living body")
 	var was := k.at
 	victim.controller.state.position += Vector3(2.0, 0.0, 0.0)
@@ -418,19 +418,19 @@ func _test_knife_wire() -> void:
 	_section("thrown knife: wire carries the glide")
 	var w := Tape.new()
 	var turn := Vector3(0.0, -3.9, 0.0)
-	DotWeaponKnifeWire.write_knife(w, 7, 1, DotWeaponKnives.Phase.FLY, 0, Vector3(1.0, 2.0, 3.0), Vector3(0.0, 0.0, -30.0), true, turn)
-	DotWeaponKnifeWire.write_knife(w, 8, 1, DotWeaponKnives.Phase.REST, 0, Vector3.ZERO, Vector3.FORWARD)
+	GSWeaponKnifeWire.write_knife(w, 7, 1, GSWeaponKnives.Phase.FLY, 0, Vector3(1.0, 2.0, 3.0), Vector3(0.0, 0.0, -30.0), true, turn)
+	GSWeaponKnifeWire.write_knife(w, 8, 1, GSWeaponKnives.Phase.REST, 0, Vector3.ZERO, Vector3.FORWARD)
 	var r := w
-	var one := DotWeaponKnifeWire.read_knife(r)
-	var two := DotWeaponKnifeWire.read_knife(r)
+	var one := GSWeaponKnifeWire.read_knife(r)
+	var two := GSWeaponKnifeWire.read_knife(r)
 	_check(one["ok"] and one["glide"] and one["turn"] == turn, "glide and turn round-trip", str(one["turn"]))
 	_check(two["ok"] and not two["glide"] and two["turn"] == Vector3.ZERO and two["id"] == 8, "a plain event after it still reads")
-	var client := DotWeaponKnives.new()
+	var client := GSWeaponKnives.new()
 	client.is_authority = false
 	add_child(client)
-	client.mirror(7, 1, DotWeaponKnives.Phase.FLY, 0, Vector3.ZERO, Vector3(0.0, 0.0, -30.0), true, turn)
+	client.mirror(7, 1, GSWeaponKnives.Phase.FLY, 0, Vector3.ZERO, Vector3(0.0, 0.0, -30.0), true, turn)
 	client._physics_process(1.0 / RATE)
-	var ck: DotWeaponKnives.Knife = client.get_knife(7)
+	var ck: GSWeaponKnives.Knife = client.get_knife(7)
 	_check(ck.velocity.y == 0.0 and ck.velocity.x != 0.0, "a client glides and turns it between events")
 	client.queue_free()
 	_done()

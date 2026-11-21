@@ -1,14 +1,14 @@
-class_name DotWeaponThrown
-extends DotWeaponBehaviour
+class_name GSWeaponThrown
+extends GSWeaponBehaviour
 
 ## Something the carrier holds and then lets go of: a grenade, a molotov, a throwing
 ## knife, a bait can.
 ##
 ## [b]The fuse starts when the pin comes out, not when the object leaves the hand.[/b]
-## That is the whole reason this is not just [DotWeaponProjectile] with a timer: cooking
+## That is the whole reason this is not just [GSWeaponProjectile] with a timer: cooking
 ## a grenade is a real decision with a real cost, and a fuse that starts on release
 ## makes every grenade a four-second warning for whoever it lands near. Used with
-## [constant DotWeaponDef.Fire.CHARGE], the charge is the cook, and the spawn's
+## [constant GSWeaponDef.Fire.CHARGE], the charge is the cook, and the spawn's
 ## remaining fuse is what is left of it.
 ##
 ## [b]Cooking past the fuse kills the carrier, and it should.[/b] A grenade that simply
@@ -16,13 +16,13 @@ extends DotWeaponBehaviour
 ## spawns it in place with no velocity and a zero fuse, which is what a grenade going
 ## off at your feet is, and lets the ordinary splash rules do the rest.
 
-func _ballistics() -> DotWeaponBallistics:
-	if def != null and def.tuning is DotWeaponBallistics:
+func _ballistics() -> GSWeaponBallistics:
+	if def != null and def.tuning is GSWeaponBallistics:
 		return def.tuning
 	return null
 
 
-func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var b := _ballistics()
 
 	# Both in running ticks: the charge is a fraction of the SCALED charge time, and the
@@ -32,7 +32,7 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 	var cooked := int(round(ctx.charge * float(scaled_ticks(def.charge_ticks))))
 	var left := maxi(0, fuse - cooked)
 
-	var out := DotWeaponOutcome.of(DotWeaponOutcome.KIND_THROW)
+	var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_THROW)
 
 	var speed := b.speed_at(ctx.charge) if b != null else tune_float(&"speed", 18.0)
 	# A cooked grenade is not thrown harder. Charge is the cook here, so the launch
@@ -41,7 +41,7 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 	if tune_bool(&"speed_scales_with_cook", false) == false and b != null:
 		speed = b.speed
 
-	var spawn := DotWeaponSpawn.make(
+	var spawn := GSWeaponSpawn.make(
 		StringName(tune(&"projectile_id", def.id)),
 		ctx.origin,
 		ctx.direction * speed,

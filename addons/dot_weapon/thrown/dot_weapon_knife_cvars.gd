@@ -1,6 +1,6 @@
-class_name DotWeaponKnifeCvars
+class_name GSWeaponKnifeCvars
 extends RefCounted
-## The rules of [DotWeaponKnives] as cvars: which suffix sets which rule, and the binding.
+## The rules of [GSWeaponKnives] as cvars: which suffix sets which rule, and the binding.
 
 const SPECS := {
 	"_throw": ["enabled", "The aim key throws a knife in hand (1), or does nothing (0)"],

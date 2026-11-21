@@ -1,4 +1,4 @@
-class_name DotWeaponRecoil
+class_name GSWeaponRecoil
 extends RefCounted
 
 ## View kick, accumulated and recovered. A value a game adds to its own camera.
@@ -8,7 +8,7 @@ extends RefCounted
 ## first-person rig, a third-person one, a spectator camera and a headless suite.
 ##
 ## [b]It takes three floats rather than a weapon.[/b] The version this replaces took a
-## `DotWeapon` and read `recoil_pitch`, `recoil_yaw` and `recoil_recovery` off it, which
+## `GSWeapon` and read `recoil_pitch`, `recoil_yaw` and `recoil_recovery` off it, which
 ## quietly made recoil a thing only that one resource could describe — a bow that kicks
 ## on release and a melee weapon that does not kick at all had no way in. A behaviour
 ## now computes its own kick from whatever it likes, including the charge it was held
@@ -50,7 +50,7 @@ func kick(pitch: float, yaw: float, recovery: float = -1.0) -> void:
 
 
 ## Applies a whole outcome's kick.
-func kick_outcome(outcome: DotWeaponOutcome, recovery: float = -1.0) -> void:
+func kick_outcome(outcome: GSWeaponOutcome, recovery: float = -1.0) -> void:
 	if outcome == null or outcome.recoil == Vector2.ZERO:
 		return
 	var rec := outcome.recoil_recovery if outcome.recoil_recovery >= 0.0 else recovery

@@ -4,84 +4,84 @@ extends "sections_rules.gd"
 
 func _test_ballistics() -> void:
 	_section("ballistic trajectory")
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.muzzle_velocity = 800.0
 	b.max_range = 1200.0
-	_check(DotWeaponTrajectory.is_simulated(b) and not DotWeaponTrajectory.is_simulated(DotWeaponBallistics.new()), "velocity 0 stays hitscan")
-	var carbine := DotWeaponBallistics.new()
+	_check(GSWeaponTrajectory.is_simulated(b) and not GSWeaponTrajectory.is_simulated(GSWeaponBallistics.new()), "velocity 0 stays hitscan")
+	var carbine := GSWeaponBallistics.new()
 	carbine.muzzle_velocity = 350.0
-	var sniper := DotWeaponBallistics.new()
+	var sniper := GSWeaponBallistics.new()
 	sniper.muzzle_velocity = 900.0
 	sniper.drag = 0.0002
 	sniper.max_range = 1200.0
 	var last := {}
 	for w in [carbine, b, sniper]:
-		var d100 := DotWeaponTrajectory.drop_at(w, 100.0)
-		var d300 := DotWeaponTrajectory.drop_at(w, 300.0)
+		var d100 := GSWeaponTrajectory.drop_at(w, 100.0)
+		var d300 := GSWeaponTrajectory.drop_at(w, 300.0)
 		_check(d300.drop > d100.drop and d100.drop > 0.0, "drop grows with range", "%f %f" % [d100.drop, d300.drop])
 		_check(d300.time > d100.time and d300.speed < w.muzzle_velocity, "it takes time and slows")
 		last = d300
-	var nodrag := DotWeaponBallistics.new()
+	var nodrag := GSWeaponBallistics.new()
 	nodrag.muzzle_velocity = 500.0
 	nodrag.drag = 0.0
-	var t100 := DotWeaponTrajectory.drop_at(nodrag, 100.0)
+	var t100 := GSWeaponTrajectory.drop_at(nodrag, 100.0)
 	_close(t100.drop, 0.5 * 9.8 * 0.2 * 0.2, "no drag: drop is g*t^2/2 at t = 0.2 s", 0.04)
 	var wall := func(from: Vector3, to: Vector3) -> Dictionary:
 		if from.z > -400.0 and to.z <= -400.0:
 			return {"position": Vector3(from.x, from.y, -400.0)}
 		return {}
-	var shot := DotWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, wall)
+	var shot := GSWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, wall)
 	_check(not shot.hit.is_empty(), "a bullet at 900 m/s does not tunnel a paper-thin wall at 400 m")
 	_close(shot.position.z, -400.0, "and stops on it")
-	var open_shot := DotWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, Callable())
+	var open_shot := GSWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, Callable())
 	_check(open_shot.hit.is_empty() and open_shot.distance >= sniper.max_range - 1.0, "with nothing in the way it runs out at max range")
-	var again := DotWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, wall)
+	var again := GSWeaponTrajectory.fly(Vector3.ZERO, Vector3(0, 0, -1), sniper, wall)
 	_check(again.position == shot.position and again.time == shot.time, "the flight is deterministic")
-	var fb := DotWeaponBallistics.new()
+	var fb := GSWeaponBallistics.new()
 	fb.max_range = 100.0
 	fb.falloff_start = 20.0
 	fb.falloff_min = 0.5
-	_close(DotWeaponTrajectory.falloff(fb, 10.0) + DotWeaponTrajectory.falloff(fb, 100.0), 1.5, "falloff: full inside, half at max range")
+	_close(GSWeaponTrajectory.falloff(fb, 10.0) + GSWeaponTrajectory.falloff(fb, 100.0), 1.5, "falloff: full inside, half at max range")
 	fb.penetration = 0.4
-	_close(DotWeaponTrajectory.through(fb, 0.1), 0.75, "a thin wall costs a quarter")
-	_close(DotWeaponTrajectory.through(fb, 0.5), 0.0, "a thick one stops it")
-	var pitch := DotWeaponTrajectory.solve_pitch(sniper, 300.0, 0.0)
+	_close(GSWeaponTrajectory.through(fb, 0.1), 0.75, "a thin wall costs a quarter")
+	_close(GSWeaponTrajectory.through(fb, 0.5), 0.0, "a thick one stops it")
+	var pitch := GSWeaponTrajectory.solve_pitch(sniper, 300.0, 0.0)
 	_check(pitch > 0.0 and pitch < 0.02, "the solver raises the bore for drop", str(pitch))
-	var aim := DotWeaponTrajectory.lead(sniper, Vector3.ZERO, Vector3(0, 0, -300), Vector3(5, 0, 0))
+	var aim := GSWeaponTrajectory.lead(sniper, Vector3.ZERO, Vector3(0, 0, -300), Vector3(5, 0, 0))
 	_check(aim.x > 1.0 and aim.y > 0.0, "bots lead a mover and hold over for drop", str(aim))
-	_check(is_nan(DotWeaponTrajectory.solve_pitch(carbine, 100000.0)), "out of reach has no solution")
-	_close(DotWeaponTrajectory.holdover(sniper, 100.0, 100.0), 0.0, "holdover is nothing at the zero", 0.00001)
-	var h300 := DotWeaponTrajectory.holdover_mils(sniper, 100.0, 300.0)
-	var h600 := DotWeaponTrajectory.holdover_mils(sniper, 100.0, 600.0)
+	_check(is_nan(GSWeaponTrajectory.solve_pitch(carbine, 100000.0)), "out of reach has no solution")
+	_close(GSWeaponTrajectory.holdover(sniper, 100.0, 100.0), 0.0, "holdover is nothing at the zero", 0.00001)
+	var h300 := GSWeaponTrajectory.holdover_mils(sniper, 100.0, 300.0)
+	var h600 := GSWeaponTrajectory.holdover_mils(sniper, 100.0, 600.0)
 	_check(h300 > 0.0 and h600 > h300 * 2.0, "holdover grows with range", "%f %f" % [h300, h600])
-	_check(DotWeaponTrajectory.holdover_mils(sniper, 300.0, 300.0) == 0.0 and DotWeaponTrajectory.holdover_mils(sniper, 300.0, 100.0) < 0.0, "a longer zero holds under for near targets")
-	var marks := DotWeaponTrajectory.holdover_marks(sniper, 100.0, PackedFloat32Array([100.0, 300.0, 100000.0]))
+	_check(GSWeaponTrajectory.holdover_mils(sniper, 300.0, 300.0) == 0.0 and GSWeaponTrajectory.holdover_mils(sniper, 300.0, 100.0) < 0.0, "a longer zero holds under for near targets")
+	var marks := GSWeaponTrajectory.holdover_marks(sniper, 100.0, PackedFloat32Array([100.0, 300.0, 100000.0]))
 	_check(marks.size() == 3 and marks[1]["range"] == 300.0 and is_nan(marks[2]["mils"]), "reticle marks per range, NAN out of reach")
-	var rb := DotWeaponBallistics.new()
+	var rb := GSWeaponBallistics.new()
 	rb.ricochet_chance = 0.5
 	var flat := Vector3.UP
 	var graze := Vector3(1, -0.1, 0).normalized()
-	var r := DotWeaponTrajectory.ricochet(rb, graze, flat, 0.1)
+	var r := GSWeaponTrajectory.ricochet(rb, graze, flat, 0.1)
 	_check(r.ricochet and r.dir.y > 0.0 and is_equal_approx(r.dir.x, graze.x) and r.speed_scale < 1.0, "a shallow hit with a low roll bounces and loses speed")
-	_check(not DotWeaponTrajectory.ricochet(rb, graze, flat, 0.9).ricochet, "a high roll does not")
-	_check(not DotWeaponTrajectory.ricochet(rb, Vector3(0.3, -1, 0).normalized(), flat, 0.0).ricochet, "a steep hit never bounces")
-	_check(not DotWeaponTrajectory.ricochet(DotWeaponBallistics.new(), graze, flat, 0.0).ricochet, "chance 0 never bounces")
-	_check(not DotWeaponTrajectory.ricochet(rb, Vector3(1, 0.1, 0).normalized(), flat, 0.0).ricochet, "leaving the surface is not a hit")
-	_check(DotWeaponTrajectory.ricochet(rb, graze, flat, 0.1) == r, "same roll, same bounce")
+	_check(not GSWeaponTrajectory.ricochet(rb, graze, flat, 0.9).ricochet, "a high roll does not")
+	_check(not GSWeaponTrajectory.ricochet(rb, Vector3(0.3, -1, 0).normalized(), flat, 0.0).ricochet, "a steep hit never bounces")
+	_check(not GSWeaponTrajectory.ricochet(GSWeaponBallistics.new(), graze, flat, 0.0).ricochet, "chance 0 never bounces")
+	_check(not GSWeaponTrajectory.ricochet(rb, Vector3(1, 0.1, 0).normalized(), flat, 0.0).ricochet, "leaving the surface is not a hit")
+	_check(GSWeaponTrajectory.ricochet(rb, graze, flat, 0.1) == r, "same roll, same bounce")
 	_done()
 
 
 func _test_bullets() -> void:
 	_section("ballistic bullets and rules")
-	var rules := DotWeaponBallisticsRules.new()
+	var rules := GSWeaponBallisticsRules.new()
 	_check(not rules.enabled, "ballistics default OFF")
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.muzzle_velocity = 600.0
 	b.max_range = 500.0
 	b.tracer_interval = 2
 	b.falloff_start = 0.0
 	b.falloff_min = 0.5
-	var bullets := DotWeaponBullets.new()
+	var bullets := GSWeaponBullets.new()
 	bullets.rules = rules
 	bullets.tick_rate = 60
 	add_child(bullets)
@@ -89,7 +89,7 @@ func _test_bullets() -> void:
 	_check(rules.set_cvar("sv_ballistics", "1") and rules.enabled, "sv_ballistics switches it on")
 	_check(not rules.set_cvar("sv_nonsense", "1"), "unknown cvar refused")
 	_check(rules.set_cvar("sv_ballistics_max_bullets", "3") and rules.max_bullets == 3.0, "cap is a cvar")
-	var hitscan := DotWeaponBallistics.new()
+	var hitscan := GSWeaponBallistics.new()
 	_check(bullets.spawn(1, Vector3.ZERO, Vector3(0, 0, -1), hitscan) == 0, "velocity 0 stays hitscan when on")
 	var log := {"hits": [], "rewinds": [], "restores": 0, "tracers": 0}
 	bullets.cast_fn = func(from: Vector3, to: Vector3, _o: int) -> Dictionary:
@@ -98,7 +98,7 @@ func _test_bullets() -> void:
 		return {}
 	bullets.rewind_fn = func(t: float) -> void: log.rewinds.append(t)
 	bullets.restore_fn = func() -> void: log.restores += 1
-	bullets.hit.connect(func(id: int, _o: int, _i: Dictionary, d: float, m: float, _b: DotWeaponBallistics) -> void: log.hits.append([id, d, m]))
+	bullets.hit.connect(func(id: int, _o: int, _i: Dictionary, d: float, m: float, _b: GSWeaponBallistics) -> void: log.hits.append([id, d, m]))
 	bullets.tracer.connect(func(_id: int, _f: Vector3, _t: Vector3) -> void: log.tracers += 1)
 	var id1 := bullets.spawn(1, Vector3.ZERO, Vector3(0, 0, -1), b, 6.0)
 	var id2 := bullets.spawn(1, Vector3.ZERO, Vector3(0, 0, -1), b, 0.0)
@@ -140,13 +140,13 @@ func _test_bullets() -> void:
 
 
 ## The shot an arsenal makes, as text, with the given ballistics rules and muzzle velocity.
-func _shot_text(rules: DotWeaponBallisticsRules, velocity: float) -> Array:
+func _shot_text(rules: GSWeaponBallisticsRules, velocity: float) -> Array:
 	var a := _arsenal()
 	a.give(&"rifle")
 	a.ballistics_rules = rules
-	((a.catalogue.get_def(&"rifle") as DotWeaponDef).tuning as DotWeaponBallistics).muzzle_velocity = velocity
+	((a.catalogue.get_def(&"rifle") as GSWeaponDef).tuning as GSWeaponBallistics).muzzle_velocity = velocity
 	var o := a.simulate_tick(_cmd(true), _ctx(10), null)
-	var shot: DotShot = o.shots[0]
+	var shot: GSShot = o.shots[0]
 	var text := "%s|%s|%s|%s|%s|%s|%s|%s" % [shot.origin, shot.direction, shot.spread, shot.pellets, shot.damage, shot.max_range, o.recoil, shot.pellet_count]
 	var deferred := shot.deferred
 	_drop(a)
@@ -156,17 +156,17 @@ func _shot_text(rules: DotWeaponBallisticsRules, velocity: float) -> Array:
 func _test_hitscan_unchanged() -> void:
 	_section("hitscan is unchanged with ballistics off")
 	var base := _shot_text(null, 0.0)
-	var off := DotWeaponBallisticsRules.new()
+	var off := GSWeaponBallisticsRules.new()
 	_check(_shot_text(off, 0.0) == base, "rules present but off: identical shot")
 	_check(_shot_text(off, 800.0) == base, "rules off, weapon has a velocity: identical shot")
-	var on := DotWeaponBallisticsRules.new()
+	var on := GSWeaponBallisticsRules.new()
 	on.enabled = true
 	_check(_shot_text(on, 0.0) == base, "rules on, no velocity: identical shot")
 	var fast := _shot_text(on, 800.0)
 	_check(fast[1] and not base[1], "rules on and a velocity: the shot is deferred to a bullet")
 	_check(fast[0] == base[0], "and is otherwise the same shot")
-	var recoil := DotWeaponRecoilRules.new()
-	_check(recoil is DotWeaponCvarRules and recoil.cvar_name(&"enabled") == "sv_recoil" and recoil.cvar_name(&"scale") == "sv_recoil_scale", "recoil rules keep their cvar names on the shared base")
+	var recoil := GSWeaponRecoilRules.new()
+	_check(recoil is GSWeaponCvarRules and recoil.cvar_name(&"enabled") == "sv_recoil" and recoil.cvar_name(&"scale") == "sv_recoil_scale", "recoil rules keep their cvar names on the shared base")
 	_check(recoil.set_cvar("sv_recoil_scale", "2") and recoil.scale == 2.0, "and still set from cvars")
 	_check(recoil.describe().has("scale"), "and describe")
 	_done()
@@ -175,16 +175,16 @@ func _test_hitscan_unchanged() -> void:
 func _bridge_target(z: float) -> Node3D:
 	var body := Node3D.new()
 	body.position = Vector3(0.0, 0.0, z)
-	var health := DotHealth.new()
+	var health := GSHealth.new()
 	health.max_health = 100.0
 	health.regen_per_second = 0.0
 	body.add_child(health)
-	var set_node := DotHitboxSet.new()
+	var set_node := GSHitboxSet.new()
 	set_node.bounds_offset = Vector3(0.0, 0.9, 0.0)
 	set_node.bounds_radius = 1.4
-	var chest := DotHitbox.new()
-	chest.group = DotHitGroup.CHEST
-	chest.shape = DotHitbox.Shape.CAPSULE
+	var chest := GSHitbox.new()
+	chest.group = GSHitGroup.CHEST
+	chest.shape = GSHitbox.Shape.CAPSULE
 	chest.radius = 0.4
 	chest.height = 1.6
 	chest.position = Vector3(0.0, 1.0, 0.0)
@@ -194,8 +194,8 @@ func _bridge_target(z: float) -> Node3D:
 	return body
 
 
-func _bridge_shot(tick: int, pellets: int, dir: Vector3 = Vector3.FORWARD) -> DotShot:
-	var shot := DotShot.make(&"rifle", 1, tick, 0)
+func _bridge_shot(tick: int, pellets: int, dir: Vector3 = Vector3.FORWARD) -> GSShot:
+	var shot := GSShot.make(&"rifle", 1, tick, 0)
 	shot.origin = Vector3(0.0, 1.0, 0.0)
 	shot.direction = dir
 	shot.pellet_count = pellets
@@ -207,7 +207,7 @@ func _bridge_shot(tick: int, pellets: int, dir: Vector3 = Vector3.FORWARD) -> Do
 	return shot
 
 
-func _bridge_lag(manager: DotCombatManager, bridge: DotWeaponBulletBridge, victim: Node3D, health: DotHealth, hits: Array, b: DotWeaponBallistics) -> void:
+func _bridge_lag(manager: GSCombatManager, bridge: GSWeaponBulletBridge, victim: Node3D, health: GSHealth, hits: Array, b: GSWeaponBallistics) -> void:
 	# Lag compensation: the target has since stepped aside; the shooter saw it in line at tick 100.
 	health.health = 100.0
 	hits.clear()
@@ -236,38 +236,38 @@ func _bridge_lag(manager: DotCombatManager, bridge: DotWeaponBulletBridge, victi
 
 func _test_bullet_bridge() -> void:
 	_section("bullet bridge against a real combat manager")
-	var manager := DotCombatManager.new()
+	var manager := GSCombatManager.new()
 	manager.register_service = false
-	manager.trace = DotTraceFlat.with_floor(0.0)
-	manager.rules = DotDamageRules.new()
-	manager.config = DotCombatConfig.new()
+	manager.trace = GSTraceFlat.with_floor(0.0)
+	manager.rules = GSDamageRules.new()
+	manager.config = GSCombatConfig.new()
 	manager.config.tick_rate = 64
 	add_child(manager)
 	var victim := _bridge_target(-30.0)
-	var set_node: DotHitboxSet = null
+	var set_node: GSHitboxSet = null
 	for c in victim.get_children():
-		if c is DotHitboxSet:
+		if c is GSHitboxSet:
 			set_node = c
 	set_node.register_with(manager, 2)
-	var health: DotHealth = null
+	var health: GSHealth = null
 	for c in victim.get_children():
-		if c is DotHealth:
+		if c is GSHealth:
 			health = c
 	manager.register_health(2, health)
 	_check(manager.entity_id_of(victim) == 0 or manager.entity_id_of(victim) == 2, "entity_id_of is public")
 
-	var rules := DotWeaponBallisticsRules.new()
+	var rules := GSWeaponBallisticsRules.new()
 	rules.enabled = true
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.muzzle_velocity = 600.0
 	b.bullet_gravity = 0.0
 	b.drag = 0.0
 	b.max_range = 200.0
-	var bridge := DotWeaponBulletBridge.new()
+	var bridge := GSWeaponBulletBridge.new()
 	add_child(bridge)
 	bridge.setup(manager, rules, 64)
 	var hits: Array = []
-	bridge.bullet_hit.connect(func(_id: int, d: DotDamage) -> void: hits.append(d))
+	bridge.bullet_hit.connect(func(_id: int, d: GSDamage) -> void: hits.append(d))
 
 	var shot := bridge.resolve_shot(_bridge_shot(100, 1), b, -1.0)
 	_check(shot.deferred and bridge.bullets.count() == 1 and hits.is_empty(), "a deferred shot launches a bullet and does no damage yet")
@@ -275,7 +275,7 @@ func _test_bullet_bridge() -> void:
 		bridge.tick(100.0 + t)
 	_check(hits.size() == 1 and bridge.bullets.count() == 0, "the bullet hits the target and is gone", str(hits.size()))
 	_check(health.health == 80.0, "damage applied once", str(health.health))
-	_check(hits[0].victim == 2 and hits[0].hit_group == DotHitGroup.CHEST and hits[0].distance > 28.0, "to the right victim, group and distance")
+	_check(hits[0].victim == 2 and hits[0].hit_group == GSHitGroup.CHEST and hits[0].distance > 28.0, "to the right victim, group and distance")
 
 	hits.clear()
 	var _miss := bridge.resolve_shot(_bridge_shot(110, 1, Vector3(0.5, 0.0, -1.0)), b, -1.0)
@@ -312,47 +312,47 @@ func _ammo_loaded_round() -> void:
 	_check(a.ammo_of(rifle_id) == &"", "no round loaded by default")
 	a.load_ammo(rifle_id, &"ap")
 	_check(a.ammo_of(rifle_id) == &"ap", "load_ammo selects the round")
-	var on := DotWeaponBallisticsRules.new()
+	var on := GSWeaponBallisticsRules.new()
 	on.enabled = true
 	a.ballistics_rules = on
-	((a.catalogue.get_def(&"rifle") as DotWeaponDef).tuning as DotWeaponBallistics).muzzle_velocity = 800.0
+	((a.catalogue.get_def(&"rifle") as GSWeaponDef).tuning as GSWeaponBallistics).muzzle_velocity = 800.0
 	var o := a.simulate_tick(_cmd(true), _ctx(10), null)
-	var fired: DotShot = o.shots[0]
+	var fired: GSShot = o.shots[0]
 	_check(fired.deferred and fired.get_meta(&"ammo", &"") == &"ap", "a simulated shot carries the loaded round")
 	_drop(a)
 	var off := _arsenal()
 	off.give(&"rifle")
 	off.load_ammo(&"rifle", &"ap")
 	var o2 := off.simulate_tick(_cmd(true), _ctx(10), null)
-	_check(not (o2.shots[0] as DotShot).has_meta(&"ammo"), "ballistics off: the shot is untouched by ammo")
+	_check(not (o2.shots[0] as GSShot).has_meta(&"ammo"), "ballistics off: the shot is untouched by ammo")
 	_drop(off)
 
 
 func _ammo_penetration() -> void:
-	var fmj := DotWeaponAmmoType.from_flat(&"fmj", {"penetration": 0.8, "materials": "wood:0.5, steel:6", "guns": "rifle, smg"})
+	var fmj := GSWeaponAmmoType.from_flat(&"fmj", {"penetration": 0.8, "materials": "wood:0.5, steel:6", "guns": "rifle, smg"})
 	_check(fmj.materials == {&"wood": 0.5, &"steel": 6.0} and fmj.guns == PackedStringArray(["rifle", "smg"]), "an ammo profile parses its material table and gun list")
 	var pen := fmj.make_penetration()
 	_check(pen != null and is_equal_approx(pen.resistance_of(&"steel"), 6.0) and is_equal_approx(pen.resistance_of(&"glass"), 1.0), "and builds the penetration a shot carries")
 	_check(is_equal_approx(pen.resistance_of(&"fence"), 0.5), "a profile silent on fence passes it cheaply by default")
-	var own := DotWeaponAmmoType.from_flat(&"own", {"penetration": 0.5, "materials": "fence:2"}).make_penetration()
+	var own := GSWeaponAmmoType.from_flat(&"own", {"penetration": 0.5, "materials": "fence:2"}).make_penetration()
 	_check(is_equal_approx(own.resistance_of(&"fence"), 2.0), "a profile that lists fence keeps its own value")
 	var lost := 1.0 - pen.strength(pen.power - pen.wall_cost(0.1, &"fence"))
 	_check(lost > 0.0 and lost < 0.1, "10 cm of fence costs a rifle round under a tenth of its damage")
-	_check(DotWeaponAmmoType.from_flat(&"blank", {}).make_penetration() == null, "a round with no penetration power passes nothing")
-	var types := DotWeaponAmmoTypes.new()
-	var ball := DotWeaponAmmoType.from_flat(&"ball", {"penetration": 0.2, "default": true})
+	_check(GSWeaponAmmoType.from_flat(&"blank", {}).make_penetration() == null, "a round with no penetration power passes nothing")
+	var types := GSWeaponAmmoTypes.new()
+	var ball := GSWeaponAmmoType.from_flat(&"ball", {"penetration": 0.2, "default": true})
 	types.add(fmj)
 	types.add(ball)
 	_check(types.type_for_weapon(&"rifle") == fmj and types.type_for_weapon(&"pistol") == ball, "one profile serves several guns, the default serves the rest")
 	var a := _arsenal()
 	a.give(&"rifle")
 	var rifle_id: StringName = a.current().def.id
-	_check(not (a.simulate_tick(_cmd(true), _ctx(10), null).shots[0] as DotShot).penetration, "without ammo profiles a shot carries no penetration")
+	_check(not (a.simulate_tick(_cmd(true), _ctx(10), null).shots[0] as GSShot).penetration, "without ammo profiles a shot carries no penetration")
 	_drop(a)
 	var b := _arsenal()
 	b.ammo_types = types
 	b.give(&"rifle")
-	var fired: DotShot = b.simulate_tick(_cmd(true), _ctx(10), null).shots[0]
+	var fired: GSShot = b.simulate_tick(_cmd(true), _ctx(10), null).shots[0]
 	_check(fired.penetration != null and is_equal_approx(fired.penetration.power, 0.8) and rifle_id == &"rifle", "with them the shot carries its gun's round")
 	_drop(b)
 
@@ -365,74 +365,74 @@ func _ammo_profile_files() -> void:
 	var f := FileAccess.open(dir.path_join("belt.yml"), FileAccess.WRITE)
 	f.store_string("name: \"Belt\"\npenetration: 0.5\nmaterials: \"glass:0.1,concrete:2.5\"\nricochet_materials: \"concrete,metal\"\nricochet_angle: 12\nricochet_keep: 0.4\nguns: \"minigun\"\n")
 	f.close()
-	var set := DotWeaponAmmoTypes.make_set("demo", "g", PackedStringArray([root]))
-	var types := DotWeaponAmmoTypes.new()
+	var set := GSWeaponAmmoTypes.make_set("demo", "g", PackedStringArray([root]))
+	var types := GSWeaponAmmoTypes.new()
 	_check(types.load_set(set) == 1, "load_set loads the ammo profile file")
 	var belt := types.get_type(&"belt")
 	_check(belt != null and is_equal_approx(belt.penetration, 0.5) and belt.display_name == "Belt", "its numbers and name come from the file")
 	_check(belt != null and is_equal_approx(float(belt.materials.get(&"concrete", 0.0)), 2.5) and belt.guns.has("minigun"), "the material map and gun list are read")
-	var pen: DotPenetration = belt.make_penetration() if belt != null else null
-	_check(pen != null and pen.ricochets(&"metal", 10.0) and not pen.ricochets(&"metal", 20.0) and not pen.ricochets(&"glass", 10.0), "ricochet fields reach the DotPenetration")
+	var pen: GSPenetration = belt.make_penetration() if belt != null else null
+	_check(pen != null and pen.ricochets(&"metal", 10.0) and not pen.ricochets(&"metal", 20.0) and not pen.ricochets(&"glass", 10.0), "ricochet fields reach the GSPenetration")
 	_check(pen != null and is_equal_approx(pen.ricochet_keep, 0.4), "and the kept share")
 	_check(pen != null and pen.speed == 0.0 and pen.reference_speed == 0.0 and is_equal_approx(pen.speed_factor(0.5), 1.0), "speed fields default to off")
-	var fast := DotWeaponAmmoType.from_flat(&"fast", {"penetration": 1.0, "speed": 800.0, "reference_speed": 400.0})
+	var fast := GSWeaponAmmoType.from_flat(&"fast", {"penetration": 1.0, "speed": 800.0, "reference_speed": 400.0})
 	var fpen := fast.make_penetration()
-	_check(fpen != null and is_equal_approx(fpen.speed, 800.0) and is_equal_approx(fpen.reference_speed, 400.0), "speed and reference_speed reach the DotPenetration")
+	_check(fpen != null and is_equal_approx(fpen.speed, 800.0) and is_equal_approx(fpen.reference_speed, 400.0), "speed and reference_speed reach the GSPenetration")
 	_check(fpen != null and is_equal_approx(fpen.speed_factor(1.0), 0.5), "a round at twice the reference speed pays half")
-	_check(DotWeaponAmmoType.from_flat(&"neg", {"speed": -5.0}).speed == 0.0, "a negative speed clamps to off")
+	_check(GSWeaponAmmoType.from_flat(&"neg", {"speed": -5.0}).speed == 0.0, "a negative speed clamps to off")
 	set.clear_cache()
 
 
 func _test_ammo_hitzones() -> void:
 	_section("ammo types and hit-zone armour")
-	var types := DotWeaponAmmoTypes.new()
-	var ap := DotWeaponAmmoType.from_flat(&"ap", {"damage": 1.5, "velocity": 0.5, "armour_pierce": 2.0})
+	var types := GSWeaponAmmoTypes.new()
+	var ap := GSWeaponAmmoType.from_flat(&"ap", {"damage": 1.5, "velocity": 0.5, "armour_pierce": 2.0})
 	types.add(ap)
-	types.add(DotWeaponAmmoType.from_flat(&"ball", {}))
+	types.add(GSWeaponAmmoType.from_flat(&"ball", {}))
 	_check(ap.armour_pierce == 1.0 and types.ids() == [&"ap", &"ball"], "pierce clamps, ids sorted")
-	_check(DotWeaponAmmoTypes.schema().size() == 20 and DotWeaponAmmoTypes.profile_schemas().has("ammo"), "ammo is a profile kind")
+	_check(GSWeaponAmmoTypes.schema().size() == 20 and GSWeaponAmmoTypes.profile_schemas().has("ammo"), "ammo is a profile kind")
 	_check(types.get_type(&"nope") == null, "an unknown round is null")
-	var base := DotWeaponBallistics.new()
+	var base := GSWeaponBallistics.new()
 	base.muzzle_velocity = 600.0
 	base.drag = 0.001
 	_check(types.get_type(&"ball").apply_to(base) == base, "a neutral round flies the weapon's own tuning")
 	var slow := ap.apply_to(base)
 	_check(slow != base and slow.muzzle_velocity == 300.0 and base.muzzle_velocity == 600.0, "a round scales a copy, never the weapon")
-	var zones := DotWeaponHitzones.from_flat({"head": 0.5, "chest": 0.4})
-	_check(is_equal_approx(zones.multiplier(DotHitGroup.HEAD, null), 0.5) and zones.multiplier(DotHitGroup.LEG, null) == 1.0, "armour only on listed zones")
-	_check(is_equal_approx(zones.multiplier(DotHitGroup.HEAD, null, 1.0), 1.0) and is_equal_approx(zones.multiplier(DotHitGroup.HEAD, null, 0.5), 0.75), "piercing ignores armour")
+	var zones := GSWeaponHitzones.from_flat({"head": 0.5, "chest": 0.4})
+	_check(is_equal_approx(zones.multiplier(GSHitGroup.HEAD, null), 0.5) and zones.multiplier(GSHitGroup.LEG, null) == 1.0, "armour only on listed zones")
+	_check(is_equal_approx(zones.multiplier(GSHitGroup.HEAD, null, 1.0), 1.0) and is_equal_approx(zones.multiplier(GSHitGroup.HEAD, null, 0.5), 0.75), "piercing ignores armour")
 	zones.presence_fn = func(_e: Node) -> float: return 0.0
-	_check(zones.multiplier(DotHitGroup.HEAD, null) == 1.0, "a victim with no armour on takes full damage")
+	_check(zones.multiplier(GSHitGroup.HEAD, null) == 1.0, "a victim with no armour on takes full damage")
 	zones.presence_fn = Callable()
 
 	_ammo_profile_files()
 	_ammo_loaded_round()
 	_ammo_penetration()
 
-	var manager := DotCombatManager.new()
+	var manager := GSCombatManager.new()
 	manager.register_service = false
-	manager.trace = DotTraceFlat.with_floor(0.0)
-	manager.rules = DotDamageRules.new()
-	manager.config = DotCombatConfig.new()
+	manager.trace = GSTraceFlat.with_floor(0.0)
+	manager.rules = GSDamageRules.new()
+	manager.config = GSCombatConfig.new()
 	manager.config.tick_rate = 64
 	add_child(manager)
 	var victim := _bridge_target(-30.0)
-	var set_node: DotHitboxSet = null
-	var health: DotHealth = null
+	var set_node: GSHitboxSet = null
+	var health: GSHealth = null
 	for c in victim.get_children():
-		if c is DotHitboxSet:
+		if c is GSHitboxSet:
 			set_node = c
-		if c is DotHealth:
+		if c is GSHealth:
 			health = c
 	set_node.register_with(manager, 2)
 	manager.register_health(2, health)
-	var rules := DotWeaponBallisticsRules.new()
+	var rules := GSWeaponBallisticsRules.new()
 	rules.enabled = true
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.muzzle_velocity = 600.0
 	b.bullet_gravity = 0.0
 	b.drag = 0.0
-	var bridge := DotWeaponBulletBridge.new()
+	var bridge := GSWeaponBulletBridge.new()
 	add_child(bridge)
 	bridge.setup(manager, rules, 64)
 	var fly := func(tick: int, round_id: StringName) -> int:
@@ -449,7 +449,7 @@ func _test_ammo_hitzones() -> void:
 	_check(health.health == 80.0, "no ammo or zones configured: unchanged damage", str(health.health))
 	health.health = 100.0
 	bridge.ammo_types = types
-	bridge.hitzones = DotWeaponHitzones.from_flat({"chest": 0.5})
+	bridge.hitzones = GSWeaponHitzones.from_flat({"chest": 0.5})
 	var _n0: int = fly.call(200, &"")
 	_check(is_equal_approx(health.health, 90.0), "chest armour halves the damage", str(health.health))
 	health.health = 100.0

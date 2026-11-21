@@ -1,15 +1,15 @@
-class_name DotWeaponSpawnerConfig
+class_name GSWeaponSpawnerConfig
 extends RefCounted
 
 ## The spawner's rules, layered: what pools exist, per-site defaults, groups, and what a map changes.
-## Structure is `spawner.yml` in each `gs-weapon` tier of [DotAddonConfig], merged weakest first; the scalars in [method map_keys] go through GameSpice Map's per-map files.
+## Structure is `spawner.yml` in each `gs-weapon` tier of [GSAddonConfig], merged weakest first; the scalars in [method map_keys] go through GameSpice Map's per-map files.
 ## Format, per-map blocks and an example: docs/spawners.md.
 
 const CHANNEL := "weapon.spawner"
 const ADDON := "dot-weapon"
 const FILE := "spawner.yml"
 
-## The scalars GameSpice Map's per-map files may set, as the `allow` schema [DotMapConfig] takes. Merge them into a game's `_map_config_keys()`.
+## The scalars GameSpice Map's per-map files may set, as the `allow` schema [GSMapConfig] takes. Merge them into a game's `_map_config_keys()`.
 const MAP_KEYS := {
 	"spawner_enabled": {"type": "bool"},
 	"spawner_respawn_scale": {"type": "float", "min": 0.05, "max": 100.0},
@@ -18,11 +18,11 @@ const MAP_KEYS := {
 	"spawner_pool": {"type": "string"},
 }
 
-## The game whose `cfg/game/<game>/` tiers are read; empty uses [member DotAddonConfig.game].
+## The game whose `cfg/game/<game>/` tiers are read; empty uses [member GSAddonConfig.game].
 var game: String = ""
-## An extra config root, as [method DotAddonConfig.file_layers] takes.
+## An extra config root, as [method GSAddonConfig.file_layers] takes.
 var config_dir: String = ""
-## `DotWeaponDef`s a pool's `catalogue:` block draws from (any array of objects with `id` and `tags`).
+## `GSWeaponDef`s a pool's `catalogue:` block draws from (any array of objects with `id` and `tags`).
 var defs: Array = []
 ## Optional `(channel: StringName, id: StringName, weight: float) -> float`, applied to every pool entry as pools are built: a game's own availability rules per pool `channel`.
 var weigher: Callable = Callable()
@@ -39,23 +39,23 @@ var _files := PackedStringArray()
 
 
 ## Reads every `spawner.yml` layer. A file that does not parse is skipped and logged; value: the paths read.
-func load_files() -> DotResult:
+func load_files() -> GSResult:
 	raw = {}
 	_files = PackedStringArray()
-	var saved := DotAddonConfig.game
+	var saved := GSAddonConfig.game
 	if game != "":
-		DotAddonConfig.game = game
-	var paths := DotAddonConfig.file_layers(ADDON, FILE, config_dir)
-	DotAddonConfig.game = saved
+		GSAddonConfig.game = game
+	var paths := GSAddonConfig.file_layers(ADDON, FILE, config_dir)
+	GSAddonConfig.game = saved
 	for path in paths:
-		var parsed := DotYaml.parse_file(path)
+		var parsed := GSYaml.parse_file(path)
 		if not parsed.ok or not (parsed.value is Dictionary or parsed.value == null):
-			DotLog.warn(CHANNEL, "spawner file unreadable", {"file": path})
+			GSLog.warn(CHANNEL, "spawner file unreadable", {"file": path})
 			continue
 		if parsed.value != null:
-			DotAddonConfig.merge(raw, parsed.value as Dictionary)
+			GSAddonConfig.merge(raw, parsed.value as Dictionary)
 		_files.append(path)
-	return DotResult.success(_files)
+	return GSResult.success(_files)
 
 
 ## Uses [param d] as the file content (tests, and games that build the config in code).
@@ -63,7 +63,7 @@ func load_dictionary(d: Dictionary) -> void:
 	raw = d.duplicate(true)
 
 
-## The resolved structure for [param map_id]: `{pools: {id: DotWeaponSpawnPool}, sites: {id: Dictionary}, groups, classes, default_pool}`, base then matching `maps:` blocks weakest to strongest. A pool that fails to build is logged and left out.
+## The resolved structure for [param map_id]: `{pools: {id: GSWeaponSpawnPool}, sites: {id: Dictionary}, groups, classes, default_pool}`, base then matching `maps:` blocks weakest to strongest. A pool that fails to build is logged and left out.
 func resolve(map_id: String) -> Dictionary:
 	var merged := raw.duplicate(true)
 	merged.erase("maps")
@@ -78,18 +78,18 @@ func resolve(map_id: String) -> Dictionary:
 		var lb := _literals(b[0])
 		return la < lb if la != lb else String(a[0]) < String(b[0]))
 	for b: Array in blocks:
-		DotAddonConfig.merge(merged, b[1] as Dictionary)
+		GSAddonConfig.merge(merged, b[1] as Dictionary)
 	var pools := {}
 	var pool_dicts: Variant = merged.get("pools", {})
 	if pool_dicts is Dictionary:
 		for pid: Variant in pool_dicts as Dictionary:
 			if not (pool_dicts[pid] is Dictionary):
 				continue
-			var built := DotWeaponSpawnPool.from_dictionary(StringName(str(pid)), pool_dicts[pid], defs, weigher)
+			var built := GSWeaponSpawnPool.from_dictionary(StringName(str(pid)), pool_dicts[pid], defs, weigher)
 			if built.ok:
 				pools[StringName(str(pid))] = built.value
 			else:
-				DotLog.warn(CHANNEL, "spawner pool refused", {"pool": str(pid), "why": built.error.message})
+				GSLog.warn(CHANNEL, "spawner pool refused", {"pool": str(pid), "why": built.error.message})
 	return {
 		"pools": pools,
 		"sites": merged.get("sites", {}) if merged.get("sites") is Dictionary else {},
@@ -100,12 +100,12 @@ func resolve(map_id: String) -> Dictionary:
 	}
 
 
-## Hooks for [DotMapConfig]: the setting's current value, null for a key that is not one.
+## Hooks for [GSMapConfig]: the setting's current value, null for a key that is not one.
 func get_setting(key: String) -> Variant:
 	return _settings.get(key)
 
 
-## Hook for [DotMapConfig]: false for a key that is not a spawner setting. Coerces to the schema's type.
+## Hook for [GSMapConfig]: false for a key that is not a spawner setting. Coerces to the schema's type.
 func set_setting(key: String, value: Variant) -> bool:
 	if not _settings.has(key):
 		return false
@@ -138,7 +138,7 @@ func pool_override() -> StringName:
 
 
 func describe_lines() -> PackedStringArray:
-	var out := PackedStringArray(["DotWeaponSpawnerConfig game=%s files=%d" % [game, _files.size()]])
+	var out := PackedStringArray(["GSWeaponSpawnerConfig game=%s files=%d" % [game, _files.size()]])
 	for key: String in _settings:
 		out.append("  %s = %s" % [key, _settings[key]])
 	return out

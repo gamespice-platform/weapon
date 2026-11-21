@@ -1,14 +1,14 @@
-class_name DotWeaponCarry
+class_name GSWeaponCarry
 extends RefCounted
 
 ## What a carrier may carry: a weight limit, weapons per slot, backpacks, and the modifiers a game hangs
 ## on them. One instance is shared by every arsenal; none (the default) means no limit.
-## Weights live on [member DotWeaponDef.weight]; a modifier is a named source set with [method set_modifier].
+## Weights live on [member GSWeaponDef.weight]; a modifier is a named source set with [method set_modifier].
 
 enum OverLimit {
 	## Over the limit the carrier is slowed ([method speed_scale]); nothing is taken.
 	SLOW,
-	## Over the limit the arsenal drops weapons until it is under ([method DotWeaponArsenal.enforce_limit]).
+	## Over the limit the arsenal drops weapons until it is under ([method GSWeaponArsenal.enforce_limit]).
 	DROP,
 }
 
@@ -90,7 +90,7 @@ func weight_factor() -> float:
 
 
 ## What [param def] weighs to a carrier now.
-func weight_of(def: DotWeaponDef) -> float:
+func weight_of(def: GSWeaponDef) -> float:
 	if not enabled or def == null:
 		return 0.0
 	return def.weight * weight_factor()

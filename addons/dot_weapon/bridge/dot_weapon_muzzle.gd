@@ -1,9 +1,9 @@
-class_name DotWeaponMuzzle
+class_name GSWeaponMuzzle
 extends RefCounted
 
-## Muzzle flash for a weapon, on GameSpice FX's `DotMuzzleFlash`, reached by path so this addon parses without GameSpice FX.
+## Muzzle flash for a weapon, on GameSpice FX's `GSMuzzleFlash`, reached by path so this addon parses without GameSpice FX.
 ##
-## A weapon's profile picks the size with `extra: {muzzle_flash: big|medium|small|very_small|none}`, which lands in [member DotWeaponDef.params]; absent, the category decides. A headless server builds nothing.
+## A weapon's profile picks the size with `extra: {muzzle_flash: big|medium|small|very_small|none}`, which lands in [member GSWeaponDef.params]; absent, the category decides. A headless server builds nothing.
 
 const SCRIPT_PATH := "res://addons/dot_fx/runtime/dot_muzzle_flash.gd"
 const KEY := "muzzle_flash"
@@ -18,7 +18,7 @@ static var _warm_msec := 0
 
 
 ## The profile's size name ("big", "none"...), or "" when the weapon does not say.
-static func flash_name(def: DotWeaponDef) -> String:
+static func flash_name(def: GSWeaponDef) -> String:
 	if def == null:
 		return ""
 	return str(def.params.get(KEY, ""))
@@ -26,7 +26,7 @@ static func flash_name(def: DotWeaponDef) -> String:
 
 ## Builds a flash under [param parent] (a muzzle point or view-model node) and returns it, or null with no GameSpice FX, no display, or a size of none. Call [method fire] per shot.
 static func attach(
-	parent: Node3D, category: String, def: DotWeaponDef = null,
+	parent: Node3D, category: String, def: GSWeaponDef = null,
 	first_person: bool = false, suppressed: bool = false
 ) -> Node3D:
 	if parent == null or not ResourceLoader.exists(SCRIPT_PATH):
@@ -49,7 +49,7 @@ static func attach(
 		flash.process_mode = Node.PROCESS_MODE_INHERIT
 		# The spare is taken: start the next one for this size and view now, a node a frame, so a second gun of the same flash size finds its flash built instead of building it inside its first shot.
 		if parent.is_inside_tree():
-			Callable(DotWeaponMuzzle, "warm").call_deferred(parent, category, def, first_person, suppressed)
+			Callable(GSWeaponMuzzle, "warm").call_deferred(parent, category, def, first_person, suppressed)
 		if flash.get_parent() == parent:
 			return flash
 		if flash.get_parent() != null:
@@ -64,7 +64,7 @@ static func attach(
 
 ## Starts building a flash for [param category] under [param host] (put the node [method attach] will get as its parent, in the tree, under the loading cover; a flash warmed elsewhere is moved, which re-enters it): its pool fills one instance a frame, and the next [method attach] for the same size and view takes it, so the first shot builds nothing. False with no GameSpice FX, no display or a size of none.
 static func warm(
-	host: Node, category: String, def: DotWeaponDef = null,
+	host: Node, category: String, def: GSWeaponDef = null,
 	first_person: bool = false, suppressed: bool = false
 ) -> bool:
 	if host == null or not ResourceLoader.exists(SCRIPT_PATH):
@@ -102,7 +102,7 @@ static func warm_done() -> bool:
 		if not bool(flash.call("is_ready")):
 			if not timed_out:
 				return false
-			DotLog.warn(CHANNEL, "flash pool not built in time; giving up", {"key": str(key), "msec": warm_timeout_msec})
+			GSLog.warn(CHANNEL, "flash pool not built in time; giving up", {"key": str(key), "msec": warm_timeout_msec})
 			_spares.erase(key)
 			(flash as Node).queue_free()
 	return true

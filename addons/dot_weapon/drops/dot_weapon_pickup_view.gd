@@ -1,8 +1,8 @@
-class_name DotWeaponPickupView
+class_name GSWeaponPickupView
 extends Node3D
 
 ## The prompt over a dropped weapon: name, ammunition, key glyph and a hold circle. Draws only; the game
-## feeds it [method DotWeaponDrops.prompt_for]. Text comes through [member translate], a
+## feeds it [method GSWeaponDrops.prompt_for]. Text comes through [member translate], a
 ## [code]Callable(key, fallback) -> String[/code], so a locale addon can supply it.
 
 const CIRCLE_SHADER := """shader_type spatial;
@@ -64,7 +64,7 @@ func _ready() -> void:
 	add_child(_circle)
 
 
-## Shows the prompt for [param info] ([method DotWeaponDrops.prompt_for]); empty hides it.
+## Shows the prompt for [param info] ([method GSWeaponDrops.prompt_for]); empty hides it.
 ## [param fill] is the hold circle, 0..1.
 func show_prompt(info: Dictionary, fill: float = 0.0) -> void:
 	if info.is_empty():

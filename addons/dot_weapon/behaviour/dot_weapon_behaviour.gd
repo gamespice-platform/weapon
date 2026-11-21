@@ -1,20 +1,20 @@
-class_name DotWeaponBehaviour
+class_name GSWeaponBehaviour
 extends RefCounted
 
 ## The base every weapon extends. Guns, bows, melee, thrown, beams, and whatever a game
 ## writes that none of those describe.
 ##
 ## [b]Nothing in this addon should ever require a fork.[/b] A game adds a weapon by
-## writing a script that extends this, pointing a [DotWeaponDef] at its path, and adding
+## writing a script that extends this, pointing a [GSWeaponDef] at its path, and adding
 ## the row to a catalogue. It does not subclass the arsenal, it does not edit an enum
 ## here, and it does not need this addon to have anticipated it.
 ##
 ## [codeblock]
 ## extends "res://addons/dot_weapon/behaviour/dot_weapon_behaviour.gd"
 ##
-## func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
-##     var out := DotWeaponOutcome.of(DotWeaponOutcome.KIND_SPAWN)
-##     var arrow := DotWeaponSpawn.make(&"arrow", ctx.origin, ctx.direction * lerpf(
+## func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
+##     var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_SPAWN)
+##     var arrow := GSWeaponSpawn.make(&"arrow", ctx.origin, ctx.direction * lerpf(
 ##         20.0, def.param_float(&"max_speed", 90.0), ctx.charge
 ##     ), ctx.entity)
 ##     arrow.damage = lerpf(12.0, 60.0, ctx.charge)
@@ -30,21 +30,21 @@ extends RefCounted
 ## reconciliation replay after a correction. A behaviour that reads a wall clock, a
 ## node, an input device or a random stream produces a different answer on each of those
 ## runs, nothing errors, and the symptom is "hit registration feels bad". Use
-## [member DotShot.spread], which GameSpice Combat's [method DotShot.scatter] turns into directions, for anything that needs to scatter.
+## [member GSShot.spread], which GameSpice Combat's [method GSShot.scatter] turns into directions, for anything that needs to scatter.
 ##
-## [b]2. Apply nothing.[/b] Return a [DotWeaponOutcome]; let GameSpice Combat resolve the
-## shots and let the game spawn the spawns. A behaviour that reached into a [DotHealth]
+## [b]2. Apply nothing.[/b] Return a [GSWeaponOutcome]; let GameSpice Combat resolve the
+## shots and let the game spawn the spawns. A behaviour that reached into a [GSHealth]
 ## would be a client deciding who dies.
 ##
 ## [b]3. Keep state in [member state], not in a member.[/b] The arsenal serialises
 ## [member state] across the wire and rolls it back on a correction. A field written
 ## directly on the behaviour survives neither.
 ##
-## [b]4. Check [member DotWeaponContext.replayed] before anything visible.[/b] The
+## [b]4. Check [member GSWeaponContext.replayed] before anything visible.[/b] The
 ## simulation must re-run; a sound, an effect and a statistic must not.
 
 ## The row this behaviour was built for. Never null after [method setup].
-var def: DotWeaponDef = null
+var def: GSWeaponDef = null
 
 ## The arsenal carrying it, for a behaviour that needs to ask about ammunition or the
 ## other weapons. Null in a unit test that drives the behaviour directly.
@@ -63,14 +63,14 @@ var state: Dictionary = {}
 # --- Called by the arsenal --------------------------------------------------
 
 ## Binds the behaviour to its row. Called once, before any other method.
-func setup(p_def: DotWeaponDef, p_arsenal: Object = null) -> void:
+func setup(p_def: GSWeaponDef, p_arsenal: Object = null) -> void:
 	def = p_def
 	arsenal = p_arsenal
 	_setup()
 
 
 ## Brought up and now usable.
-func deploy(ctx: DotWeaponContext) -> void:
+func deploy(ctx: GSWeaponContext) -> void:
 	_deploy(ctx)
 
 
@@ -79,7 +79,7 @@ func deploy(ctx: DotWeaponContext) -> void:
 ## [b]Always called before a switch completes[/b], including one caused by death, by a
 ## correction or by a loadout change, so a behaviour holding something has exactly one
 ## place to release it.
-func holster(ctx: DotWeaponContext) -> void:
+func holster(ctx: GSWeaponContext) -> void:
 	_holster(ctx)
 
 
@@ -88,26 +88,26 @@ func holster(ctx: DotWeaponContext) -> void:
 ##
 ## A bow below its minimum draw, a repair tool aimed at nothing, a deployable with none
 ## left. Returning a failure means the arsenal charges nothing and starts no cooldown.
-func can_use(ctx: DotWeaponContext) -> DotResult:
+func can_use(ctx: GSWeaponContext) -> GSResult:
 	return _can_use(ctx)
 
 
 ## The use itself.
-func use(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var out := _use(ctx)
-	return out if out != null else DotWeaponOutcome.nothing("The behaviour returned null.")
+	return out if out != null else GSWeaponOutcome.nothing("The behaviour returned null.")
 
 
 ## One simulation tick while this weapon is deployed, used or not.
 ##
 ## Where a charge builds, a beam heats, a cooldown that is not the arsenal's own runs
 ## down, and a held object is dragged along.
-func tick(ctx: DotWeaponContext) -> void:
+func tick(ctx: GSWeaponContext) -> void:
 	_tick(ctx)
 
 
 ## Whether [method _tick] may read its context. False for a behaviour whose `_tick` is the empty
-## one or [DotWeaponHitscan]'s (bloom recovery, no context), so an idle arsenal ticks it with none.
+## one or [GSWeaponHitscan]'s (bloom recovery, no context), so an idle arsenal ticks it with none.
 func tick_needs_context() -> bool:
 	if _needs_context < 0:
 		_needs_context = 0
@@ -127,7 +127,7 @@ func tick_needs_context() -> bool:
 
 
 ## Takes an idle tick without a posture when the weapon is at rest and [param still] says the carrier is; true if taken.
-## The base has state a tick may change, so it says false. See [member DotWeaponArsenal.idle_still].
+## The base has state a tick may change, so it says false. See [member GSWeaponArsenal.idle_still].
 func rest_tick(_still: Callable) -> bool:
 	return false
 
@@ -139,10 +139,10 @@ const IDLE_ROW_RESTED := 2
 
 
 ## The whole idle tick from a posture row ([code][speed, airborne, crouched, aiming, sliding, sprinting, wall_running,
-## tick, hurt_tick][/code], the [member DotWeaponArsenal.idle_posture] context's fields) in one native call: the rest tick
+## tick, hurt_tick][/code], the [member GSWeaponArsenal.idle_posture] context's fields) in one native call: the rest tick
 ## when [param rest] (the carrier is settled and the arsenal skips rest ticks) and the weapon is at rest, else the tick
 ## with that posture. [constant IDLE_ROW_TICKED] or [constant IDLE_ROW_RESTED] if taken; [constant IDLE_ROW_DECLINED]
-## changes nothing, and the arsenal runs [method DotWeaponArsenal.idle_tick]. The base has no native tick, so it declines.
+## changes nothing, and the arsenal runs [method GSWeaponArsenal.idle_tick]. The base has no native tick, so it declines.
 func idle_row(_row: PackedFloat64Array, _rest: bool) -> int:
 	return IDLE_ROW_DECLINED
 
@@ -155,14 +155,14 @@ static var idle_gate: int = 1
 static var idle_gate_misses: int = 0
 
 
-## [method idle_row] handed what the arsenal already holds: its [param rules] ([member DotWeaponArsenal.spread_rules]),
-## [param crosshair] ([member DotWeaponArsenal.crosshair_cone]) and [param rate] ([member DotWeaponArsenal.tick_rate]).
+## [method idle_row] handed what the arsenal already holds: its [param rules] ([member GSWeaponArsenal.spread_rules]),
+## [param crosshair] ([member GSWeaponArsenal.crosshair_cone]) and [param rate] ([member GSWeaponArsenal.tick_rate]).
 ## Must do exactly what [method idle_row] does; the base has nothing to save, so it is [method idle_row].
-func idle_row_framed(row: PackedFloat64Array, rest: bool, _rules: DotWeaponSpreadRules, _crosshair: bool, _rate: int) -> int:
+func idle_row_framed(row: PackedFloat64Array, rest: bool, _rules: GSWeaponSpreadRules, _crosshair: bool, _rate: int) -> int:
 	return idle_row(row, rest)
 
 
-## [method tick_needs_context] when the arsenal has an [member DotWeaponArsenal.idle_posture]; must answer the same.
+## [method tick_needs_context] when the arsenal has an [member GSWeaponArsenal.idle_posture]; must answer the same.
 ## The base reads no posture, so it is [method tick_needs_context].
 func tick_needs_context_posed() -> bool:
 	return tick_needs_context()
@@ -175,12 +175,12 @@ func spread_now() -> float:
 
 ## The use button was released.
 ##
-## Called for every fire mode, not only [constant DotWeaponDef.Fire.CHARGE], because a
+## Called for every fire mode, not only [constant GSWeaponDef.Fire.CHARGE], because a
 ## beam that has to stop and a thrown charge that has to leave the hand are the same
 ## event.
-func release(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func release(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var out := _release(ctx)
-	return out if out != null else DotWeaponOutcome.nothing("")
+	return out if out != null else GSWeaponOutcome.nothing("")
 
 
 ## A reload finished. A behaviour that tracks its own loaded state syncs it here.
@@ -197,31 +197,31 @@ func _setup() -> void:
 	pass
 
 
-func _deploy(_ctx: DotWeaponContext) -> void:
+func _deploy(_ctx: GSWeaponContext) -> void:
 	pass
 
 
-func _holster(_ctx: DotWeaponContext) -> void:
+func _holster(_ctx: GSWeaponContext) -> void:
 	pass
 
 
-func _can_use(_ctx: DotWeaponContext) -> DotResult:
-	return DotResult.success(null)
+func _can_use(_ctx: GSWeaponContext) -> GSResult:
+	return GSResult.success(null)
 
 
-func _use(_ctx: DotWeaponContext) -> DotWeaponOutcome:
-	return DotWeaponOutcome.nothing("This weapon does nothing when used.")
+func _use(_ctx: GSWeaponContext) -> GSWeaponOutcome:
+	return GSWeaponOutcome.nothing("This weapon does nothing when used.")
 
 
 var _needs_context: int = -1
 
 
-func _tick(_ctx: DotWeaponContext) -> void:
+func _tick(_ctx: GSWeaponContext) -> void:
 	pass
 
 
-func _release(_ctx: DotWeaponContext) -> DotWeaponOutcome:
-	return DotWeaponOutcome.nothing("")
+func _release(_ctx: GSWeaponContext) -> GSWeaponOutcome:
+	return GSWeaponOutcome.nothing("")
 
 
 func _reloaded(_rounds: int) -> void:
@@ -242,12 +242,12 @@ func running_tick_rate() -> int:
 
 
 ## [param authored_ticks], a count from this weapon's tuning, as a count at the running
-## tick rate. See [member DotWeaponDef.authored_tick_rate].
+## tick rate. See [member GSWeaponDef.authored_tick_rate].
 ##
 ## [b]For a count that leaves this behaviour[/b]: a spawn's fuse and life, which the game
-## flies at its own rate, and anything compared with [member DotWeaponContext.held_ticks],
+## flies at its own rate, and anything compared with [member GSWeaponContext.held_ticks],
 ## which the arsenal counts at its own. A cooldown handed back in
-## [member DotWeaponOutcome.cooldown_ticks] is NOT scaled here; the arsenal does that.
+## [member GSWeaponOutcome.cooldown_ticks] is NOT scaled here; the arsenal does that.
 func scaled_ticks(authored_ticks: int) -> int:
 	if def == null:
 		return authored_ticks
@@ -262,11 +262,11 @@ func scaled_per_tick(amount: float) -> float:
 	return def.per_tick_at(amount, running_tick_rate())
 
 
-## Reads a tuning field from [member DotWeaponDef.tuning] if it has one, then from
-## [member DotWeaponDef.params], then the fallback.
+## Reads a tuning field from [member GSWeaponDef.tuning] if it has one, then from
+## [member GSWeaponDef.params], then the fallback.
 ##
 ## The precedence is the typed resource first because it is the more specific of the
-## two; see [DotWeaponTuning].
+## two; see [GSWeaponTuning].
 func tune(key: StringName, fallback: Variant = null) -> Variant:
 	if def == null:
 		return fallback
@@ -308,4 +308,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponBehaviour(%s)" % (String(def.id) if def != null else "unbound")
+	return "GSWeaponBehaviour(%s)" % (String(def.id) if def != null else "unbound")

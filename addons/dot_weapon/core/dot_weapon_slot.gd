@@ -1,22 +1,22 @@
-class_name DotWeaponSlot
+class_name GSWeaponSlot
 extends RefCounted
 
 ## One weapon a carrier is actually holding, and the state that belongs to it alone.
 ##
-## [b]Separate from [DotWeaponDef] because a definition is shared and this is not.[/b]
+## [b]Separate from [GSWeaponDef] because a definition is shared and this is not.[/b]
 ## Thirty players carrying the same rifle share one definition and have thirty
 ## magazines. Writing a round count onto the definition is the bug where reloading
 ## reloads everybody's.
 
 ## The row this was built from. Never null.
-var def: DotWeaponDef = null
+var def: GSWeaponDef = null
 
 ## The behaviour instance, private to this carrier.
 ##
 ## One per slot rather than one per definition, because a behaviour holds state — a
 ## bow's draw, a beam's heat — and sharing an instance makes one player's bow charge
 ## when another draws.
-var behaviour: DotWeaponBehaviour = null
+var behaviour: GSWeaponBehaviour = null
 
 ## Rounds in the magazine. Meaningless when the weapon feeds from the reserve.
 var magazine: int = 0
@@ -24,15 +24,15 @@ var magazine: int = 0
 ## Ticks of reloading already done, for a reload that survives a holster.
 var reload_progress: int = 0
 
-## Index into [method DotWeaponDef.allowed_fire_modes] the player selected on this gun.
+## Index into [method GSWeaponDef.allowed_fire_modes] the player selected on this gun.
 var fire_mode_index: int = 0
 
 ## What is fitted, or null when nothing is. [member def] is already the applied copy.
-var fitting: DotWeaponFitting = null
+var fitting: GSWeaponFitting = null
 
 
-static func make(p_def: DotWeaponDef, p_behaviour: DotWeaponBehaviour) -> DotWeaponSlot:
-	var s := DotWeaponSlot.new()
+static func make(p_def: GSWeaponDef, p_behaviour: GSWeaponBehaviour) -> GSWeaponSlot:
+	var s := GSWeaponSlot.new()
 	s.def = p_def
 	s.behaviour = p_behaviour
 	s.magazine = p_def.magazine
@@ -44,7 +44,7 @@ func id() -> StringName:
 
 
 ## The fire mode in effect: the selected one among the definition's allowed modes.
-func fire_mode() -> DotWeaponDef.Fire:
+func fire_mode() -> GSWeaponDef.Fire:
 	return def.fire_mode_at(fire_mode_index)
 
 

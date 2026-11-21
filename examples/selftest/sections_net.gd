@@ -2,7 +2,7 @@ extends "harness.gd"
 
 ## Tick-rate, determinism, snapshot, bridge and net-sync sections of the suite.
 
-func _reload_span(arsenal: DotWeaponArsenal, from: int) -> int:
+func _reload_span(arsenal: GSWeaponArsenal, from: int) -> int:
 	arsenal.begin_reload(from)
 	var t := from
 	while arsenal.is_reloading() and t < from + 10000:
@@ -12,7 +12,7 @@ func _reload_span(arsenal: DotWeaponArsenal, from: int) -> int:
 
 
 ## Ticks from asking for [param slot] to being able to use it.
-func _switch_span(arsenal: DotWeaponArsenal, slot: int, from: int) -> int:
+func _switch_span(arsenal: GSWeaponArsenal, slot: int, from: int) -> int:
 	var previous := _cmd(false)
 	arsenal.simulate_tick(_cmd(false, slot), _ctx(from), previous)
 	var t := from
@@ -23,21 +23,21 @@ func _switch_span(arsenal: DotWeaponArsenal, slot: int, from: int) -> int:
 
 
 ## A catalogue whose every row says it was written at 64 Hz, as zee-dot-weapons' does.
-func _authored_catalogue(rate: int) -> DotWeaponCatalogue:
-	var c := DotWeaponCatalogue.new()
-	for d: DotWeaponDef in [_rifle(), _pistol(), _bow(), _flamer(), _grenade()]:
+func _authored_catalogue(rate: int) -> GSWeaponCatalogue:
+	var c := GSWeaponCatalogue.new()
+	for d: GSWeaponDef in [_rifle(), _pistol(), _bow(), _flamer(), _grenade()]:
 		d.authored_tick_rate = rate
 		c.add(d)
 	return c
 
 
-func _arsenal_at(catalogue: DotWeaponCatalogue, rate: int) -> DotWeaponArsenal:
+func _arsenal_at(catalogue: GSWeaponCatalogue, rate: int) -> GSWeaponArsenal:
 	var a := _arsenal(catalogue)
 	a.tick_rate = rate
 	return a
 
 
-func _tick_rate_spans(cat: DotWeaponCatalogue) -> Array[Node]:
+func _tick_rate_spans(cat: GSWeaponCatalogue) -> Array[Node]:
 	# Reload, in seconds rather than ticks.
 	var r64 := _arsenal_at(cat, 64)
 	var r128 := _arsenal_at(cat, 128)
@@ -57,7 +57,7 @@ func _tick_rate_spans(cat: DotWeaponCatalogue) -> Array[Node]:
 		sw_cat.get_def(id).deploy_ticks = 16
 	var s64 := _arsenal_at(sw_cat, 64)
 	var s128 := _arsenal_at(sw_cat, 128)
-	for a: DotWeaponArsenal in [s64, s128]:
+	for a: GSWeaponArsenal in [s64, s128]:
 		a.give(&"pistol")
 		a.give(&"rifle")
 	var switch64 := _switch_span(s64, 1, 0)
@@ -66,13 +66,13 @@ func _tick_rate_spans(cat: DotWeaponCatalogue) -> Array[Node]:
 	return [r64, r128, s64, s128]
 
 
-func _tick_rate_fuse(cat: DotWeaponCatalogue) -> Array[Node]:
+func _tick_rate_fuse(cat: GSWeaponCatalogue) -> Array[Node]:
 	# A thrown spawn's fuse leaves in RUNNING ticks, so a game flies it as given. Pin out
 	# on one tick, released on the next: one tick of cook at either rate.
 	var g64 := _arsenal_at(cat, 64)
 	var g128 := _arsenal_at(cat, 128)
 	var fuses: Array[int] = []
-	for a: DotWeaponArsenal in [g64, g128]:
+	for a: GSWeaponArsenal in [g64, g128]:
 		a.give(&"grenade")
 		a.simulate_tick(_cmd(true), _ctx(0), _cmd(false))
 		var out := a.simulate_tick(_cmd(false), _ctx(1), _cmd(true))
@@ -118,7 +118,7 @@ func _test_tick_rate() -> void:
 	var spans := _tick_rate_spans(cat)
 
 	# A charge fills in the same time, and so does what a behaviour reads per tick.
-	var bow: DotWeaponDef = cat.get_def(&"bow")
+	var bow: GSWeaponDef = cat.get_def(&"bow")
 	_close(at128.charge_for(bow, 64), 0.5, "half a second of draw is half a charge at 128 Hz")
 	_close(at64.charge_for(bow, 64), 1.0, "and a full one at 64")
 	var behaviour := at128.slot_at(1).behaviour
@@ -163,7 +163,7 @@ func _test_determinism() -> void:
 	# property a predicting client and a resolving server depend on, and the one that
 	# fails silently: the symptom is "hit registration feels bad", never an error.
 	var spread_cat := _catalogue()
-	var sc: DotWeaponBallistics = spread_cat.get_def(&"rifle").tuning
+	var sc: GSWeaponBallistics = spread_cat.get_def(&"rifle").tuning
 	sc.spread = 3.0
 	sc.pellets = 8
 
@@ -231,8 +231,8 @@ func _test_idle_tick() -> void:
 	_section("an idle tick skips the context and changes nothing")
 
 	var cat := _catalogue()
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom = 2.0
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom_recovery = 0.2
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom = 2.0
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom_recovery = 0.2
 	var slow := _arsenal(cat)
 	var fast := _arsenal(cat)
 
@@ -246,18 +246,18 @@ func _test_idle_tick() -> void:
 	rng.seed = 424242
 	var skipped := 0
 	var same := true
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 
 	for tick in range(1200):
-		var cmd := DotWeaponCommand.new()
+		var cmd := GSWeaponCommand.new()
 		# Long quiet stretches (the case being skipped) between bursts of every button.
 		if (tick / 40) % 3 == 0:
-			cmd.set_button(DotWeaponCommand.BUTTON_ATTACK, rng.randf() < 0.7)
-			cmd.set_button(DotWeaponCommand.BUTTON_RELOAD, rng.randf() < 0.03)
+			cmd.set_button(GSWeaponCommand.BUTTON_ATTACK, rng.randf() < 0.7)
+			cmd.set_button(GSWeaponCommand.BUTTON_RELOAD, rng.randf() < 0.03)
 			cmd.slot = rng.randi_range(1, 4) if rng.randf() < 0.05 else 0
 
 		var want := slow.simulate_tick(cmd, _ctx(tick), previous)
-		var got: DotWeaponOutcome
+		var got: GSWeaponOutcome
 		if fast.is_idle_for(cmd, previous):
 			got = fast.idle_tick()
 			skipped += 1
@@ -289,14 +289,14 @@ func _test_moving_tick_cone() -> void:
 	_section("a context tick's cone is the one _spread_with reads back from the state")
 
 	var cat := _catalogue()
-	var b := cat.get_def(&"rifle").tuning as DotWeaponBallistics
+	var b := cat.get_def(&"rifle").tuning as GSWeaponBallistics
 	b.bloom = 2.0
 	b.bloom_recovery = 0.2
 	b.settle_ticks = 6
 	var a := _arsenal(cat)
 	a.give(&"rifle")
-	a.spread_rules = DotWeaponSpreadRules.new()
-	var beh := a.current().behaviour as DotWeaponHitscan
+	a.spread_rules = GSWeaponSpreadRules.new()
+	var beh := a.current().behaviour as GSWeaponHitscan
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 77
 	var same := true
@@ -325,15 +325,15 @@ func _test_idle_tick_with_rules() -> void:
 	_section("an idle tick with spread rules attached, crosshair_cone off")
 
 	var cat := _catalogue()
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom = 2.0
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom_recovery = 0.2
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom = 2.0
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom_recovery = 0.2
 	var slow := _arsenal(cat)
 	var fast := _arsenal(cat)
 	var watched := _arsenal(cat)
 
 	for a in [slow, fast, watched]:
 		a.give(&"rifle")
-		a.spread_rules = DotWeaponSpreadRules.new()
+		a.spread_rules = GSWeaponSpreadRules.new()
 
 	slow.crosshair_cone = false
 	fast.crosshair_cone = false
@@ -342,14 +342,14 @@ func _test_idle_tick_with_rules() -> void:
 
 	var skipped := 0
 	var same := true
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 	var rested := false
 
 	for tick in range(900):
 		# A shot every 300 ticks, then a long rest in which the bloom decays to nothing.
 		var cmd := _cmd(tick % 300 < 8)
 		var want := slow.simulate_tick(cmd, _ctx(tick), previous)
-		var got: DotWeaponOutcome
+		var got: GSWeaponOutcome
 		if fast.is_idle_for(cmd, previous):
 			got = fast.idle_tick()
 			skipped += 1
@@ -380,8 +380,8 @@ func _test_idle_posture_with_rules() -> void:
 	_section("an idle tick with enabled spread rules and a posture provider")
 
 	var cat := _catalogue()
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom = 2.0
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom_recovery = 0.2
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom = 2.0
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom_recovery = 0.2
 	var full := _arsenal(cat)
 	var cheap := _arsenal(cat)
 	var watched := _arsenal(cat)
@@ -389,27 +389,27 @@ func _test_idle_posture_with_rules() -> void:
 
 	for a in [full, cheap, watched]:
 		a.give(&"rifle")
-		a.spread_rules = DotWeaponSpreadRules.new()
+		a.spread_rules = GSWeaponSpreadRules.new()
 		a.spread_rules.enabled = true
 		a.spread_rules.recovery = 40.0
 
 	cheap.crosshair_cone = false
 	full.crosshair_cone = false
 	_check(not cheap.is_idle_for(_cmd(), null), "enabled rules without a provider still build the context")
-	cheap.idle_posture = func() -> DotWeaponContext: return _idle_ctx(now[0])
+	cheap.idle_posture = func() -> GSWeaponContext: return _idle_ctx(now[0])
 	watched.idle_posture = cheap.idle_posture
 	_check(cheap.is_idle_for(_cmd(), null), "a provider makes the idle path available")
 	_check(watched.is_idle_for(_cmd(), null), "also for a watched crosshair")
 
 	var skipped := 0
 	var same := true
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 
 	for tick in range(900):
 		now[0] = tick
 		var cmd := _cmd(tick % 300 < 8)
 		var want := full.simulate_tick(cmd, _idle_ctx(tick), previous)
-		var got: DotWeaponOutcome
+		var got: GSWeaponOutcome
 		if cheap.is_idle_for(cmd, previous):
 			got = cheap.idle_tick()
 			skipped += 1
@@ -433,7 +433,7 @@ func _test_idle_posture_with_rules() -> void:
 
 
 ## A carrier whose posture changes every 50 ticks: still, walk, run, sprint, crouched, in the air.
-func _idle_ctx(tick: int) -> DotWeaponContext:
+func _idle_ctx(tick: int) -> GSWeaponContext:
 	var c := _ctx(tick)
 	match floori(tick / 50.0) % 6:
 		1: c.speed = 2.0
@@ -481,7 +481,7 @@ func _test_snapshot() -> void:
 	_drive(rod, 0, 1, false)
 	_drive(rod, 10, 2, true)
 
-	var behaviour: DotWeaponBehaviour = rod.current().behaviour
+	var behaviour: GSWeaponBehaviour = rod.current().behaviour
 	var after_use: int = behaviour.charges_left()
 	_check(after_use == 2, "a behaviour's own state changes when it is used", str(after_use))
 
@@ -491,9 +491,9 @@ func _test_snapshot() -> void:
 
 	rod.restore(rod_snap)
 	_check(
-		(rod.current().behaviour as DotWeaponBehaviour).charges_left() == 2,
+		(rod.current().behaviour as GSWeaponBehaviour).charges_left() == 2,
 		"and a restore puts the behaviour's state back, not only the ammunition",
-		str((rod.current().behaviour as DotWeaponBehaviour).charges_left())
+		str((rod.current().behaviour as GSWeaponBehaviour).charges_left())
 	)
 
 	# Restoring onto an arsenal carrying something else rebuilds what it should hold.
@@ -523,7 +523,7 @@ func _test_loadout_bridge() -> void:
 		{"slot": &"hat", "arsenal_slot": 0, "item": _fake_item(&"party_hat"), "count": 1},
 	]
 
-	var res := DotWeaponLoadoutBridge.fill(a, resolved)
+	var res := GSWeaponLoadoutBridge.fill(a, resolved)
 	_check(res.ok, "a loadout fills an arsenal")
 	_check(int(res.value) == 2, "with the weapons in it", str(res.value))
 	_check(
@@ -541,14 +541,14 @@ func _test_loadout_bridge() -> void:
 	var mapped: Array = [
 		{"arsenal_slot": 1, "item": _fake_item(&"item_ak"), "count": 1},
 	]
-	var res2 := DotWeaponLoadoutBridge.fill(b, mapped, {&"item_ak": &"rifle"})
+	var res2 := GSWeaponLoadoutBridge.fill(b, mapped, {&"item_ak": &"rifle"})
 	_check(res2.ok and b.carries(&"rifle"), "an item id maps to a weapon id")
 
 	# Nothing recognisable is a refusal, not a silently empty arsenal.
 	var c := _arsenal()
 	var junk: Array = [{"arsenal_slot": 1, "item": _fake_item(&"nothing"), "count": 1}]
 	_check(
-		not DotWeaponLoadoutBridge.fill(c, junk).ok,
+		not GSWeaponLoadoutBridge.fill(c, junk).ok,
 		"a loadout naming no weapon we know is refused, rather than leaving a player "
 		+ "holding nothing and wondering why"
 	)
@@ -563,7 +563,7 @@ func _test_loadout_bridge() -> void:
 	r2.id = &"rifle2"
 	clash_cat.add(r2)
 	_check(
-		not DotWeaponLoadoutBridge.check(clash_cat, clash).ok,
+		not GSWeaponLoadoutBridge.check(clash_cat, clash).ok,
 		"two weapons wanting one slot are caught on the join path, where refusing is "
 		+ "cheap"
 	)
@@ -594,7 +594,7 @@ func _test_inventory_bridge() -> void:
 	var bag: Array = [_fake_stack(&"box_rifle", 45), _fake_stack(&"bandage", 3)]
 	var pools := {&"box_rifle": &"rifle_rounds"}
 
-	DotWeaponInventoryBridge.load_ammo(a, bag, pools)
+	GSWeaponInventoryBridge.load_ammo(a, bag, pools)
 	_check(
 		a.ammo().count(&"rifle_rounds") == 45,
 		"a bag's ammunition is read into the pool",
@@ -607,19 +607,19 @@ func _test_inventory_bridge() -> void:
 
 	# Called twice, it must not double. Adding rather than setting turns every refresh
 	# into a duplication bug, and this is called on a schedule.
-	DotWeaponInventoryBridge.load_ammo(a, bag, pools)
+	GSWeaponInventoryBridge.load_ammo(a, bag, pools)
 	_check(
 		a.ammo().count(&"rifle_rounds") == 45,
 		"reading it twice does not double it"
 	)
 
-	var counts := DotWeaponInventoryBridge.ammo_counts(a)
+	var counts := GSWeaponInventoryBridge.ammo_counts(a)
 	_check(
 		int(counts.get(&"rifle_rounds", 0)) == 45,
 		"and what the bag should hold comes back for the caller to apply"
 	)
 
-	var carried := DotWeaponInventoryBridge.carried(a)
+	var carried := GSWeaponInventoryBridge.carried(a)
 	_check(carried.size() == 1, "what is carried is reportable")
 	_check(bool(carried[0]["in_hand"]), "including which one is in hand")
 
@@ -637,7 +637,7 @@ func _fake_stack(id: StringName, count: int) -> RefCounted:
 func _test_net_sync() -> void:
 	_section("the wire")
 
-	var specs := DotWeaponNetSync.specs()
+	var specs := GSWeaponNetSync.specs()
 	_check(specs.size() == 3, "the bridge describes the weapon half", str(specs.size()))
 
 	var owner_only := 0
@@ -655,7 +655,7 @@ func _test_net_sync() -> void:
 	a.give(&"pistol")
 
 	var fake := _FakeNet.new()
-	DotWeaponNetSync.pull(a, fake)
+	GSWeaponNetSync.pull(a, fake)
 	_check(fake.net_slot == 1, "the held slot replicates")
 	_check(fake.net_magazine == 30, "and the magazine")
 	_check(fake.net_reserve == 90, "and the reserve")
@@ -667,13 +667,13 @@ func _test_net_sync() -> void:
 	_drive(b, 0, 1, false)
 	_check(b.current_slot() == 2, "a second arsenal is on another slot")
 
-	DotWeaponNetSync.push(fake, b)
+	GSWeaponNetSync.push(fake, b)
 	_check(b.current_slot() == 1 or b.is_switching(), "which the wire corrects")
 
 	# A correction writes the counts; an ordinary snapshot must not.
 	b.restore(a.snapshot())
 	b.current().magazine = 4
-	DotWeaponNetSync.correct_ammo(fake, b)
+	GSWeaponNetSync.correct_ammo(fake, b)
 	_check(
 		b.current().magazine == 30,
 		"a correction puts the predicted magazine right",

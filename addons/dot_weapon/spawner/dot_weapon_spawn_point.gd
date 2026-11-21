@@ -1,9 +1,9 @@
-class_name DotWeaponSpawnPoint
+class_name GSWeaponSpawnPoint
 extends Node3D
 
-## The marker a mapper places: it names a spawner, and a [DotWeaponSpawner] reads it as a [DotWeaponSpawnSite].
+## The marker a mapper places: it names a spawner, and a [GSWeaponSpawner] reads it as a [GSWeaponSpawnSite].
 ##
-## It draws and simulates nothing; the server's spawner decides, a client draws from [DotWeaponSpawnView]. Fields left at their defaults can be set from the config by [member spawner_id].
+## It draws and simulates nothing; the server's spawner decides, a client draws from [GSWeaponSpawnView]. Fields left at their defaults can be set from the config by [member spawner_id].
 
 const GROUP := &"dot_weapon_spawn_points"
 
@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 ## The site this marker stands for; an empty [member spawner_id] becomes the node's name.
-func to_site() -> DotWeaponSpawnSite:
+func to_site() -> GSWeaponSpawnSite:
 	var d := {
 		"id": spawner_id if spawner_id != &"" else StringName(name), "position": global_position if is_inside_tree() else position,
 		"rotation_y": rotation.y, "kind": kind, "pool": pool, "item": item, "respawn_seconds": respawn_seconds,
@@ -40,13 +40,13 @@ func to_site() -> DotWeaponSpawnSite:
 	for key in ["tags_any", "tags_all", "tags_none"]:
 		if str(get(key)).strip_edges() != "":
 			d[key] = get(key)
-	return DotWeaponSpawnSite.from_dictionary(d)
+	return GSWeaponSpawnSite.from_dictionary(d)
 
 
 ## Every marker under [param root] as a site.
-static func collect(root: Node) -> Array[DotWeaponSpawnSite]:
-	var out: Array[DotWeaponSpawnSite] = []
+static func collect(root: Node) -> Array[GSWeaponSpawnSite]:
+	var out: Array[GSWeaponSpawnSite] = []
 	for n in root.find_children("*", "Node3D", true, false):
-		if n is DotWeaponSpawnPoint:
-			out.append((n as DotWeaponSpawnPoint).to_site())
+		if n is GSWeaponSpawnPoint:
+			out.append((n as GSWeaponSpawnPoint).to_site())
 	return out

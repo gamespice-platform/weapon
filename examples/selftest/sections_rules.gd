@@ -14,7 +14,7 @@ func _test_melee() -> void:
 	_check(swings.size() == 1, "a swing happens")
 
 	var swing := swings[0]
-	_check(swing.kind == DotWeaponOutcome.KIND_SWING, "and says it is a swing")
+	_check(swing.kind == GSWeaponOutcome.KIND_SWING, "and says it is a swing")
 	_check(swing.shots.size() == 1, "producing one shot")
 	_check(swing.shots[0].pellet_count == 5, "sampled across the arc")
 	_close(swing.shots[0].max_range, 2.0, "reaching only as far as the blade")
@@ -32,7 +32,7 @@ func _test_melee() -> void:
 	# A knife costs no ammunition and needs none declared.
 	_check(a.current().def.ammo_type == &"", "a knife declares no ammunition")
 	var many := 0
-	var prev: DotWeaponCommand = null
+	var prev: GSWeaponCommand = null
 	for i in range(200):
 		# Tapped, not held: a knife is semi-automatic, so holding it is one swing.
 		var cmd := _cmd(i % 25 == 0)
@@ -91,7 +91,7 @@ func _test_thrown() -> void:
 
 	var quick := a.simulate_tick(_cmd(false), _ctx(110), p)
 	_check(quick.used, "a grenade is thrown")
-	_check(quick.kind == DotWeaponOutcome.KIND_THROW, "as a throw")
+	_check(quick.kind == GSWeaponOutcome.KIND_THROW, "as a throw")
 	_check(
 		quick.spawns[0].fuse_ticks > 170,
 		"with most of its fuse left",
@@ -163,7 +163,7 @@ func _test_carry() -> void:
 	_check(a.give(&"rifle").ok and a.carried_weight() == 0.0 and a.capacity() == INF, "with no carry rules nothing weighs and nothing is refused")
 	_check(a.give(&"pistol2").ok and a.weapons_in(2).size() == 1, "and a slot holds one weapon")
 	a.clear()
-	var carry := DotWeaponCarry.new()
+	var carry := GSWeaponCarry.new()
 	a.carry = carry
 	_check(a.give(&"rifle").ok and a.carried_weight() == 0.0, "a disabled carry weighs nothing")
 	carry.enabled = true
@@ -172,7 +172,7 @@ func _test_carry() -> void:
 	_check(is_equal_approx(a.carried_weight(), 12.0) and is_equal_approx(a.capacity(), 20.0), "enabled, weights count and the limit is the base")
 	_check(a.give(&"pistol").ok and is_equal_approx(a.carried_weight(), 16.0), "a weapon under the limit is taken")
 	var refused := a.give(&"pistol2")
-	_check(not refused.ok and refused.error.code == DotError.CODE_QUOTA and refused.error.message.contains("Too heavy"), "an over-weight pickup is refused with a message")
+	_check(not refused.ok and refused.error.code == GSError.CODE_QUOTA and refused.error.message.contains("Too heavy"), "an over-weight pickup is refused with a message")
 	_check(a.weapons_in(2).size() == 1 and not a.carries(&"pistol2"), "and nothing changed")
 	_check(not a.equip_backpack(4) and a.equip_backpack(1) and is_equal_approx(a.capacity(), 30.0), "a backpack raises the limit, a tier that does not exist is refused")
 	_check(not a.equip_backpack(1), "and the same tier again is not an upgrade")
@@ -193,7 +193,7 @@ func _test_carry() -> void:
 	carry.set_modifier(&"heavy_box", 2.0)
 	_check(is_equal_approx(carry.weight_factor(), 2.0) and a.over_by() > 0.0, "a modifier doubling weights puts the carrier over")
 	_check(a.speed_scale() < 1.0 and a.speed_scale() >= carry.slow_floor, "SLOW mode slows within the floor")
-	carry.over_limit = DotWeaponCarry.OverLimit.DROP
+	carry.over_limit = GSWeaponCarry.OverLimit.DROP
 	_check(is_equal_approx(a.speed_scale(), 1.0), "DROP mode does not slow")
 	var dropped := a.enforce_limit()
 	_check(a.over_by() <= 0.0001 and not dropped.is_empty() and a.current() != null, "DROP sheds weapons until under, keeping the one in hand")
@@ -205,25 +205,25 @@ func _test_carry() -> void:
 	carry.clear_modifiers()
 	carry.multiplier = 0.5
 	_check(is_equal_approx(carry.weight_of(cat.get_def(&"rifle")), 6.0), "the global multiplier scales a weight")
-	carry.over_limit = DotWeaponCarry.OverLimit.SLOW
+	carry.over_limit = GSWeaponCarry.OverLimit.SLOW
 	_check(carry.speed_scale(10.0, 20.0) == 1.0 and carry.speed_scale(40.0, 20.0) == 0.5, "speed scale is 1 under, floored over")
-	var from_file := DotWeaponDef.new()
-	DotWeaponProfiles.apply_common(from_file, {"weight": 7.5})
+	var from_file := GSWeaponDef.new()
+	GSWeaponProfiles.apply_common(from_file, {"weight": 7.5})
 	_check(is_equal_approx(from_file.weight, 7.5), "weight is a profile key")
-	_check(str(DotWeaponProfiles.schema()).contains("weight"), "and in the schema")
+	_check(str(GSWeaponProfiles.schema()).contains("weight"), "and in the schema")
 	var t := a.take(2)
 	_check(t.ok and a.carried_weight() < 16.0, "take removes a weapon")
 	_done()
 
 
-func _spread_sprint_blocks(a: DotWeaponArsenal, aim_cmd: DotWeaponCommand) -> void:
+func _spread_sprint_blocks(a: GSWeaponArsenal, aim_cmd: GSWeaponCommand) -> void:
 	var sprint_ctx := _ctx(200)
 	sprint_ctx.sprinting = true
 	sprint_ctx.sprint_blocks_aim = true
 	var _w := a.simulate_tick(aim_cmd, sprint_ctx, null)
 	_check(not sprint_ctx.aiming, "sprinting with sprint_blocks_aim drops the aim")
 	var reload_cmd := _cmd(false)
-	reload_cmd.set_button(DotWeaponCommand.BUTTON_RELOAD, true)
+	reload_cmd.set_button(GSWeaponCommand.BUTTON_RELOAD, true)
 	var _x := a.simulate_tick(reload_cmd, sprint_ctx, null)
 	_check(not a.is_reloading(), "and refuses a reload")
 	sprint_ctx.sprint_blocks_aim = false
@@ -247,7 +247,7 @@ func _spread_sprint_blocks(a: DotWeaponArsenal, aim_cmd: DotWeaponCommand) -> vo
 func _test_spread_rules() -> void:
 	_section("movement-dependent spread")
 
-	var rules := DotWeaponSpreadRules.new()
+	var rules := GSWeaponSpreadRules.new()
 	var ctx := _ctx(1)
 	_check(is_equal_approx(rules.target_factor(ctx), 1.0), "off: every posture is factor 1")
 	rules.enabled = true
@@ -277,7 +277,7 @@ func _test_spread_rules() -> void:
 
 	var a := _arsenal()
 	a.give(&"rifle")
-	var tuning := a.current().def.tuning as DotWeaponBallistics
+	var tuning := a.current().def.tuning as GSWeaponBallistics
 	tuning.spread = 1.0
 	tuning.spread_moving = 1.0
 	tuning.spread_airborne = 1.0
@@ -299,7 +299,7 @@ func _test_spread_rules() -> void:
 	_check(is_equal_approx(a.spread_now(), 1.0), "and recovers to the base", str(a.spread_now()))
 	var aimed := _ctx(100)
 	var aim_cmd := _cmd(false)
-	aim_cmd.set_button(DotWeaponCommand.BUTTON_AIM, true)
+	aim_cmd.set_button(GSWeaponCommand.BUTTON_AIM, true)
 	var _u := a.simulate_tick(aim_cmd, aimed, null)
 	_check(is_equal_approx(a.spread_now(), 0.5), "aiming halves it", str(a.spread_now()))
 	rules.enabled = false
@@ -315,12 +315,12 @@ func _test_spread_rules() -> void:
 func _test_spread_ladder() -> void:
 	_section("spread ladder: still < walk < run < air")
 	for shotgun in [false, true]:
-		var rules := DotWeaponSpreadRules.new()
+		var rules := GSWeaponSpreadRules.new()
 		rules.enabled = true
 		rules.recovery = 0.0
 		var a := _arsenal()
 		a.give(&"rifle")
-		var t := a.current().def.tuning as DotWeaponBallistics
+		var t := a.current().def.tuning as GSWeaponBallistics
 		t.spread = 4.0 if shotgun else 0.5
 		t.spread_moving = 0.5 if shotgun else 2.0
 		t.spread_airborne = 1.0 if shotgun else 4.0
@@ -337,7 +337,7 @@ func _test_spread_ladder() -> void:
 			c.crouched = key == "crouch"
 			var cmd := _cmd(false)
 			if key == "aim":
-				cmd.set_button(DotWeaponCommand.BUTTON_AIM, true)
+				cmd.set_button(GSWeaponCommand.BUTTON_AIM, true)
 			var _o := a.simulate_tick(cmd, c, null)
 			got[key] = a.spread_now()
 		var tag := " (shotgun data)" if shotgun else ""
@@ -345,21 +345,21 @@ func _test_spread_ladder() -> void:
 		_check(got["run"] < got["sprint"] and got["run"] < got["air"], "run < sprint and air" + tag, str(got))
 		_check(got["crouch"] < got["still"] and got["aim"] < got["still"], "crouched and aimed are tighter" + tag, str(got))
 		_drop(a)
-	var bal := DotWeaponBallistics.new()
+	var bal := GSWeaponBallistics.new()
 	var sniper := bal.crosshair_scale_for([&"primary", &"scoped"])
 	var smg := bal.crosshair_scale_for([&"primary", &"automatic"])
 	var plain := bal.crosshair_scale_for([&"primary"])
 	_check(sniper > plain and plain > smg, "gap scale: sniper > usual gun > automatic", "%s %s %s" % [sniper, plain, smg])
 	bal.crosshair_scale = 2.0
 	_check(is_equal_approx(bal.crosshair_scale_for([&"automatic"]), 2.0), "an explicit crosshair_scale beats the class default")
-	var xs := DotWeaponDef.new()
-	DotWeaponProfiles.apply_common(xs, {"crosshair_scale": 3.0})
-	_check(is_equal_approx(xs.crosshair_scale, 3.0) and str(DotWeaponProfiles.schema()).contains("crosshair_scale"), "crosshair_scale is a schema field the def takes")
+	var xs := GSWeaponDef.new()
+	GSWeaponProfiles.apply_common(xs, {"crosshair_scale": 3.0})
+	_check(is_equal_approx(xs.crosshair_scale, 3.0) and str(GSWeaponProfiles.schema()).contains("crosshair_scale"), "crosshair_scale is a schema field the def takes")
 	var xa := _arsenal()
 	xa.give(&"rifle")
 	var xdef := xa.current().def
 	xdef.crosshair_scale = 0.0
-	(xdef.tuning as DotWeaponBallistics).crosshair_scale = 1.5
+	(xdef.tuning as GSWeaponBallistics).crosshair_scale = 1.5
 	_check(is_equal_approx(xa.crosshair_scale(), 1.5), "def field 0 falls back to extra.tuning crosshair_scale")
 	xdef.crosshair_scale = 0.5
 	_check(is_equal_approx(xa.crosshair_scale(), 0.5), "the def field beats the tuning path")
@@ -367,7 +367,7 @@ func _test_spread_ladder() -> void:
 	_done()
 
 
-func _burst(rules: DotWeaponRecoilRules, shots: int, start_tick: int) -> Array:
+func _burst(rules: GSWeaponRecoilRules, shots: int, start_tick: int) -> Array:
 	var a := _arsenal()
 	a.give(&"rifle")
 	a.recoil_rules = rules
@@ -383,13 +383,13 @@ func _burst(rules: DotWeaponRecoilRules, shots: int, start_tick: int) -> Array:
 func _test_recoil_rules() -> void:
 	_section("per-weapon recoil patterns")
 
-	var rules := DotWeaponRecoilRules.new()
-	_check(DotWeaponRecoilRules.of(null) == null, "no arsenal, no rules")
+	var rules := GSWeaponRecoilRules.new()
+	_check(GSWeaponRecoilRules.of(null) == null, "no arsenal, no rules")
 	var off := _burst(rules, 3, 10)
 	_check(off[0].recoil == Vector2(0.5, 0.2) and not off[0].recoil_signed, "off: the flat kick")
 	rules.enabled = true
 	rules.horizontal = 1.0
-	var tuning := _rifle().tuning as DotWeaponBallistics
+	var tuning := _rifle().tuning as GSWeaponBallistics
 	_check(tuning.recoil_build > 0.0, "ballistics carry a build")
 
 	var run1 := _burst(rules, 6, 10)
@@ -406,8 +406,8 @@ func _test_recoil_rules() -> void:
 	for i in range(6):
 		yaws[snappedf(run1[i].recoil.y, 0.0001)] = true
 	_check(yaws.size() > 2, "sideways drift varies shot to shot")
-	_check(is_equal_approx(DotWeaponRecoilRules.drift(7, 3), DotWeaponRecoilRules.drift(7, 3)) and DotWeaponRecoilRules.drift(7, 3) != DotWeaponRecoilRules.drift(8, 3), "drift is a pure function of seed and index")
-	_check(DotWeaponRecoilRules.seed_for(null, &"ak") == DotWeaponRecoilRules.seed_for(null, &"ak") and DotWeaponRecoilRules.seed_for(null, &"ak") != DotWeaponRecoilRules.seed_for(null, &"m4"), "an id seeds stably")
+	_check(is_equal_approx(GSWeaponRecoilRules.drift(7, 3), GSWeaponRecoilRules.drift(7, 3)) and GSWeaponRecoilRules.drift(7, 3) != GSWeaponRecoilRules.drift(8, 3), "drift is a pure function of seed and index")
+	_check(GSWeaponRecoilRules.seed_for(null, &"ak") == GSWeaponRecoilRules.seed_for(null, &"ak") and GSWeaponRecoilRules.seed_for(null, &"ak") != GSWeaponRecoilRules.seed_for(null, &"m4"), "an id seeds stably")
 
 	var gap := _burst(rules, 2, 10)
 	_check(is_equal_approx(gap[1].recoil.x, 0.5 * (1.0 + tuning.recoil_build)), "the second shot of a burst is built up")
@@ -456,12 +456,12 @@ func _test_recoil_rules() -> void:
 func _test_recoil_view_and_cvars() -> void:
 	_section("recoil view and cvars")
 
-	var rules := DotWeaponRecoilRules.new()
+	var rules := GSWeaponRecoilRules.new()
 	rules.enabled = true
 	rules.horizontal = 1.0
 	var run1 := _burst(rules, 6, 10)
-	var view := DotWeaponRecoil.new()
-	for o: DotWeaponOutcome in run1:
+	var view := GSWeaponRecoil.new()
+	for o: GSWeaponOutcome in run1:
 		view.kick_outcome(o)
 	var peak := view.offset().x
 	_check(peak > 2.0, "the view climbs over a burst", str(peak))
@@ -470,7 +470,7 @@ func _test_recoil_view_and_cvars() -> void:
 
 	_check(rules.set_cvar("sv_recoil_scale", "0.5") and is_equal_approx(rules.scale, 0.5), "a cvar sets a multiplier")
 	_check(rules.set_cvar("sv_recoil_punch", "9") and is_equal_approx(rules.punch, 1.0), "and is clamped")
-	_check(rules.set_cvar("sv_recoil", "0") and not rules.enabled and DotWeaponRecoilRules.of(null) == null, "sv_recoil switches it off")
+	_check(rules.set_cvar("sv_recoil", "0") and not rules.enabled and GSWeaponRecoilRules.of(null) == null, "sv_recoil switches it off")
 	_done()
 
 
@@ -488,36 +488,36 @@ func _test_fire_modes() -> void:
 	var seen: Array[int] = []
 	a.fire_mode_changed.connect(func(_s: int, m: int) -> void: seen.append(m))
 
-	_check(a.fire_mode() == DotWeaponDef.Fire.AUTO, "the first listed mode is the default")
+	_check(a.fire_mode() == GSWeaponDef.Fire.AUTO, "the first listed mode is the default")
 	var auto_shots := _drive(a, 0, 60, true).size()
 	_check(auto_shots == 10, "auto fires on every interval while held", str(auto_shots))
 
-	_check(a.cycle_fire_mode() and a.fire_mode() == DotWeaponDef.Fire.SEMI, "cycling goes auto to semi")
+	_check(a.cycle_fire_mode() and a.fire_mode() == GSWeaponDef.Fire.SEMI, "cycling goes auto to semi")
 	var semi_shots := _drive(a, 100, 60, true).size()
 	_check(semi_shots == 1, "semi fires once per press however long it is held", str(semi_shots))
 
-	_check(a.cycle_fire_mode() and a.fire_mode() == DotWeaponDef.Fire.BURST, "then semi to burst")
+	_check(a.cycle_fire_mode() and a.fire_mode() == GSWeaponDef.Fire.BURST, "then semi to burst")
 	var burst_shots := _drive(a, 200, 40, true)
 	_check(burst_shots.size() == 3, "burst fires exactly three shots per press", str(burst_shots.size()))
-	_check(a.cycle_fire_mode() and a.fire_mode() == DotWeaponDef.Fire.AUTO, "burst wraps back to auto")
-	_check(seen == [DotWeaponDef.Fire.SEMI, DotWeaponDef.Fire.BURST, DotWeaponDef.Fire.AUTO], "fire_mode_changed announces each change", str(seen))
+	_check(a.cycle_fire_mode() and a.fire_mode() == GSWeaponDef.Fire.AUTO, "burst wraps back to auto")
+	_check(seen == [GSWeaponDef.Fire.SEMI, GSWeaponDef.Fire.BURST, GSWeaponDef.Fire.AUTO], "fire_mode_changed announces each change", str(seen))
 
-	_check(not a.set_fire_mode(DotWeaponDef.Fire.CHARGE), "a mode the gun does not list is refused")
-	_check(a.fire_mode() == DotWeaponDef.Fire.AUTO, "and the mode is unchanged")
+	_check(not a.set_fire_mode(GSWeaponDef.Fire.CHARGE), "a mode the gun does not list is refused")
+	_check(a.fire_mode() == GSWeaponDef.Fire.AUTO, "and the mode is unchanged")
 
 	# The button is a rising edge: held over many ticks it cycles once.
 	var before := a.fire_mode()
-	var prev: DotWeaponCommand = null
+	var prev: GSWeaponCommand = null
 	for i in range(5):
-		var c := DotWeaponCommand.new()
-		c.set_button(DotWeaponCommand.BUTTON_FIRE_MODE, true)
+		var c := GSWeaponCommand.new()
+		c.set_button(GSWeaponCommand.BUTTON_FIRE_MODE, true)
 		var _o := a.simulate_tick(c, _ctx(300 + i), prev)
 		prev = c
-	_check(a.fire_mode() != before and a.fire_mode() == DotWeaponDef.Fire.SEMI, "the fire-mode button cycles once per press")
+	_check(a.fire_mode() != before and a.fire_mode() == GSWeaponDef.Fire.SEMI, "the fire-mode button cycles once per press")
 
-	_check(DotWeaponDef.selector_modes(DotWeaponDef.Fire.AUTO) == PackedStringArray(["auto", "semi"]), "selector_modes: an automatic gun gets auto then semi")
-	_check(DotWeaponDef.selector_modes(DotWeaponDef.Fire.AUTO, true) == PackedStringArray(["auto", "semi", "burst"]), "selector_modes: burst is added when it makes sense")
-	_check(DotWeaponDef.selector_modes(DotWeaponDef.Fire.BURST)[0] == "burst" and DotWeaponDef.selector_modes(DotWeaponDef.Fire.SEMI).is_empty(), "selector_modes: a burst gun starts on burst, a semi gun has no choice")
+	_check(GSWeaponDef.selector_modes(GSWeaponDef.Fire.AUTO) == PackedStringArray(["auto", "semi"]), "selector_modes: an automatic gun gets auto then semi")
+	_check(GSWeaponDef.selector_modes(GSWeaponDef.Fire.AUTO, true) == PackedStringArray(["auto", "semi", "burst"]), "selector_modes: burst is added when it makes sense")
+	_check(GSWeaponDef.selector_modes(GSWeaponDef.Fire.BURST)[0] == "burst" and GSWeaponDef.selector_modes(GSWeaponDef.Fire.SEMI).is_empty(), "selector_modes: a burst gun starts on burst, a semi gun has no choice")
 
 	_fire_mode_net_checks(cat)
 
@@ -531,38 +531,38 @@ func _test_fire_modes() -> void:
 	var snap := a.snapshot()
 	var b := _arsenal(cat)
 	var res := b.restore(snap)
-	_check(res.ok and b.fire_mode() == DotWeaponDef.Fire.SEMI, "the selection survives a weapon switch and a snapshot")
+	_check(res.ok and b.fire_mode() == GSWeaponDef.Fire.SEMI, "the selection survives a weapon switch and a snapshot")
 	_drop(a)
 	_drop(b)
 	_done()
 
 
 ## Fire mode over the wire: the click, the push and the owner correction.
-func _fire_mode_net_checks(cat: DotWeaponCatalogue) -> void:
+func _fire_mode_net_checks(cat: GSWeaponCatalogue) -> void:
 	var wire := _FakeMode.new()
 	var watcher := _arsenal(cat)
 	watcher.give(&"rifle")
 	wire.net_slot = watcher.current_slot()
-	_check(not DotWeaponNetSync.fire_mode_will_change(wire, watcher), "a watcher whose mode matches the wire has no click due")
+	_check(not GSWeaponNetSync.fire_mode_will_change(wire, watcher), "a watcher whose mode matches the wire has no click due")
 	wire.net_fire_mode = 1
-	_check(DotWeaponNetSync.fire_mode_will_change(wire, watcher), "a different mode on the same slot is a click")
-	DotWeaponNetSync.push(wire, watcher, false)
+	_check(GSWeaponNetSync.fire_mode_will_change(wire, watcher), "a different mode on the same slot is a click")
+	GSWeaponNetSync.push(wire, watcher, false)
 	_check(watcher.current().fire_mode_index == 0, "push with_fire_mode false leaves the mode alone")
-	DotWeaponNetSync.push(wire, watcher)
-	_check(watcher.current().fire_mode_index == 1 and not DotWeaponNetSync.fire_mode_will_change(wire, watcher), "push writes the mode and the click is spent")
-	_check(not DotWeaponNetSync.fire_mode_specs(false)[0]["owner_only"] and DotWeaponNetSync.fire_mode_specs()[0]["owner_only"], "the spec goes to everybody only when asked")
+	GSWeaponNetSync.push(wire, watcher)
+	_check(watcher.current().fire_mode_index == 1 and not GSWeaponNetSync.fire_mode_will_change(wire, watcher), "push writes the mode and the click is spent")
+	_check(not GSWeaponNetSync.fire_mode_specs(false)[0]["owner_only"] and GSWeaponNetSync.fire_mode_specs()[0]["owner_only"], "the spec goes to everybody only when asked")
 
 	var owner := _arsenal(cat)
 	owner.give(&"rifle")
 	wire.net_slot = owner.current_slot()
 	wire.net_fire_mode = 1
-	_check(not DotWeaponNetSync.correct_fire_mode(wire, owner) and not DotWeaponNetSync.correct_fire_mode(wire, owner), "a mismatch inside the grace is left to the prediction")
-	_check(DotWeaponNetSync.correct_fire_mode(wire, owner) and owner.current().fire_mode_index == 1, "a persistent mismatch yields to the server")
-	_check(not DotWeaponNetSync.correct_fire_mode(wire, owner), "once they agree nothing is corrected")
+	_check(not GSWeaponNetSync.correct_fire_mode(wire, owner) and not GSWeaponNetSync.correct_fire_mode(wire, owner), "a mismatch inside the grace is left to the prediction")
+	_check(GSWeaponNetSync.correct_fire_mode(wire, owner) and owner.current().fire_mode_index == 1, "a persistent mismatch yields to the server")
+	_check(not GSWeaponNetSync.correct_fire_mode(wire, owner), "once they agree nothing is corrected")
 	wire.net_fire_mode = 0
-	var _o := DotWeaponNetSync.correct_fire_mode(wire, owner)
+	var _o := GSWeaponNetSync.correct_fire_mode(wire, owner)
 	wire.net_fire_mode = 1
-	var _p := DotWeaponNetSync.correct_fire_mode(wire, owner)
+	var _p := GSWeaponNetSync.correct_fire_mode(wire, owner)
 	_check(owner.current().fire_mode_index == 1, "agreeing once resets the count")
 	wire.free()
 
@@ -571,27 +571,27 @@ func _test_muzzle() -> void:
 	_section("the muzzle flash bridge falls back without dot-fx or a display")
 
 	var d := _rifle()
-	_check(DotWeaponMuzzle.flash_name(d) == "" and DotWeaponMuzzle.flash_name(null) == "", "no profile size is an empty name")
-	d.params[DotWeaponMuzzle.KEY] = "big"
-	_check(DotWeaponMuzzle.flash_name(d) == "big", "the profile's size name is read")
+	_check(GSWeaponMuzzle.flash_name(d) == "" and GSWeaponMuzzle.flash_name(null) == "", "no profile size is an empty name")
+	d.params[GSWeaponMuzzle.KEY] = "big"
+	_check(GSWeaponMuzzle.flash_name(d) == "big", "the profile's size name is read")
 	var host := Node3D.new()
 	add_child(host)
-	_check(not DotWeaponMuzzle.warm(host, "rifle", d), "warm builds nothing here (no dot-fx or headless)")
-	_check(not DotWeaponMuzzle.warm(null, "rifle"), "warm with no host is false")
-	_check(DotWeaponMuzzle.attach(host, "rifle", d) == null and host.get_child_count() == 0, "attach returns null and adds nothing here")
-	_check(DotWeaponMuzzle.warm_done() and DotWeaponMuzzle.spare_count() == 0, "nothing warming, nothing waiting")
+	_check(not GSWeaponMuzzle.warm(host, "rifle", d), "warm builds nothing here (no dot-fx or headless)")
+	_check(not GSWeaponMuzzle.warm(null, "rifle"), "warm with no host is false")
+	_check(GSWeaponMuzzle.attach(host, "rifle", d) == null and host.get_child_count() == 0, "attach returns null and adds nothing here")
+	_check(GSWeaponMuzzle.warm_done() and GSWeaponMuzzle.spare_count() == 0, "nothing warming, nothing waiting")
 	var orphan := _StuckFlash.new()
-	DotWeaponMuzzle._spares["orphan"] = orphan
-	_check(DotWeaponMuzzle.warm_done(), "a spare outside the tree never holds a gate")
+	GSWeaponMuzzle._spares["orphan"] = orphan
+	_check(GSWeaponMuzzle.warm_done(), "a spare outside the tree never holds a gate")
 	orphan.free()
-	DotWeaponMuzzle._spares.erase("orphan")
+	GSWeaponMuzzle._spares.erase("orphan")
 	var stuck := _StuckFlash.new()
 	host.add_child(stuck)
-	DotWeaponMuzzle._spares["stuck"] = stuck
-	DotWeaponMuzzle._warm_msec = Time.get_ticks_msec()
-	_check(not DotWeaponMuzzle.warm_done(), "a pool still building is waited for")
-	DotWeaponMuzzle._warm_msec = Time.get_ticks_msec() - DotWeaponMuzzle.warm_timeout_msec - 1
-	_check(DotWeaponMuzzle.warm_done() and DotWeaponMuzzle.spare_count() == 0, "a pool that never finishes is given up on after the timeout")
+	GSWeaponMuzzle._spares["stuck"] = stuck
+	GSWeaponMuzzle._warm_msec = Time.get_ticks_msec()
+	_check(not GSWeaponMuzzle.warm_done(), "a pool still building is waited for")
+	GSWeaponMuzzle._warm_msec = Time.get_ticks_msec() - GSWeaponMuzzle.warm_timeout_msec - 1
+	_check(GSWeaponMuzzle.warm_done() and GSWeaponMuzzle.spare_count() == 0, "a pool that never finishes is given up on after the timeout")
 	host.queue_free()
 	_done()
 
@@ -612,7 +612,7 @@ func _test_wheel() -> void:
 	var a := _arsenal()
 	a.give(&"rifle")
 	a.give(&"pistol")
-	var w := DotWeaponWheel.from_arsenal(a)
+	var w := GSWeaponWheel.from_arsenal(a)
 	var slots := a.slots()
 	_check(slots.size() >= 2, "the fixture carries two slots", str(slots))
 	_check(w.target(1) == slots[1], "next goes to the following slot")
@@ -623,10 +623,10 @@ func _test_wheel() -> void:
 	_check(w.target(-1, slots[0]) == null, "without wrap the first has no previous")
 	w.wrap = true
 
-	var one := DotWeaponWheel.new()
+	var one := GSWeaponWheel.new()
 	one.ring_provider = func() -> Array: return [3]
 	_check(one.target(1, 3) == null, "a ring of one has nowhere to go")
-	_check(DotWeaponWheel.new().target(1) == null, "no provider is not an error")
+	_check(GSWeaponWheel.new().target(1) == null, "no provider is not an error")
 
 	var up := InputEventAction.new()
 	up.action = w.next_action

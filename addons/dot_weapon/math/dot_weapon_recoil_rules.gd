@@ -1,5 +1,5 @@
-class_name DotWeaponRecoilRules
-extends DotWeaponCvarRules
+class_name GSWeaponRecoilRules
+extends GSWeaponCvarRules
 
 ## Per-weapon recoil pattern as replicated `sv_recoil_*` cvars. A pure function of burst index and weapon seed, so
 ## server bullet and client kick agree with nothing extra on the wire. Off by default (flat alternating kick).
@@ -43,8 +43,8 @@ var mult_air: float = 1.5
 
 
 ## The rules an arsenal carries, or null when absent or off.
-static func of(arsenal: Object) -> DotWeaponRecoilRules:
-	var rules := arsenal.get(&"recoil_rules") as DotWeaponRecoilRules if arsenal != null else null
+static func of(arsenal: Object) -> GSWeaponRecoilRules:
+	var rules := arsenal.get(&"recoil_rules") as GSWeaponRecoilRules if arsenal != null else null
 	return rules if rules != null and rules.enabled else null
 
 
@@ -58,7 +58,7 @@ static func drift(seed_value: int, index: int) -> float:
 
 
 ## A weapon's seed from its tuning, else from its id (stable across processes, unlike `hash`).
-static func seed_for(b: DotWeaponBallistics, id: StringName) -> int:
+static func seed_for(b: GSWeaponBallistics, id: StringName) -> int:
 	if b != null and b.recoil_seed != 0:
 		return b.recoil_seed
 	var h := 17
@@ -68,7 +68,7 @@ static func seed_for(b: DotWeaponBallistics, id: StringName) -> int:
 
 
 ## Posture multiplier for this context.
-func posture(ctx: DotWeaponContext, walk_speed: float = 0.5) -> float:
+func posture(ctx: GSWeaponContext, walk_speed: float = 0.5) -> float:
 	var f := scale
 	if ctx.aiming:
 		f *= mult_aim
@@ -84,7 +84,7 @@ func posture(ctx: DotWeaponContext, walk_speed: float = 0.5) -> float:
 ## Kick for the use at [param ctx]: sets the outcome's view kick and recovery, advances the burst in
 ## [param state], and returns the degrees (pitch, yaw) the bullet itself is offset by.
 ## [param weapon] is the weapon's own posture multiplier; its `recoil_camera` overrides [member punch] when set.
-func apply(out: DotWeaponOutcome, b: DotWeaponBallistics, state: Dictionary, ctx: DotWeaponContext, id: StringName, tick_rate: int, weapon: float = 1.0) -> Vector2:
+func apply(out: GSWeaponOutcome, b: GSWeaponBallistics, state: Dictionary, ctx: GSWeaponContext, id: StringName, tick_rate: int, weapon: float = 1.0) -> Vector2:
 	var rate := float(maxi(tick_rate, 1))
 	var last := int(state.get(_TICK, -1000000))
 	var elapsed := maxf(float(ctx.tick - last) / rate, 0.0)

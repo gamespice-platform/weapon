@@ -32,7 +32,7 @@ const CONFIG := {
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -71,23 +71,23 @@ func _check(ok: bool, what: String) -> void:
 		print("  FAIL  %s" % what)
 
 
-func _spawner(map: String, sites: Array, seed_value: int = 7) -> DotWeaponSpawner:
-	var s := DotWeaponSpawner.new()
+func _spawner(map: String, sites: Array, seed_value: int = 7) -> GSWeaponSpawner:
+	var s := GSWeaponSpawner.new()
 	s.config.load_dictionary(CONFIG)
 	s.config.set_setting("spawner_seed", seed_value)
 	s.load_map(map, sites)
 	return s
 
 
-func _site(id: String, extra: Dictionary = {}) -> DotWeaponSpawnSite:
+func _site(id: String, extra: Dictionary = {}) -> GSWeaponSpawnSite:
 	var d := {"id": id, "position": Vector3(1, 0, 2)}
 	d.merge(extra, true)
-	return DotWeaponSpawnSite.from_dictionary(d)
+	return GSWeaponSpawnSite.from_dictionary(d)
 
 
 func _test_pool() -> void:
 	_section("pool filters and weights")
-	var pool: DotWeaponSpawnPool = DotWeaponSpawnPool.from_dictionary(&"guns", CONFIG["pools"]["guns"]).value
+	var pool: GSWeaponSpawnPool = GSWeaponSpawnPool.from_dictionary(&"guns", CONFIG["pools"]["guns"]).value
 	_check(pool.candidates().size() == 3, "a zero weight never draws")
 	_check(pool.candidates({"tags_any": ["primary"]}).size() == 2, "tags_any")
 	_check(pool.candidates({"tags_all": "primary,shell"}).size() == 1, "tags_all, comma string")
@@ -99,23 +99,23 @@ func _test_pool() -> void:
 	_check(pool.pick({"ids": ["none"]}, 0.1).is_empty(), "an empty filter gives nothing")
 	var defs: Array = []
 	for t in [["a", "primary"], ["b", "primary"], ["c", "melee"]]:
-		var d := DotWeaponDef.new()
+		var d := GSWeaponDef.new()
 		d.id = StringName(t[0])
 		d.tags = [StringName(t[1])]
 		defs.append(d)
-	var cat: DotWeaponSpawnPool = DotWeaponSpawnPool.from_dictionary(&"c", {"catalogue": {"tags_any": ["primary"], "weights": {"b": 4}}, "entries": [{"id": "a", "weight": 9}]}, defs).value
+	var cat: GSWeaponSpawnPool = GSWeaponSpawnPool.from_dictionary(&"c", {"catalogue": {"tags_any": ["primary"], "weights": {"b": 4}}, "entries": [{"id": "a", "weight": 9}]}, defs).value
 	_check(cat.entries.size() == 2 and float(cat.candidates({"ids": ["a"]})[0]["weight"]) == 9.0, "an explicit entry replaces a catalogue one")
 	_check(float(cat.candidates({"ids": ["b"]})[0]["weight"]) == 4.0, "catalogue weights override")
-	var weighed: DotWeaponSpawnPool = DotWeaponSpawnPool.from_dictionary(&"w", {"channel": "shop", "catalogue": {"tags_any": ["primary"]}}, defs,
+	var weighed: GSWeaponSpawnPool = GSWeaponSpawnPool.from_dictionary(&"w", {"channel": "shop", "catalogue": {"tags_any": ["primary"]}}, defs,
 			func(channel: StringName, id: StringName, w: float) -> float: return 0.0 if channel == &"shop" and id == &"b" else w).value
 	_check(weighed.channel == &"shop" and weighed.candidates({"ids": ["b"]}).is_empty() and not weighed.candidates({"ids": ["a"]}).is_empty(), "a weigher re-weighs by pool channel (0 removes)")
-	_check(not DotWeaponSpawnPool.from_dictionary(&"x", {"entries": [{"weight": 1}]}).ok, "an entry without an id is refused")
+	_check(not GSWeaponSpawnPool.from_dictionary(&"x", {"entries": [{"weight": 1}]}).ok, "an entry without an id is refused")
 	_done()
 
 
 func _test_config() -> void:
 	_section("config: map blocks, settings")
-	var c := DotWeaponSpawnerConfig.new()
+	var c := GSWeaponSpawnerConfig.new()
 	c.load_dictionary(CONFIG)
 	_check(c.resolve("zz_lot")["sites"]["wall"]["respawn"] == 5, "the exact map block beats the glob")
 	_check(c.resolve("ZZ_other")["sites"]["wall"]["respawn"] == 10, "a glob matches case-insensitively")
@@ -124,7 +124,7 @@ func _test_config() -> void:
 	_check(c.set_setting("spawner_respawn_scale", "2.5") and is_equal_approx(c.respawn_scale(), 2.5), "a setting coerces")
 	_check(not c.set_setting("sv_gravity", 1), "a foreign key is refused")
 	_check(c.resolve("x")["game"]["shop"]["prices"]["primary"] == 500, "the free-form game block comes through")
-	_check(DotWeaponSpawnerConfig.map_keys().has("spawner_enabled"), "the schema is exposed for DotMapConfig")
+	_check(GSWeaponSpawnerConfig.map_keys().has("spawner_enabled"), "the schema is exposed for GSMapConfig")
 	_done()
 
 
@@ -162,7 +162,7 @@ func _test_cycle() -> void:
 	_done()
 
 
-func _items(s: DotWeaponSpawner, round_number: int) -> Array:
+func _items(s: GSWeaponSpawner, round_number: int) -> Array:
 	s.begin_round(0.0, round_number)
 	s.tick(0.0)
 	var out: Array = []
@@ -266,13 +266,13 @@ func _test_entities_and_marker() -> void:
 	_check(s.site(&"shop").respawn_seconds == 7.0 and s.site(&"shop").pool == &"stock", "string props are coerced")
 	var root := Node3D.new()
 	add_child(root)
-	var p := DotWeaponSpawnPoint.new()
+	var p := GSWeaponSpawnPoint.new()
 	p.name = "Armoury"
 	p.tags_any = "primary, heavy"
 	p.max_alive = 2
 	root.add_child(p)
 	p.position = Vector3(5, 0, 0)
-	var sites := DotWeaponSpawnPoint.collect(root)
+	var sites := GSWeaponSpawnPoint.collect(root)
 	_check(sites.size() == 1 and sites[0].id == &"Armoury" and sites[0].max_alive == 2, "a marker is a site named by its node")
 	_check(sites[0].filter["tags_any"] == PackedStringArray(["primary", "heavy"]) and sites[0].position == Vector3(5, 0, 0), "its tags and place")
 	root.queue_free()
@@ -282,7 +282,7 @@ func _test_entities_and_marker() -> void:
 func _test_view() -> void:
 	_section("replicated view")
 	var s := _spawner("m", [_site("a", {"max_alive": 2})])
-	var v := DotWeaponSpawnView.new()
+	var v := GSWeaponSpawnView.new()
 	var seen: Array = []
 	v.appeared.connect(func(i: int, _s: StringName, _it: StringName, _k: StringName, _a: Vector3, _r: float, _d: Dictionary) -> void: seen.append(i))
 	s.changed.connect(v.apply)
@@ -291,7 +291,7 @@ func _test_view() -> void:
 	_check(v.items.size() == 2 and seen.size() == 2, "events mirror spawns")
 	s.take(v.items.keys()[0], &"p")
 	_check(v.items.size() == 1, "and takes")
-	var late := DotWeaponSpawnView.new()
+	var late := GSWeaponSpawnView.new()
 	late.apply_snapshot(s.snapshot())
 	_check(late.items.keys() == v.items.keys() and late.waiting.has(&"a"), "a snapshot brings a late joiner level, with the countdown")
 	late.apply_snapshot({"round": 2, "items": [], "waiting": []})

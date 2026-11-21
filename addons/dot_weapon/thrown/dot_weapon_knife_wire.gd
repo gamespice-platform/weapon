@@ -1,14 +1,14 @@
-class_name DotWeaponKnifeWire
+class_name GSWeaponKnifeWire
 extends RefCounted
-## The wire format of one [DotWeaponKnives] event: id, owner, phase, victim, where and how it moves.
+## The wire format of one [GSWeaponKnives] event: id, owner, phase, victim, where and how it moves.
 ## GameSpice Net's writer and reader are passed in, never named (GameSpice Net is not a dependency of GameSpice Weapon):
-## [code]writer[/code] is a DotNetWriter, [code]reader[/code] a DotNetReader.
+## [code]writer[/code] is a GSNetWriter, [code]reader[/code] a GSNetReader.
 
 const _EXTENT := 4096.0
 
 
 ## Appends the body of one knife event to [param w]; the game writes its own sub-kind first.
-## [param glide] and [param turn] are [method DotWeaponKnives.glides] and [method DotWeaponKnives.turn_of].
+## [param glide] and [param turn] are [method GSWeaponKnives.glides] and [method GSWeaponKnives.turn_of].
 static func write_knife(w, id: int, owner: int, phase: int, victim: int, at: Vector3, motion: Vector3, glide: bool = false, turn: Vector3 = Vector3.ZERO) -> void:
 	w.write_varint(id)
 	w.write_varint(maxi(0, owner))

@@ -5,21 +5,21 @@ extends Node3D
 
 
 func _ready() -> void:
-	var cat := DotWeaponAttachments.new()
+	var cat := GSWeaponAttachments.new()
 	var root := ProjectSettings.globalize_path("res://fixtures/attachments")
-	var loaded := cat.load_set(DotWeaponAttachments.make_set("demo", "g", PackedStringArray([root])))
-	var rifle := DotWeaponDef.new()
+	var loaded := cat.load_set(GSWeaponAttachments.make_set("demo", "g", PackedStringArray([root])))
+	var rifle := GSWeaponDef.new()
 	rifle.id = &"rifle"
 	rifle.display_name = "Rifle"
 	rifle.slot = 1
 	rifle.tags = [&"rifle"] as Array[StringName]
 	rifle.mounts = [&"muzzle", &"optic"] as Array[StringName]
-	var fitting := DotWeaponFitting.make(&"rifle")
+	var fitting := GSWeaponFitting.make(&"rifle")
 	fitting.fit(&"muzzle", &"suppressor")
 	fitting.fit(&"optic", &"scope_4x")
 	var gun := _block_rifle()
 	add_child(gun)
-	var placed := DotWeaponAttachmentModels.dress(gun, cat, fitting)
+	var placed := GSWeaponAttachmentModels.dress(gun, cat, fitting)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-45, 40, 0)
 	add_child(sun)
@@ -36,7 +36,7 @@ func _ready() -> void:
 	cam.look_at(Vector3(0.15, 0.02, -0.25))
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var menu := DotWeaponAttachMenu.new()
+	var menu := GSWeaponAttachMenu.new()
 	layer.add_child(menu)
 	menu.position = Vector2(24, 24)
 	menu.open(cat, rifle, fitting)
@@ -68,7 +68,7 @@ func _block_rifle() -> Node3D:
 		gun.add_child(mesh)
 	for socket: Array in [["muzzle", Vector3(0, 0.01, -0.545)], ["optic", Vector3(0, 0.04, -0.02)]]:
 		var node := Node3D.new()
-		node.name = DotWeaponAttachmentModels.SOCKET_PREFIX + String(socket[0])
+		node.name = GSWeaponAttachmentModels.SOCKET_PREFIX + String(socket[0])
 		node.position = socket[1]
 		gun.add_child(node)
 	return gun

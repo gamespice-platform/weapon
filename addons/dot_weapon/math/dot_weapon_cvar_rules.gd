@@ -1,4 +1,4 @@
-class_name DotWeaponCvarRules
+class_name GSWeaponCvarRules
 extends RefCounted
 
 ## Base for a rules object whose numeric properties are server cvars (`<PREFIX>`, `<PREFIX>_<field>`),

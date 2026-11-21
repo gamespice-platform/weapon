@@ -1,13 +1,13 @@
 @tool
 extends "dot_weapon_arsenal_state.gd"
-## Carrying, dropping and fire modes for [DotWeaponArsenal]; a layer between the state and the state machine so neither file grows past the size gate.
+## Carrying, dropping and fire modes for [GSWeaponArsenal]; a layer between the state and the state machine so neither file grows past the size gate.
 
 const CHANNEL := "weapon.arsenal"
 
 ## Takes a weapon away. Switches off it first if it is the one in hand.
-func take(slot: int) -> DotResult:
+func take(slot: int) -> GSResult:
 	if not _slots.has(slot):
-		return DotResult.fail(DotError.CODE_INVALID, "Nothing in slot %d." % slot)
+		return GSResult.fail(GSError.CODE_INVALID, "Nothing in slot %d." % slot)
 
 	if _current == slot and _shelf_of(slot).is_empty():
 		var next := _first_other_slot(slot)
@@ -21,7 +21,7 @@ func take(slot: int) -> DotResult:
 		if behind.is_empty():
 			_shelf.erase(slot)
 	carried_changed.emit()
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func clear() -> void:
@@ -41,7 +41,7 @@ func clear() -> void:
 func enforce_limit() -> Array[StringName]:
 	var dropped: Array[StringName] = []
 	while carry != null and carry.enabled and over_by() > 0.0001:
-		var worst: DotWeaponSlot = null
+		var worst: GSWeaponSlot = null
 		var worst_slot := 0
 		for s: int in _slots:
 			for w in weapons_in(s):
@@ -70,7 +70,7 @@ func drop_current(keep_slots: Array[int] = []) -> Dictionary:
 
 ## [method drop_current] for the weapon at the front of [param slot_number], held or not.
 func drop_from_slot(slot_number: int, keep_slots: Array[int] = []) -> Dictionary:
-	var held: DotWeaponSlot = _slots.get(slot_number, null)
+	var held: GSWeaponSlot = _slots.get(slot_number, null)
 	if held == null or keep_slots.has(slot_number) or disabled:
 		return {}
 	var state := {"id": held.id(), "magazine": held.magazine, "reserve": 0}
@@ -131,7 +131,7 @@ func apply_dropped(state: Dictionary) -> void:
 		return
 	var fit_state: Variant = state.get("fit", null)
 	if fit_state is Dictionary and attachments != null:
-		var parsed := DotWeaponFitting.from_dictionary(fit_state as Dictionary)
+		var parsed := GSWeaponFitting.from_dictionary(fit_state as Dictionary)
 		if parsed.ok:
 			var _fitted: Variant = call("fit", def.slot, parsed.value)
 	for w in weapons_in(def.slot):
@@ -170,23 +170,23 @@ func add_ammo(pool: StringName, amount: int) -> int:
 	return added
 
 
-## The fire mode in hand ([enum DotWeaponDef.Fire]), or -1 with nothing held.
+## The fire mode in hand ([enum GSWeaponDef.Fire]), or -1 with nothing held.
 func fire_mode() -> int:
 	var s := current()
 	return s.fire_mode() if s != null else -1
 
 
 ## The modes the held gun lets the player choose between; one entry when it has no choice.
-func fire_modes_available() -> Array[DotWeaponDef.Fire]:
+func fire_modes_available() -> Array[GSWeaponDef.Fire]:
 	var s := current()
-	var out: Array[DotWeaponDef.Fire] = []
+	var out: Array[GSWeaponDef.Fire] = []
 	if s != null:
 		out.append_array(s.def.allowed_fire_modes())
 	return out
 
 
 ## Selects [param mode] on the held gun; false when the gun does not support it or is mid-burst.
-func set_fire_mode(mode: DotWeaponDef.Fire) -> bool:
+func set_fire_mode(mode: GSWeaponDef.Fire) -> bool:
 	var s := current()
 	if s == null or _burst_left > 0 or _charge_started >= 0:
 		return false
@@ -195,7 +195,7 @@ func set_fire_mode(mode: DotWeaponDef.Fire) -> bool:
 		return false
 	if i != s.fire_mode_index:
 		s.fire_mode_index = i
-		DotLog.debug(CHANNEL, "fire mode changed", {"weapon": String(s.id()), "mode": DotWeaponDef.Fire.keys()[mode], "index": i})
+		GSLog.debug(CHANNEL, "fire mode changed", {"weapon": String(s.id()), "mode": GSWeaponDef.Fire.keys()[mode], "index": i})
 		fire_mode_changed.emit(_current, mode)
 	return true
 

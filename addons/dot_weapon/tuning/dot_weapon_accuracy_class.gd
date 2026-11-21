@@ -1,7 +1,7 @@
-class_name DotWeaponAccuracyClass
+class_name GSWeaponAccuracyClass
 extends RefCounted
 
-## Per-class defaults for the accuracy and recoil fields of [DotWeaponBallistics] left at -1, so every
+## Per-class defaults for the accuracy and recoil fields of [GSWeaponBallistics] left at -1, so every
 ## weapon has a distinct feel without a profile naming each number. A weapon's own value always wins.
 
 ## Durations here are seconds (converted at the running tick rate); multipliers are plain factors.

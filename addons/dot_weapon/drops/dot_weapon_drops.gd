@@ -1,4 +1,4 @@
-class_name DotWeaponDrops
+class_name GSWeaponDrops
 extends "dot_weapon_drops_push.gd"
 
 ## Weapons lying in the world after a player dropped or died with them: the authority simulates
@@ -8,9 +8,9 @@ extends "dot_weapon_drops_push.gd"
 const CHANNEL := "weapon.drop"
 const SETTLE_SPEED := 0.08
 const SETTLE_SEC := 0.6
-## Default of [member DotWeaponDropRules.settle_max_sec]: a drop still wobbling after this long (a thin gun on a slope) is
+## Default of [member GSWeaponDropRules.settle_max_sec]: a drop still wobbling after this long (a thin gun on a slope) is
 ## put to rest where it lies; the rule is what applies, 0 there never forces a rest.
-const SETTLE_MAX_SEC := DotWeaponDropRules.DEFAULT_SETTLE_MAX_SEC
+const SETTLE_MAX_SEC := GSWeaponDropRules.DEFAULT_SETTLE_MAX_SEC
 ## Cap on how far a thrown weapon may start from the player, so a wall in front cannot swallow it.
 const REACH := 0.5
 ## A moving drop this far below where it was dropped or last pushed fell through the world: it goes back on the floor
@@ -25,9 +25,9 @@ const SUPPORT_EVERY := 0.5
 ## A resting drop that could move this far straight down has lost what held it (a prop broken or moved, a door
 ## opened, a body gone) and falls again.
 const SUPPORT_GAP := 0.04
-## Default of [member DotWeaponDropRules.refall_max]: times one drop falls again for want of support before it is put on
+## Default of [member GSWeaponDropRules.refall_max]: times one drop falls again for want of support before it is put on
 ## the floor under it and left there; 0 in the rule is unlimited.
-const REFALL_MAX := DotWeaponDropRules.DEFAULT_REFALL_MAX
+const REFALL_MAX := GSWeaponDropRules.DEFAULT_REFALL_MAX
 
 ## A weapon left a hand (or a corpse): [param state] is [code]{id, magazine, reserve}[/code].
 signal dropped(drop_id: int, state: Dictionary, at: Transform3D, velocity: Vector3, owner_id: int)
@@ -88,7 +88,7 @@ func drop_dead(arsenal: Object, origin: Vector3, velocity: Vector3, owner_id: in
 
 
 ## Puts a weapon in the world. [param r] is the rules in force (class overrides applied).
-func spawn(state: Dictionary, origin: Vector3, velocity: Vector3, owner_id: int, r: DotWeaponDropRules = null) -> int:
+func spawn(state: Dictionary, origin: Vector3, velocity: Vector3, owner_id: int, r: GSWeaponDropRules = null) -> int:
 	r = r if r != null else rules
 	var id := _next_id
 	_next_id += 1
@@ -112,7 +112,7 @@ func spawn(state: Dictionary, origin: Vector3, velocity: Vector3, owner_id: int,
 
 
 ## The weapon within reach whose slot [param arsenal] has empty goes into it. Returns the drop id, or 0.
-## Automatic pickup: does nothing unless [member DotWeaponDropRules.auto_pickup] is on, so a game cannot forget the gate.
+## Automatic pickup: does nothing unless [member GSWeaponDropRules.auto_pickup] is on, so a game cannot forget the gate.
 func take_for(arsenal: Object, position: Vector3, taker_id: int, source: Object = null) -> int:
 	if not is_authority or arsenal == null:
 		return 0
@@ -122,14 +122,14 @@ func take_for(arsenal: Object, position: Vector3, taker_id: int, source: Object 
 	return _take_near(arsenal, position, taker_id, r)
 
 
-func _take_near(arsenal: Object, position: Vector3, taker_id: int, r: DotWeaponDropRules) -> int:
+func _take_near(arsenal: Object, position: Vector3, taker_id: int, r: GSWeaponDropRules) -> int:
 	if not is_authority or arsenal == null:
 		return 0
 	return _take(arsenal, _nearest(arsenal, position, Vector3.ZERO, r.pickup_radius, _team(taker_id), true), taker_id, r, false, false, position)
 
 
 ## The use key. A tap ([param held] false) takes the drop looked at into a free slot, or unloads its ammunition
-## into the same weapon carried (overflow stays); a different weapon is replaced at once. A hold ([DotWeaponUseHold])
+## into the same weapon carried (overflow stays); a different weapon is replaced at once. A hold ([GSWeaponUseHold])
 ## over the same weapon replaces it fully, attachments trading. Returns the drop id, or 0.
 func use(arsenal: Object, position: Vector3, direction: Vector3, taker_id: int, source: Object = null, held: bool = false) -> int:
 	if not is_authority or arsenal == null:
@@ -220,7 +220,7 @@ func drop_team(drop_id: int) -> int:
 ## Takes drop [param best] into [param arsenal]. A free slot takes it with its ammunition and attachments as
 ## it lay. The same weapon twice unloads its ammunition into the reserve (the overflow stays), or with
 ## [param held] trades fittings. A different weapon already in the slot is swapped out onto the floor at [param taker_at], where the taker stands, not where the taken weapon lay.
-func _take(arsenal: Object, best: int, taker_id: int, r: DotWeaponDropRules = null, held: bool = false, keyed: bool = false, taker_at: Vector3 = Vector3.INF) -> int:
+func _take(arsenal: Object, best: int, taker_id: int, r: GSWeaponDropRules = null, held: bool = false, keyed: bool = false, taker_at: Vector3 = Vector3.INF) -> int:
 	if best == 0:
 		return 0
 	var e: Dictionary = _entries[best]
@@ -281,9 +281,9 @@ func _replace_same(arsenal: Object, best: int, def: Object, taker_id: int) -> in
 	if held_mag == new_mag and held_fm == new_fm and (not traded_fit or held_fit == new_fit):
 		return 0
 	if traded_fit and held_fit != new_fit:
-		var incoming := DotWeaponFitting.make(def.get(&"id"))
+		var incoming := GSWeaponFitting.make(def.get(&"id"))
 		if not new_fit.is_empty():
-			var parsed := DotWeaponFitting.from_dictionary(new_fit)
+			var parsed := GSWeaponFitting.from_dictionary(new_fit)
 			if not parsed.ok:
 				return 0
 			incoming = parsed.value
@@ -341,7 +341,7 @@ func tick(delta: float) -> void:
 	var bad := rules.problems()
 	if not bad.is_empty():
 		# Fail loudly, never clamp: a negative limit is a caller bug, and the drops stay as they were.
-		DotLog.error(CHANNEL, "drop rules invalid; tick skipped", {"problems": "; ".join(bad)})
+		GSLog.error(CHANNEL, "drop rules invalid; tick skipped", {"problems": "; ".join(bad)})
 		return
 	for id: int in _entries.keys():
 		var e: Dictionary = _entries[id]
@@ -408,7 +408,7 @@ func _rescue(id: int, e: Dictionary, body: RigidBody3D) -> bool:
 		return false
 	var count := int(e.get("rescued", 0)) + 1
 	e["rescued"] = count
-	DotLog.debug(CHANNEL, "drop fell through a floor; put back", {"id": id, "times": count})
+	GSLog.debug(CHANNEL, "drop fell through a floor; put back", {"id": id, "times": count})
 	if count > RESCUE_MAX and is_authority:
 		_place(id, e, body, _on_floor(body, floor_at, n, 0.005))
 		_rest(id, e, body)
@@ -425,7 +425,7 @@ func _rescue_lost(id: int, e: Dictionary, body: RigidBody3D) -> bool:
 	e["lost"] = lost
 	var origin: Vector3 = e["origin"]
 	var hit: Dictionary = _floor_hit(origin, origin + Vector3.DOWN * RESCUE_DEPTH) if is_inside_tree() else NO_HIT
-	DotLog.debug(CHANNEL, "drop fell out of the world; put back", {"id": id, "times": lost, "floor": not hit.is_empty()})
+	GSLog.debug(CHANNEL, "drop fell out of the world; put back", {"id": id, "times": lost, "floor": not hit.is_empty()})
 	if hit.is_empty():
 		if is_authority and lost >= 2:
 			_remove(id, 0)
@@ -472,7 +472,7 @@ func _topple(e: Dictionary, body: RigidBody3D) -> bool:
 
 ## Authority: wakes every resting drop whose support is gone or moved, so it falls onto what is there now. [method tick]
 ## runs it every [constant SUPPORT_EVERY] (a game removing level geometry may call it at once); a drop losing its support
-## [member DotWeaponDropRules.refall_max] times is put down on the floor under it instead. Returns how many it woke.
+## [member GSWeaponDropRules.refall_max] times is put down on the floor under it instead. Returns how many it woke.
 func check_support() -> int:
 	# Colliding with nothing, a drop has no support to lose (it rests wherever it was put).
 	if not is_authority or not is_inside_tree() or collision_mask == 0:
@@ -490,7 +490,7 @@ func check_support() -> int:
 			continue
 		var times := int(e.get("refalls", 0)) + 1
 		e["refalls"] = times
-		DotLog.debug(CHANNEL, "drop lost what it rested on; falls again", {"id": id, "times": times})
+		GSLog.debug(CHANNEL, "drop lost what it rested on; falls again", {"id": id, "times": times})
 		if rules.refall_max > 0 and times > rules.refall_max:
 			e["ground_in"] = 1
 			continue
@@ -520,7 +520,7 @@ func _ground(id: int, e: Dictionary, body: RigidBody3D) -> void:
 		return
 	down = landed.origin - at.origin
 	body.global_transform = landed
-	DotLog.debug(CHANNEL, "drop rested in the air or in the floor; put on the surface", {"id": id, "fell": snappedf(down.length(), 0.01)})
+	GSLog.debug(CHANNEL, "drop rested in the air or in the floor; put on the surface", {"id": id, "fell": snappedf(down.length(), 0.01)})
 	settled.emit(id, body.global_transform)
 
 
@@ -628,7 +628,7 @@ func _make(id: int, state: Dictionary, at: Transform3D, velocity: Vector3, owner
 	_entries[id] = {"body": body, "state": state, "age": 0.0, "life": life, "delay": delay,
 		"still": 0.0, "rest": false, "size": size, "owner": owner_id, "order": _order, "team": team, "touched": _clock,
 		"origin": at.origin, "last": at.origin}
-	DotLog.debug(CHANNEL, "weapon dropped", {"id": id, "weapon": String(state.get("id", &""))})
+	GSLog.debug(CHANNEL, "weapon dropped", {"id": id, "weapon": String(state.get("id", &""))})
 
 
 func _exit_tree() -> void:
@@ -639,8 +639,8 @@ func _exit_tree() -> void:
 	_parked.clear()
 
 
-## One cleanup pass (server): removes every drop past its lifetime, then the [member DotWeaponDropRules.evict] picks until the cap holds.
-## [method tick] runs it every [member DotWeaponDropRules.scan_interval]; a game may call it too. Returns how many it removed.
+## One cleanup pass (server): removes every drop past its lifetime, then the [member GSWeaponDropRules.evict] picks until the cap holds.
+## [method tick] runs it every [member GSWeaponDropRules.scan_interval]; a game may call it too. Returns how many it removed.
 func scan() -> int:
 	if not is_authority:
 		return 0
@@ -664,19 +664,19 @@ func _enforce_cap(cap: int, keep: int = 0) -> int:
 	return gone
 
 
-## The drop the cap removes next under [member DotWeaponDropRules.evict], never [param keep]; 0 when there is none.
+## The drop the cap removes next under [member GSWeaponDropRules.evict], never [param keep]; 0 when there is none.
 func _victim(keep: int) -> int:
 	var ids: Array = _entries.keys()
 	ids.erase(keep)
 	if ids.is_empty():
 		return 0
-	if rules.evict == DotWeaponDropRules.EVICT_RANDOM:
+	if rules.evict == GSWeaponDropRules.EVICT_RANDOM:
 		return int(ids[rng.randi() % ids.size()])
 	var best := 0
 	var key := INF
 	for id: int in ids:
 		var e: Dictionary = _entries[id]
-		var k := float(e["order"]) if rules.evict == DotWeaponDropRules.EVICT_OLDEST else float(e["touched"]) + float(e["order"]) * 1e-6
+		var k := float(e["order"]) if rules.evict == GSWeaponDropRules.EVICT_OLDEST else float(e["touched"]) + float(e["order"]) * 1e-6
 		if k < key:
 			key = k
 			best = id

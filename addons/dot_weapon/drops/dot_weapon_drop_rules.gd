@@ -1,4 +1,4 @@
-class_name DotWeaponDropRules
+class_name GSWeaponDropRules
 extends RefCounted
 
 ## How dropped weapons behave: whether a death or a key drops one, how long it lies, how many
@@ -54,7 +54,7 @@ var use_radius: float = 2.2
 ## The drop key also takes the weapon you are standing at, once your own is out of the slot.
 var swap: bool = true
 
-## Seconds the drop key must be held before the weapon is thrown; 0 throws on the press (see [DotWeaponDropKey]).
+## Seconds the drop key must be held before the weapon is thrown; 0 throws on the press (see [GSWeaponDropKey]).
 var key_hold: float = 0.0
 
 ## Seconds the use key is held over a dropped weapon to replace the one in hand with it (see [member swap_hold]).
@@ -74,7 +74,7 @@ var max_active: int = 16
 ## Launch speed (m/s) from which a drop uses continuous collision detection; slower drops skip its cost until one tick's travel passes half the box's thinnest side (falling), then it switches on. 0 always.
 var ccd_speed: float = 10.0
 ## A moving drop whose centre passes down through a floor (the solver let it tunnel) is put back on top of it, and one that falls
-## [constant DotWeaponDrops.RESCUE_DEPTH] below where it was dropped is put back there once, then removed.
+## [constant GSWeaponDrops.RESCUE_DEPTH] below where it was dropped is put back there once, then removed.
 var rescue: bool = true
 ## A drop still moving after this many seconds (a thin gun wobbling on a slope) is put to rest where it lies; 0 never forces
 ## a rest (it moves until it sleeps). Negative is refused, see [method problems].
@@ -133,8 +133,8 @@ const _SPECS := [
 
 ## A copy of these rules with [param source]'s drop_* properties laid over them; [param source] is
 ## a player class def (duck-typed, so this addon needs no dependency on it) or null.
-func resolve(source: Object) -> DotWeaponDropRules:
-	var out := DotWeaponDropRules.new()
+func resolve(source: Object) -> GSWeaponDropRules:
+	var out := GSWeaponDropRules.new()
 	for spec in _SPECS:
 		out.set(spec[1], get(spec[1]))
 	if source == null:
@@ -156,7 +156,7 @@ func resolve(source: Object) -> DotWeaponDropRules:
 
 
 ## What is wrong with the strict rules ([member settle_max_sec], [member refall_max]) as set directly, one line each; empty when
-## fine. These never clamp: [method DotWeaponDrops.tick] reports them as an error and a cvar outside its range is refused.
+## fine. These never clamp: [method GSWeaponDrops.tick] reports them as an error and a cvar outside its range is refused.
 func problems() -> PackedStringArray:
 	var out := PackedStringArray()
 	if is_nan(settle_max_sec) or settle_max_sec < 0.0:
@@ -189,12 +189,12 @@ func set_cvar(cvar_name: String, text: String) -> bool:
 		if spec[0] != cvar_name:
 			continue
 		if not text.is_valid_float():
-			DotLog.warn(CHANNEL, "cvar value not understood; left as it was", {"cvar": cvar_name, "value": text})
+			GSLog.warn(CHANNEL, "cvar value not understood; left as it was", {"cvar": cvar_name, "value": text})
 			return false
 		var kind: PackedStringArray = String(spec[2]).split(":")
 		var n := text.to_float()
 		if spec.size() > 4 and spec[4] and (n < kind[1].to_float() or n > kind[2].to_float() or (kind[0] == "int" and n != floorf(n))):
-			DotLog.error(CHANNEL, "cvar value out of range; refused, left as it was", {"cvar": cvar_name, "value": text, "min": kind[1], "max": kind[2]})
+			GSLog.error(CHANNEL, "cvar value out of range; refused, left as it was", {"cvar": cvar_name, "value": text, "min": kind[1], "max": kind[2]})
 			return false
 		if kind[0] == "bool":
 			set(spec[1], n != 0.0)

@@ -19,23 +19,23 @@ func _wentry(id: String, extra: Dictionary = {}) -> Dictionary:
 	return d
 
 
-func _follow_sessions(index: DotContentIndex, c: DotWeaponCatalogue, base: int, added: Array[String], changes: Array) -> void:
+func _follow_sessions(index: GSContentIndex, c: GSWeaponCatalogue, base: int, added: Array[String], changes: Array) -> void:
 	# Sessions.
 	var other_changes: int = changes[0]
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	_check(c.size() == base, "online, every solo weapon is gone", str(c.size()))
 	_check(not c.has(&"flare_gun") and c.listing(&"ember_blade") == null, "queries agree")
 	_check(changes[0] > other_changes, "the switch is announced")
 	var n_added := added.size()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	_check(c.has(&"flare_gun") and c.has(&"ember_blade"), "back in solo they return")
 	_check(added.size() == n_added + 2, "and are announced again")
 
 	# Reuse by a server: tagged online as well.
-	index.tag_pack(&"tmc/fixture-arms", "1.0.0", DotContentIndex.SESSION_ONLINE)
-	index.set_session(DotContentIndex.SESSION_ONLINE)
+	index.tag_pack(&"tmc/fixture-arms", "1.0.0", GSContentIndex.SESSION_ONLINE)
+	index.set_session(GSContentIndex.SESSION_ONLINE)
 	_check(c.has(&"flare_gun") and not c.has(&"ember_blade"), "a pack also tagged online shows online")
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	index.set_session(GSContentIndex.SESSION_SOLO)
 
 	var lines := c.describe_lines()
 	_check(lines.size() >= base + 2 and "\n".join(lines).contains("tmc/fixture-arms"), "describe_lines names the pack")
@@ -45,15 +45,15 @@ func _follow_sessions(index: DotContentIndex, c: DotWeaponCatalogue, base: int, 
 func _test_content_follow() -> void:
 	_section("delivered weapons")
 
-	var index := DotContentIndex.new()
-	index.set_session(DotContentIndex.SESSION_SOLO)
+	var index := GSContentIndex.new()
+	index.set_session(GSContentIndex.SESSION_SOLO)
 	var c := _catalogue()
 	c.add(_catalogue_extra(), "toys")
 	var base := c.size()
 
 	var added: Array[String] = []
 	var changes := [0]
-	c.weapon_added.connect(func(l: DotWeaponListing) -> void: added.append(String(l.id)))
+	c.weapon_added.connect(func(l: GSWeaponListing) -> void: added.append(String(l.id)))
 	c.listings_changed.connect(func() -> void: changes[0] += 1)
 
 	# A pack mounted before the catalogue follows: order does not matter.
@@ -108,19 +108,19 @@ func _test_content_follow() -> void:
 	_check(not c.has(&"flare_gun"), "and stops listening")
 
 	# Default: the shared index.
-	var mine := DotContentIndex.new()
-	DotRegistry.register(DotContentIndex.SERVICE, mine)
-	var d := DotWeaponCatalogue.new().follow_content()
+	var mine := GSContentIndex.new()
+	GSRegistry.register(GSContentIndex.SERVICE, mine)
+	var d := GSWeaponCatalogue.new().follow_content()
 	_check(d.describe()["session"] == "solo", "follow_content() with no argument uses the registered index")
 	d.unfollow_content()
-	DotRegistry.unregister(DotContentIndex.SERVICE)
+	GSRegistry.unregister(GSContentIndex.SERVICE)
 	_done()
 
 
 func _att(
 	id: String, mount: StringName, scale: Dictionary = {}, add: Dictionary = {}
-) -> DotWeaponAttachment:
-	var a := DotWeaponAttachment.new()
+) -> GSWeaponAttachment:
+	var a := GSWeaponAttachment.new()
 	a.id = StringName(id)
 	a.mount = mount
 	a.scale = scale
@@ -129,14 +129,14 @@ func _att(
 
 
 ## A rifle with three mounts, and a catalogue of attachments for it.
-func _modular_rifle() -> DotWeaponDef:
+func _modular_rifle() -> GSWeaponDef:
 	var d := _rifle()
 	d.mounts = [&"optic", &"muzzle", &"magazine"] as Array[StringName]
 	return d
 
 
-func _attachment_catalogue() -> DotWeaponAttachments:
-	var c := DotWeaponAttachments.new()
+func _attachment_catalogue() -> GSWeaponAttachments:
+	var c := GSWeaponAttachments.new()
 	var suppressor := _att("suppressor", &"muzzle", {"spread": 0.5, "damage": 0.9})
 	suppressor.tags_added = [&"quiet"] as Array[StringName]
 	var brake := _att("brake", &"muzzle", {"recoil_pitch": 0.5})
@@ -154,22 +154,22 @@ func _attachment_catalogue() -> DotWeaponAttachments:
 	return c
 
 
-func _attachments_refusals(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWeaponFitting) -> void:
+func _attachments_refusals(c: GSWeaponAttachments, rifle: GSWeaponDef, f: GSWeaponFitting) -> void:
 	# Refusals, by code.
-	var unknown := DotWeaponFitting.make(&"rifle")
+	var unknown := GSWeaponFitting.make(&"rifle")
 	unknown.fit(&"muzzle", &"nothing")
-	_check(c.validate_fitting(rifle, unknown).code() == DotError.CODE_INVALID, "an unknown id: invalid")
-	var wrong_mount := DotWeaponFitting.make(&"rifle")
+	_check(c.validate_fitting(rifle, unknown).code() == GSError.CODE_INVALID, "an unknown id: invalid")
+	var wrong_mount := GSWeaponFitting.make(&"rifle")
 	wrong_mount.fit(&"optic", &"suppressor")
-	_check(c.validate_fitting(rifle, wrong_mount).code() == DotError.CODE_CONFLICT, "the wrong mount: conflict")
-	var no_fit := DotWeaponFitting.make(&"rifle")
+	_check(c.validate_fitting(rifle, wrong_mount).code() == GSError.CODE_CONFLICT, "the wrong mount: conflict")
+	var no_fit := GSWeaponFitting.make(&"rifle")
 	no_fit.fit(&"optic", &"dot_sight")
-	_check(c.validate_fitting(rifle, no_fit).code() == DotError.CODE_FORBIDDEN, "does not fit: forbidden")
-	var other := DotWeaponFitting.make(&"pistol")
-	_check(c.validate_fitting(rifle, other).code() == DotError.CODE_STATE, "another weapon's fitting: state")
+	_check(c.validate_fitting(rifle, no_fit).code() == GSError.CODE_FORBIDDEN, "does not fit: forbidden")
+	var other := GSWeaponFitting.make(&"pistol")
+	_check(c.validate_fitting(rifle, other).code() == GSError.CODE_STATE, "another weapon's fitting: state")
 	_check(c.validate_fitting(rifle, f).ok, "and a legal one passes")
 
-	var mixed := DotWeaponFitting.make(&"rifle")
+	var mixed := GSWeaponFitting.make(&"rifle")
 	mixed.fit(&"muzzle", &"suppressor")
 	mixed.fit(&"optic", &"dot_sight")
 	mixed.fit(&"side", &"brake")
@@ -177,13 +177,13 @@ func _attachments_refusals(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotW
 	_check(kept.key() == "muzzle=suppressor", "conform drops what is illegal and keeps the rest", kept.key())
 
 
-func _attachments_value_type(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWeaponFitting, choices: Dictionary) -> void:
+func _attachments_value_type(c: GSWeaponAttachments, rifle: GSWeaponDef, f: GSWeaponFitting, choices: Dictionary) -> void:
 	# Fitting value type.
 	_check(f.key() == "magazine=drum,muzzle=suppressor,optic=scope", "a key is in mount text order", f.key())
 	_check(f.mounts() == [&"magazine", &"muzzle", &"optic"] and f.ids() == [&"drum", &"scope", &"suppressor"], "mounts and ids are sorted by text")
-	var round_trip := DotWeaponFitting.from_dictionary(f.to_dictionary())
-	_check(round_trip.ok and (round_trip.value as DotWeaponFitting).key() == f.key(), "a fitting round-trips a dictionary")
-	_check(not DotWeaponFitting.from_dictionary({"weapon": "rifle", "mounts": {"muzzle": 5}}).ok, "a non-string id is refused, not coerced")
+	var round_trip := GSWeaponFitting.from_dictionary(f.to_dictionary())
+	_check(round_trip.ok and (round_trip.value as GSWeaponFitting).key() == f.key(), "a fitting round-trips a dictionary")
+	_check(not GSWeaponFitting.from_dictionary({"weapon": "rifle", "mounts": {"muzzle": 5}}).ok, "a non-string id is refused, not coerced")
 	var copy := f.duplicate_fitting()
 	copy.remove(&"muzzle")
 	_check(f.attachment_on(&"muzzle") == &"suppressor" and copy.attachment_on(&"muzzle") == &"", "a duplicate is independent")
@@ -197,7 +197,7 @@ func _attachments_value_type(c: DotWeaponAttachments, rifle: DotWeaponDef, f: Do
 	for o: StringName in optics:
 		for m: StringName in muzzles:
 			for g: StringName in mags:
-				var combo := DotWeaponFitting.make(&"rifle")
+				var combo := GSWeaponFitting.make(&"rifle")
 				for pair in [[&"optic", o], [&"muzzle", m], [&"magazine", g]]:
 					if pair[1] != &"":
 						combo.fit(pair[0], pair[1])
@@ -210,12 +210,12 @@ func _attachments_value_type(c: DotWeaponAttachments, rifle: DotWeaponDef, f: Do
 	_check(c.decode(rifle, 0).is_empty() and c.decode(rifle, 3).is_empty(), "code 0 and an index past the choices decode as none")
 
 
-func _attachments_arsenal(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWeaponFitting, mixed: DotWeaponFitting) -> void:
+func _attachments_arsenal(c: GSWeaponAttachments, rifle: GSWeaponDef, f: GSWeaponFitting, mixed: GSWeaponFitting) -> void:
 	# The arsenal.
-	var cat := DotWeaponCatalogue.new()
+	var cat := GSWeaponCatalogue.new()
 	cat.add(_modular_rifle())
 	var a := _arsenal(cat)
-	_check(not a.fit(1, f).ok and a.fit(1, f).code() == DotError.CODE_STATE, "an arsenal with no attachments cannot fit")
+	_check(not a.fit(1, f).ok and a.fit(1, f).code() == GSError.CODE_STATE, "an arsenal with no attachments cannot fit")
 	a.attachments = c
 	_check(a.give(&"rifle").ok, "an arsenal carries the rifle")
 	_check(a.fitting_at(1).is_empty() and a.fitting_at(7).is_empty(), "fresh, nothing is fitted, and fitting_at is never null")
@@ -229,7 +229,7 @@ func _attachments_arsenal(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWe
 	f.remove(&"optic")
 	_check(a.fitting_at(1).key() != f.key(), "the arsenal stored a copy")
 
-	var shrink := DotWeaponFitting.make(&"rifle")
+	var shrink := GSWeaponFitting.make(&"rifle")
 	shrink.fit(&"magazine", &"tiny_mag")
 	a.slot_at(1).magazine = 30
 	a.fit(1, shrink)
@@ -241,12 +241,12 @@ func _attachments_arsenal(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWe
 	_check(snap["slots"][1].has("fit"), "the snapshot carries the fitting")
 	var b := _arsenal(cat)
 	var no_att := b.restore(snap)
-	_check(not no_att.ok and no_att.code() == DotError.CODE_STATE, "restoring a fitting without a catalogue is a state error")
+	_check(not no_att.ok and no_att.code() == GSError.CODE_STATE, "restoring a fitting without a catalogue is a state error")
 	b.attachments = c
 	_check(b.restore(snap).ok, "with one it restores")
 	_check(b.fitting_at(1).key() == "muzzle=suppressor", "and keeps the fitting", b.fitting_at(1).key())
 	_check(b.current_def().has_tag(&"quiet"), "so the second arsenal uses the applied def")
-	a.fit(1, DotWeaponFitting.make(&"rifle"))
+	a.fit(1, GSWeaponFitting.make(&"rifle"))
 	_check(a.current_def() == cat.get_def(&"rifle"), "an empty fitting restores the base def")
 	_check(not a.snapshot()["slots"][1].has("fit"), "and the snapshot carries nothing")
 	b.restore(a.snapshot())
@@ -255,7 +255,7 @@ func _attachments_arsenal(c: DotWeaponAttachments, rifle: DotWeaponDef, f: DotWe
 	_drop(b)
 
 
-func _attachments_fit_rules(c: DotWeaponAttachments, rifle: DotWeaponDef) -> void:
+func _attachments_fit_rules(c: GSWeaponAttachments, rifle: GSWeaponDef) -> void:
 	var fits_scope := c.get_attachment(&"scope").fits(rifle)
 	_check(fits_scope, "an optic fits a weapon that has the mount and the tag")
 	_check(not c.get_attachment(&"dot_sight").fits(rifle), "a list of weapon ids refuses another weapon")
@@ -266,7 +266,7 @@ func _attachments_fit_rules(c: DotWeaponAttachments, rifle: DotWeaponDef) -> voi
 	_check(c.get_attachment(&"drum").fits(untagged), "empty fit lists fit any weapon with the mount")
 
 	_check(not c.add(_att("brake", &"muzzle")).ok, "a duplicate id is refused")
-	_check(c.add(_att("brake", &"muzzle")).code() == DotError.CODE_CONFLICT, "as a conflict")
+	_check(c.add(_att("brake", &"muzzle")).code() == GSError.CODE_CONFLICT, "as a conflict")
 	_check(not c.add(_att("", &"muzzle")).ok, "an attachment without an id is refused")
 	_check(not c.add(_att("zero", &"muzzle", {"damage": 0.0})).ok, "a zero multiplier is refused")
 	_check(not c.add(_att("inf", &"muzzle", {}, {"damage": INF})).ok, "an infinite addition is refused")
@@ -290,52 +290,52 @@ func _test_attachments() -> void:
 	_check(choices[&"optic"] == [&"scope"], "and only what fits")
 
 	# apply returns a copy and never touches the shared definition or its tuning.
-	var base_spread := (rifle.tuning as DotWeaponBallistics).spread
-	var base_recoil := (rifle.tuning as DotWeaponBallistics).recoil_pitch
-	var base_damage := (rifle.tuning as DotWeaponBallistics).damage
-	var f := DotWeaponFitting.make(&"rifle")
+	var base_spread := (rifle.tuning as GSWeaponBallistics).spread
+	var base_recoil := (rifle.tuning as GSWeaponBallistics).recoil_pitch
+	var base_damage := (rifle.tuning as GSWeaponBallistics).damage
+	var f := GSWeaponFitting.make(&"rifle")
 	f.fit(&"muzzle", &"suppressor")
 	f.fit(&"magazine", &"drum")
 	f.fit(&"optic", &"scope")
 	var applied := c.apply(rifle, f)
 	_check(applied.ok, "a legal fitting applies")
-	var out: DotWeaponDef = applied.value
+	var out: GSWeaponDef = applied.value
 	_check(out != rifle and out.tuning != rifle.tuning, "to a copy, tuning included")
 	_check(out.magazine == 60 and out.reload_ticks == rifle.reload_ticks + 30, "int fields scale and add")
-	_close((out.tuning as DotWeaponBallistics).damage, base_damage * 0.9, "tuning fields resolve after the def")
-	_close((out.tuning as DotWeaponBallistics).spread, 0.0 * 0.5 - 0.1, "scaling comes before adding")
+	_close((out.tuning as GSWeaponBallistics).damage, base_damage * 0.9, "tuning fields resolve after the def")
+	_close((out.tuning as GSWeaponBallistics).spread, 0.0 * 0.5 - 0.1, "scaling comes before adding")
 	_check(
-		(rifle.tuning as DotWeaponBallistics).spread == base_spread
-		and (rifle.tuning as DotWeaponBallistics).recoil_pitch == base_recoil
-		and (rifle.tuning as DotWeaponBallistics).damage == base_damage
+		(rifle.tuning as GSWeaponBallistics).spread == base_spread
+		and (rifle.tuning as GSWeaponBallistics).recoil_pitch == base_recoil
+		and (rifle.tuning as GSWeaponBallistics).damage == base_damage
 		and rifle.magazine == 30 and not rifle.tags.has(&"quiet") and not rifle.params.has("zoom"),
 		"the base definition and its tuning are untouched"
 	)
 	_check(out.tags.has(&"quiet") and out.tags.count(&"quiet") == 1, "tags are added once")
 	_check(is_equal_approx(float(out.params.get("zoom", 0.0)), 4.0), "params are merged")
-	_check(c.apply(rifle, DotWeaponFitting.make(&"rifle")).value == rifle, "an empty fitting returns the def itself")
+	_check(c.apply(rifle, GSWeaponFitting.make(&"rifle")).value == rifle, "an empty fitting returns the def itself")
 
-	var typo := DotWeaponAttachments.new()
+	var typo := GSWeaponAttachments.new()
 	typo.add(_att("typo", &"muzzle", {"dammage": 0.5}))
-	var tf := DotWeaponFitting.make(&"rifle")
+	var tf := GSWeaponFitting.make(&"rifle")
 	tf.fit(&"muzzle", &"typo")
 	var rifle2 := _modular_rifle()
 	var bad := typo.apply(rifle2, tf)
-	_check(not bad.ok and bad.code() == DotError.CODE_INVALID, "an unknown field is refused, not skipped")
-	var notnum := DotWeaponAttachments.new()
+	_check(not bad.ok and bad.code() == GSError.CODE_INVALID, "an unknown field is refused, not skipped")
+	var notnum := GSWeaponAttachments.new()
 	notnum.add(_att("name", &"muzzle", {"display_name": 2.0}))
-	var nf := DotWeaponFitting.make(&"rifle")
+	var nf := GSWeaponFitting.make(&"rifle")
 	nf.fit(&"muzzle", &"name")
 	_check(not notnum.apply(rifle2, nf).ok, "so is a field that is not a number")
 
-	var tm := DotWeaponFitting.make(&"rifle")
+	var tm := GSWeaponFitting.make(&"rifle")
 	tm.fit(&"magazine", &"tiny_mag")
-	var floor_def: DotWeaponDef = c.apply(rifle, tm).value
+	var floor_def: GSWeaponDef = c.apply(rifle, tm).value
 	_check(floor_def.magazine == 1, "a magazine that held rounds keeps at least one", str(floor_def.magazine))
 
 	_attachments_refusals(c, rifle, f)
 	_attachments_value_type(c, rifle, f, choices)
-	var mixed := DotWeaponFitting.make(&"rifle")
+	var mixed := GSWeaponFitting.make(&"rifle")
 	mixed.fit(&"muzzle", &"suppressor")
 	mixed.fit(&"optic", &"dot_sight")
 	mixed.fit(&"side", &"brake")
@@ -354,57 +354,57 @@ func _test_attachments_wire() -> void:
 	_section("attachments on the wire")
 
 	var c := _attachment_catalogue()
-	var cat := DotWeaponCatalogue.new()
+	var cat := GSWeaponCatalogue.new()
 	cat.add(_modular_rifle())
 	var shooter := _arsenal(cat)
 	shooter.attachments = c
 	shooter.give(&"rifle")
-	var f := DotWeaponFitting.make(&"rifle")
+	var f := GSWeaponFitting.make(&"rifle")
 	f.fit(&"muzzle", &"suppressor")
 	f.fit(&"optic", &"scope")
 	shooter.fit(1, f)
 
-	_check(DotWeaponNetSync.specs().size() == 3, "specs() is unchanged")
-	var fs := DotWeaponNetSync.fitting_specs()
+	_check(GSWeaponNetSync.specs().size() == 3, "specs() is unchanged")
+	var fs := GSWeaponNetSync.fitting_specs()
 	_check(fs.size() == 1 and fs[0]["property"] == &"net_fitted" and not bool(fs[0]["owner_only"]), "fitting_specs is one public property")
-	_check(int(fs[0]["bits"]) == DotWeaponNetSync.FITTED_BITS and DotWeaponNetSync.fitting_bits() == 16, "of 16 bits")
+	_check(int(fs[0]["bits"]) == GSWeaponNetSync.FITTED_BITS and GSWeaponNetSync.fitting_bits() == 16, "of 16 bits")
 
 	var fake := _FakeFitted.new()
-	DotWeaponNetSync.pull(shooter, fake)
+	GSWeaponNetSync.pull(shooter, fake)
 	_check(fake.net_fitted != 0, "pull writes the code")
 
 	var watcher := _arsenal(cat)
 	watcher.attachments = c
 	watcher.give(&"rifle")
-	DotWeaponNetSync.push(fake, watcher)
+	GSWeaponNetSync.push(fake, watcher)
 	_check(watcher.fitting_at(1).key() == f.key(), "push gives a watcher the same fitting", watcher.fitting_at(1).key())
 	_check(watcher.current_def().has_tag(&"quiet"), "which it uses")
 
-	shooter.fit(1, DotWeaponFitting.make(&"rifle"))
-	DotWeaponNetSync.pull(shooter, fake)
+	shooter.fit(1, GSWeaponFitting.make(&"rifle"))
+	GSWeaponNetSync.pull(shooter, fake)
 	_check(fake.net_fitted == 0, "an unfitted weapon pulls zero")
-	DotWeaponNetSync.push(fake, watcher)
+	GSWeaponNetSync.push(fake, watcher)
 	_check(watcher.fitting_at(1).is_empty(), "and the watcher unfits")
 
 	var plain := _FakeNet.new()
 	shooter.fit(1, f)
-	DotWeaponNetSync.pull(shooter, plain)
+	GSWeaponNetSync.pull(shooter, plain)
 	_check(plain.net_magazine == shooter.current().magazine, "an object without net_fitted is still pulled")
 	var untouched := _arsenal(cat)
 	untouched.attachments = c
 	untouched.give(&"rifle")
-	DotWeaponNetSync.push(plain, untouched)
+	GSWeaponNetSync.push(plain, untouched)
 	_check(untouched.fitting_at(1).is_empty(), "and its push leaves the fitting alone")
 
 	var no_cat := _arsenal(cat)
 	no_cat.give(&"rifle")
-	DotWeaponNetSync.push(fake, no_cat)
+	GSWeaponNetSync.push(fake, no_cat)
 	_check(no_cat.fitting_at(1).is_empty(), "an arsenal with no attachment catalogue ignores the code")
 
 	# The layout is kept between calls (a server encodes twice a player a tick). It must follow a
 	# catalogue that grew and a def edited in place, or the two ends read the same bits differently.
 	var rifle := cat.get_def(&"rifle")
-	var g := DotWeaponFitting.make(&"rifle")
+	var g := GSWeaponFitting.make(&"rifle")
 	g.fit(&"optic", &"scope")
 	var before := c.encode(rifle, g)
 	_check(before != 0 and c.decode(rifle, before).key() == g.key(), "a kept layout decodes what it encoded")
@@ -485,7 +485,7 @@ func _test_extension_point() -> void:
 
 ## A stand-in for a GameSpice Player node. This project does not depend on GameSpice Player, so the
 ## bridge is duck-typed and so is the thing it is tested against — which is the honest
-## test: if this passes, a real DotPlayer with the same methods passes.
+## test: if this passes, a real GSPlayer with the same methods passes.
 class StubPlayer extends Node3D:
 	var player_key: String = "ada"
 	var stub_controller: Node = null
@@ -494,7 +494,7 @@ class StubPlayer extends Node3D:
 		if stub_controller == null:
 			return null
 
-		if String(type_name) == "DotPlayerController":
+		if String(type_name) == "GSPlayerController":
 			return stub_controller
 
 		return null
@@ -517,25 +517,25 @@ class StubController extends Node:
 func _test_player_bridge() -> void:
 	_section("the dot-player bridge")
 
-	var a := DotWeaponPlayerBridge.entity_of("ada")
-	var b := DotWeaponPlayerBridge.entity_of("bob")
+	var a := GSWeaponPlayerBridge.entity_of("ada")
+	var b := GSWeaponPlayerBridge.entity_of("bob")
 	_check(a >= 0 and b >= 0, "an entity number is never negative")
 	_check(a != b, "and two keys give two numbers")
 	_check(
-		a == DotWeaponPlayerBridge.entity_of("ada"),
+		a == GSWeaponPlayerBridge.entity_of("ada"),
 		"and one key always gives the same number — stable across machines and across "
 		+ "a reconnect, which a counter would not be"
 	)
-	_check(DotWeaponPlayerBridge.entity_of("") >= 0, "an empty key still gives one")
+	_check(GSWeaponPlayerBridge.entity_of("") >= 0, "an empty key still gives one")
 
-	var empty := DotWeaponPlayerBridge.context_for(null, 7)
+	var empty := GSWeaponPlayerBridge.context_for(null, 7)
 	_check(empty.tick == 7, "a context with no player still carries the tick")
 	_check(empty.entity == 0, "and no entity")
 
 	var player := StubPlayer.new()
 	add_child(player)
 
-	var bare := DotWeaponPlayerBridge.context_for(player, 3, 1, 0.5)
+	var bare := GSWeaponPlayerBridge.context_for(player, 3, 1, 0.5)
 	_check(bare.entity == a, "a context takes the entity from the key")
 	_check(bare.index == 1, "and the index")
 	_check(_close(bare.charge, 0.5, "and the charge"), "")
@@ -546,7 +546,7 @@ func _test_player_bridge() -> void:
 	player.stub_controller = controller
 	player.add_child(controller)
 
-	var ctx := DotWeaponPlayerBridge.context_for(player, 4)
+	var ctx := GSWeaponPlayerBridge.context_for(player, 4)
 	_check(
 		_close(ctx.origin.y, 1.65, "the shot comes from the eye"),
 		"a shot fired from a capsule's origin comes out of the player's knees"
@@ -563,22 +563,22 @@ func _test_player_bridge() -> void:
 	# The view model, with nowhere to hang it.
 	var view_model := Node3D.new()
 	_check(
-		not DotWeaponPlayerBridge.attach_view_model(player, view_model),
+		not GSWeaponPlayerBridge.attach_view_model(player, view_model),
 		"attaching a view model to a player with no character answers false rather "
 		+ "than failing — a server has no model and a 2D game has no bones"
 	)
-	_check(not DotWeaponPlayerBridge.attach_view_model(null, view_model), "and to nothing")
+	_check(not GSWeaponPlayerBridge.attach_view_model(null, view_model), "and to nothing")
 	view_model.free()
 
 	# The class loadout, duck-typed against GameSpice Player Class.
 	var arsenal := _arsenal()
 	var classless := RefCounted.new()
 	_check(
-		not DotWeaponPlayerBridge.give_class_loadout(arsenal, classless).ok,
+		not GSWeaponPlayerBridge.give_class_loadout(arsenal, classless).ok,
 		"a class that names no loadout is refused, as a state rather than a mistake"
 	)
 	_check(
-		not DotWeaponPlayerBridge.give_class_loadout(null, classless).ok,
+		not GSWeaponPlayerBridge.give_class_loadout(null, classless).ok,
 		"and so is no arsenal at all"
 	)
 
@@ -600,33 +600,33 @@ func _test_overlay() -> void:
 	_profile_write(root.path_join("addons/ov/weapon/gun/gun.yml"), "magazine: 30.0\nextra:\n  tuning:\n    damage: 42\n    nope: 1\n  params:\n    bash: 9\n")
 	_profile_write(root.path_join("addons/ov/weapon/gun/upgrades/big.yml"), "cost: 7\nadd:\n  magazine: 5\nmul:\n  tuning.damage: 2.0\n")
 	_profile_write(root.path_join("addons/ov/weapon/ghost.yml"), "slot: 4\n")
-	var gun := DotWeaponDef.new()
+	var gun := GSWeaponDef.new()
 	gun.id = &"gun"
 	gun.magazine = 12
 	gun.slot = 1
-	gun.tuning = DotWeaponBallistics.new()
+	gun.tuning = GSWeaponBallistics.new()
 	gun.params = {&"bash": 3.0, &"keep": 1}
-	var other := DotWeaponDef.new()
+	var other := GSWeaponDef.new()
 	other.id = &"other"
 	other.slot = 1
-	var defs: Array[DotWeaponDef] = [gun, other]
-	var set := DotWeaponProfiles.overlay_set("ov", "", "", PackedStringArray([root]))
-	var errors := DotWeaponProfiles.tune(defs, set)
+	var defs: Array[GSWeaponDef] = [gun, other]
+	var set := GSWeaponProfiles.overlay_set("ov", "", "", PackedStringArray([root]))
+	var errors := GSWeaponProfiles.tune(defs, set)
 	_check(errors.is_empty(), "tune reports no load failure")
 	_check(gun.magazine == 30 and typeof(gun.magazine) == TYPE_INT, "a float in a file keeps the builder's int type")
 	_check(gun.slot == 1, "a key the file does not set keeps the builder's value")
-	_check(is_equal_approx((gun.tuning as DotWeaponBallistics).damage, 42.0), "extra: tuning: sets a tuning number")
+	_check(is_equal_approx((gun.tuning as GSWeaponBallistics).damage, 42.0), "extra: tuning: sets a tuning number")
 	_check(is_equal_approx(float(gun.params[&"bash"]), 9.0) and gun.params[&"keep"] == 1, "extra: params: sets one param and leaves the rest")
 	_check(other.slot == 1, "a weapon without a file is untouched; a file with no weapon is ignored")
-	var flat := DotWeaponProfiles.flat_of(gun)
+	var flat := GSWeaponProfiles.flat_of(gun)
 	_check(flat["magazine"] == 30 and flat["tuning.damage"] == 42.0 and flat["params.bash"] == 9.0, "flat_of reads common, tuning and params keys")
-	var again := DotWeaponProfiles.upgraded(gun, ["big"], set)
-	var up: DotWeaponDef = again.value["def"] if again.ok else null
-	_check(again.ok and again.value["cost"] == 7 and up.magazine == 35 and is_equal_approx((up.tuning as DotWeaponBallistics).damage, 84.0), "upgraded applies add and mul to a copy")
+	var again := GSWeaponProfiles.upgraded(gun, ["big"], set)
+	var up: GSWeaponDef = again.value["def"] if again.ok else null
+	_check(again.ok and again.value["cost"] == 7 and up.magazine == 35 and is_equal_approx((up.tuning as GSWeaponBallistics).damage, 84.0), "upgraded applies add and mul to a copy")
 	_check(gun.magazine == 30, "the original definition is not changed by an upgrade")
-	var yml := DotWeaponProfiles.to_yaml(gun, "Demo")
+	var yml := GSWeaponProfiles.to_yaml(gun, "Demo")
 	_check(yml.contains("magazine: 30") and yml.contains("  tuning:\n") and yml.contains("    damage: 42"), "to_yaml writes the numbers back")
-	_check(DotWeaponProfiles.profile_path("ov", "gun", root) == root.path_join("addons/ov/weapon/gun/gun.yml"), "profile_path finds the folder form")
+	_check(GSWeaponProfiles.profile_path("ov", "gun", root) == root.path_join("addons/ov/weapon/gun/gun.yml"), "profile_path finds the folder form")
 	set.clear_cache()
 	_done()
 
@@ -641,49 +641,49 @@ func _test_profiles() -> void:
 	_profile_write(w.path_join("pistol/upgrades/after.yml"), "requires: [\"scope\"]\ncost: 5\n")
 	_profile_write(w.path_join("knife.yml"), "name: \"Knife\"\nmenu:\n  sort: 1\n  hidden: true\n")
 	_profile_write(w.path_join("bad.yml"), "wobble: 1\n")
-	var set := DotWeaponProfiles.make_set("demo", "g", PackedStringArray([root]))
-	_check(Array(DotWeaponProfiles.list_ids(set)) == ["bad", "knife", "pistol"], "ids are listed from the files, folder form included")
-	_check(DotWeaponProfiles.profile_schemas()["weapon"]["children"].has("upgrades"), "profile_schemas names weapon with its upgrades child")
-	var res := DotWeaponProfiles.load_def(set, "pistol")
-	var d: DotWeaponDef = res.value if res.ok else null
-	_check(d != null and d.slot == 2 and d.fire_mode == DotWeaponDef.Fire.AUTO and d.magazine == 12 and d.has_tag(&"gun"), "a profile fills the common DotWeaponDef fields")
+	var set := GSWeaponProfiles.make_set("demo", "g", PackedStringArray([root]))
+	_check(Array(GSWeaponProfiles.list_ids(set)) == ["bad", "knife", "pistol"], "ids are listed from the files, folder form included")
+	_check(GSWeaponProfiles.profile_schemas()["weapon"]["children"].has("upgrades"), "profile_schemas names weapon with its upgrades child")
+	var res := GSWeaponProfiles.load_def(set, "pistol")
+	var d: GSWeaponDef = res.value if res.ok else null
+	_check(d != null and d.slot == 2 and d.fire_mode == GSWeaponDef.Fire.AUTO and d.magazine == 12 and d.has_tag(&"gun"), "a profile fills the common GSWeaponDef fields")
 	_check(d != null and d.display_name == "Pistol" and is_equal_approx(float(d.params["damage"]), 20.0), "and its extra keys become params")
-	_check(not DotWeaponProfiles.load_def(set, "bad").ok, "an unknown top-level key is refused")
-	_check(Array(set.child_kinds("pistol")) == ["upgrades"] and Array(DotWeaponProfiles.list_upgrades(set, "pistol")) == ["after", "ghost", "scope"], "upgrades are listed")
-	var menu := DotWeaponProfiles.menu_entries(set)
+	_check(not GSWeaponProfiles.load_def(set, "bad").ok, "an unknown top-level key is refused")
+	_check(Array(set.child_kinds("pistol")) == ["upgrades"] and Array(GSWeaponProfiles.list_upgrades(set, "pistol")) == ["after", "ghost", "scope"], "upgrades are listed")
+	var menu := GSWeaponProfiles.menu_entries(set)
 	_check(menu.size() == 1 and menu[0]["id"] == "pistol" and menu[0]["category"] == "guns", "the menu lists visible weapons with their menu: keys")
-	_check(DotWeaponProfiles.menu_entries(set, true).size() == 2, "hidden ones on request")
-	var base := DotWeaponProfiles.flat(set.load_profile("pistol").value)
-	var ups := DotWeaponProfiles.upgrade_set(set, "pistol")
-	var up := DotWeaponProfiles.apply_upgrades(base, ups, ["scope"])
+	_check(GSWeaponProfiles.menu_entries(set, true).size() == 2, "hidden ones on request")
+	var base := GSWeaponProfiles.flat(set.load_profile("pistol").value)
+	var ups := GSWeaponProfiles.upgrade_set(set, "pistol")
+	var up := GSWeaponProfiles.apply_upgrades(base, ups, ["scope"])
 	_check(up.ok and is_equal_approx(float(up.value["values"]["damage"]), 30.0) and up.value["values"]["magazine"] == 15 and up.value["values"]["slot"] == 3 and up.value["cost"] == 50, "set, mul and add apply and cost is summed")
 	_check(is_equal_approx(float(base["damage"]), 20.0), "the base dictionary is not changed")
-	_check(DotWeaponProfiles.apply_upgrades(base, ups, ["scope", "after"]).value["cost"] == 55, "a prerequisite met earlier in the list passes")
-	_check(not DotWeaponProfiles.apply_upgrades(base, ups, ["after"]).ok, "a prerequisite missing fails")
-	_check(not DotWeaponProfiles.apply_upgrades(base, ups, ["ghost"]).ok, "an upgrade naming no key fails")
+	_check(GSWeaponProfiles.apply_upgrades(base, ups, ["scope", "after"]).value["cost"] == 55, "a prerequisite met earlier in the list passes")
+	_check(not GSWeaponProfiles.apply_upgrades(base, ups, ["after"]).ok, "a prerequisite missing fails")
+	_check(not GSWeaponProfiles.apply_upgrades(base, ups, ["ghost"]).ok, "an upgrade naming no key fails")
 
 	_profile_write(root.path_join("addons/other/weapon/zz_rifle.yml"), "name: \"Rifle\"\nextra:\n  damage: 30.0\n")
-	var group := DotWeaponProfileGroup.make("g", PackedStringArray([root]))
+	var group := GSWeaponProfileGroup.make("g", PackedStringArray([root]))
 	var _a := group.add_pack("demo")
 	var _b := group.add_pack("other")
 	_check(Array(group.list_ids()) == ["bad", "knife", "pistol", "zz_rifle"], "a group lists every pack's weapons under the one kind")
 	_check(group.profile_for("zz_rifle") == "zz_rifle" and group.profile_for("pk_x_pistol") == "pistol" and group.profile_for("nope") == "", "a definition id finds its profile by suffix")
-	var rt := DotProfileRuntime.new()
+	var rt := GSProfileRuntime.new()
 	rt.add_set(group)
 	rt.permit = func(_actor: Variant, _flag: String) -> bool: return true
-	var done := rt.handle_request("a", DotProfileRuntime.make_request("set", "weapon", "zz_rifle", "extra.damage", 55.0))
+	var done := rt.handle_request("a", GSProfileRuntime.make_request("set", "weapon", "zz_rifle", "extra.damage", 55.0))
 	_check(done.ok, "one runtime edits a weapon of either pack", "" if done.ok else done.error.message)
-	var theirs := DotWeaponProfiles.make_set("other", "g", PackedStringArray([root]), group.runtime)
+	var theirs := GSWeaponProfiles.make_set("other", "g", PackedStringArray([root]), group.runtime)
 	_check(float(theirs.load_profile("zz_rifle").value.get_extra("damage")) == 55.0, "a pack's own set handed the layer reads the edit")
-	var plain := DotWeaponProfiles.make_set("other", "g", PackedStringArray([root]))
+	var plain := GSWeaponProfiles.make_set("other", "g", PackedStringArray([root]))
 	_check(float(plain.load_profile("zz_rifle").value.get_extra("damage")) == 30.0, "while a set without it keeps the file")
-	_check(not rt.handle_request("a", DotProfileRuntime.make_request("set", "weapon", "ghost", "slot", 2)).ok, "an id no pack has is refused")
-	var from := DotWeaponDef.new()
+	_check(not rt.handle_request("a", GSProfileRuntime.make_request("set", "weapon", "ghost", "slot", 2)).ok, "an id no pack has is refused")
+	var from := GSWeaponDef.new()
 	from.display_name = "New"
-	var into := DotWeaponDef.new()
-	DotWeaponProfiles.refresh_def(into, from)
+	var into := GSWeaponDef.new()
+	GSWeaponProfiles.refresh_def(into, from)
 	_check(into.display_name == "New", "refresh_def copies a rebuilt definition onto the one holders have")
-	rt.handle_request("a", DotProfileRuntime.make_request("reset", "weapon", "zz_rifle"))
+	rt.handle_request("a", GSProfileRuntime.make_request("reset", "weapon", "zz_rifle"))
 	_check(group.runtime.is_empty(), "a reset empties the shared layer")
 	group.clear_cache()
 	theirs.clear_cache()
@@ -695,39 +695,39 @@ func _test_profiles() -> void:
 
 func _test_sound_warm() -> void:
 	_section("warm loads every variant a class can play")
-	if DotWeaponSound.count(&"light_fire") == 0:
-		_check(DotWeaponSound.warm([&"light"]).is_empty(), "without dot-audio a warm returns nothing")
-		_check(DotWeaponSound.warm([]).is_empty(), "no classes is nothing")
-		_check(DotWeaponSound.warm([&"light"], [], false).is_empty(), "no stages and no far is nothing")
-		_check(DotWeaponSound.warm_sounds([&"impact"]).is_empty(), "warm_sounds returns nothing too")
+	if GSWeaponSound.count(&"light_fire") == 0:
+		_check(GSWeaponSound.warm([&"light"]).is_empty(), "without dot-audio a warm returns nothing")
+		_check(GSWeaponSound.warm([]).is_empty(), "no classes is nothing")
+		_check(GSWeaponSound.warm([&"light"], [], false).is_empty(), "no stages and no far is nothing")
+		_check(GSWeaponSound.warm_sounds([&"impact"]).is_empty(), "warm_sounds returns nothing too")
 		_done()
 		return
-	var got := DotWeaponSound.warm([&"light", &"shotgun", &"nope"])
+	var got := GSWeaponSound.warm([&"light", &"shotgun", &"nope"])
 	var want := 0
 	for sound: StringName in [&"light_fire", &"shotgun_fire", &"reload_out_light", &"reload_in_light", &"reload_shell", &"light_far", &"shotgun_far"]:
-		want += DotWeaponSound.count(sound)
+		want += GSWeaponSound.count(sound)
 	_check(got.size() >= want, "every fire, reload and far variant comes back (%d, at least %d)" % [got.size(), want])
-	_check(not got.has(null) and got.has(DotWeaponSound.pick(&"light_fire", 0)) and got.has(DotWeaponSound.pick_reload(&"shotgun", &"out", 0)), "all loaded, and they are the held pick() streams")
-	_check(DotWeaponSound.warm([]).is_empty() and DotWeaponSound.warm([&"light"], [], false).size() < got.size(), "no classes is nothing; no stages and no far is fewer")
-	var named := DotWeaponSound.warm_sounds([&"impact", &"no_such_sound"])
-	_check(named.size() == DotWeaponSound.count(&"impact") and named.size() > 0, "warm_sounds loads every variant of a named sound and skips an unknown one")
+	_check(not got.has(null) and got.has(GSWeaponSound.pick(&"light_fire", 0)) and got.has(GSWeaponSound.pick_reload(&"shotgun", &"out", 0)), "all loaded, and they are the held pick() streams")
+	_check(GSWeaponSound.warm([]).is_empty() and GSWeaponSound.warm([&"light"], [], false).size() < got.size(), "no classes is nothing; no stages and no far is fewer")
+	var named := GSWeaponSound.warm_sounds([&"impact", &"no_such_sound"])
+	_check(named.size() == GSWeaponSound.count(&"impact") and named.size() > 0, "warm_sounds loads every variant of a named sound and skips an unknown one")
 	_done()
 
 
 func _test_sound_held() -> void:
 	_section("stock sounds held after the first pick")
-	var held := DotWeaponSound.keep_streams
-	if DotWeaponSound.count(&"light_fire") == 0:
-		_check(DotWeaponSound.pick(&"light_fire", 3) == null, "without dot-audio a pick is null")
+	var held := GSWeaponSound.keep_streams
+	if GSWeaponSound.count(&"light_fire") == 0:
+		_check(GSWeaponSound.pick(&"light_fire", 3) == null, "without dot-audio a pick is null")
 		_done()
 		return
-	var n := DotWeaponSound.count(&"light_fire")
+	var n := GSWeaponSound.count(&"light_fire")
 	for roll in [0, 1, -1, 7, n, 1 << 40]:
-		var want := load("%s%s_%d.ogg" % [DotWeaponSound.DIR, &"light_fire", absi(roll) % n]) as AudioStream
-		DotWeaponSound.keep_streams = true
-		var a := DotWeaponSound.pick(&"light_fire", roll)
-		_check(a == want and DotWeaponSound.pick(&"light_fire", roll) == a, "roll %d picks the variant load() gives" % roll)
-		DotWeaponSound.keep_streams = false
-		_check(DotWeaponSound.pick(&"light_fire", roll) == want, "and the uncached pick agrees")
-	DotWeaponSound.keep_streams = held
+		var want := load("%s%s_%d.ogg" % [GSWeaponSound.DIR, &"light_fire", absi(roll) % n]) as AudioStream
+		GSWeaponSound.keep_streams = true
+		var a := GSWeaponSound.pick(&"light_fire", roll)
+		_check(a == want and GSWeaponSound.pick(&"light_fire", roll) == a, "roll %d picks the variant load() gives" % roll)
+		GSWeaponSound.keep_streams = false
+		_check(GSWeaponSound.pick(&"light_fire", roll) == want, "and the uncached pick agrees")
+	GSWeaponSound.keep_streams = held
 	_done()

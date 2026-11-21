@@ -1,7 +1,7 @@
 extends "dot_weapon_drops_bodies.gd"
 
-## The pushing half of [DotWeaponDrops]: shots, blasts and melee that set a lying weapon moving, and the cap on how many move.
-## The drops layer extends this; use [DotWeaponDrops].
+## The pushing half of [GSWeaponDrops]: shots, blasts and melee that set a lying weapon moving, and the cap on how many move.
+## The drops layer extends this; use [GSWeaponDrops].
 
 ## A shot, blast or melee hit set a resting weapon moving again; clients simulate on from here.
 signal pushed(drop_id: int, at: Transform3D, velocity: Vector3, spin: Vector3)
@@ -166,7 +166,7 @@ func _rest_grounded(id: int, e: Dictionary, body: RigidBody3D) -> void:
 	e["ground_in"] = GROUND_TICKS
 
 
-## Rests the oldest moving drops until no more than [member DotWeaponDropRules.max_active] are awake,
+## Rests the oldest moving drops until no more than [member GSWeaponDropRules.max_active] are awake,
 ## never [param keep]. A burst of deaths otherwise steps every body together (one physics step, 200 ms).
 func _enforce_active(keep: int) -> void:
 	var cap := rules.max_active

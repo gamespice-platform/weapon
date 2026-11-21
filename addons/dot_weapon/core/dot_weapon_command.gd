@@ -1,9 +1,9 @@
-class_name DotWeaponCommand
+class_name GSWeaponCommand
 extends RefCounted
 
 ## What a player asked their weapon to do on one tick.
 ##
-## The weapon half of GameSpice Player Controller's [code]DotFpsCommand[/code], and separate
+## The weapon half of GameSpice Player Controller's [code]GSFpsCommand[/code], and separate
 ## from it for the same reason movement is separate from input sampling: the
 ## simulation must be a pure function of these, so that a client predicting a shot and
 ## a server re-running it reach the same answer. Nothing below reads a device, a
@@ -73,13 +73,13 @@ func set_button(button: int, pressed: bool) -> void:
 ## Semi-automatic fire, reload and slot switching are all edge-triggered, and reading
 ## the level instead is how a semi-automatic weapon fires like an automatic one for
 ## anyone holding the button.
-func pressed_since(previous: DotWeaponCommand) -> int:
+func pressed_since(previous: GSWeaponCommand) -> int:
 	if previous == null:
 		return buttons
 	return buttons & ~previous.buttons
 
 
-func just_pressed(button: int, previous: DotWeaponCommand) -> bool:
+func just_pressed(button: int, previous: GSWeaponCommand) -> bool:
 	return (pressed_since(previous) & button) != 0
 
 
@@ -99,8 +99,8 @@ func aim_direction() -> Vector3:
 	).normalized()
 
 
-func duplicate_command() -> DotWeaponCommand:
-	var copy := DotWeaponCommand.new()
+func duplicate_command() -> GSWeaponCommand:
+	var copy := GSWeaponCommand.new()
 	copy.slot = slot
 	copy.buttons = buttons
 	copy.yaw = yaw
@@ -108,7 +108,7 @@ func duplicate_command() -> DotWeaponCommand:
 	return copy
 
 
-func equals(other: DotWeaponCommand) -> bool:
+func equals(other: GSWeaponCommand) -> bool:
 	if other == null:
 		return false
 	return (
@@ -136,7 +136,7 @@ func sanitise(max_slots: int = 16, pitch_limit: float = 89.0) -> void:
 		pitch = 0.0
 
 
-## Writes to a [code]DotNetWriter[/code].
+## Writes to a [code]GSNetWriter[/code].
 ##
 ## [param writer] is [Variant] so this file never mentions a GameSpice Net class name — a
 ## script that does fails to parse in a project without GameSpice Net, and takes every
@@ -188,7 +188,7 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponCommand(slot %d, %s, %.1f/%.1f)" % [
+	return "GSWeaponCommand(slot %d, %s, %.1f/%.1f)" % [
 		slot,
 		"+".join(button_names(buttons)) if buttons != 0 else "-",
 		yaw,

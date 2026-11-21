@@ -1,8 +1,8 @@
-class_name DotWeaponAttachMenu
+class_name GSWeaponAttachMenu
 extends PanelContainer
 
 ## The attach/detach menu: a row per mount of the weapon in hand, a button per fitting attachment plus one to take it off, built in code.
-## [b]It changes nothing itself:[/b] a press emits [signal requested]; the game sends a [DotWeaponAttachRequest] and calls [method show_fitting].
+## [b]It changes nothing itself:[/b] a press emits [signal requested]; the game sends a [GSWeaponAttachRequest] and calls [method show_fitting].
 ## Pad: ui_up/down/left/right move focus, ui_accept presses, number keys pick a row. Touch: buttons are at least [member min_button_size].
 
 ## Asks for [param id] on [param mount]; an empty id takes it off.
@@ -15,9 +15,9 @@ const ACTION := &"dot_menu_weapon_attach"
 
 @export var min_button_size := Vector2(128, 64)
 
-var _catalogue: DotWeaponAttachments
-var _base: DotWeaponDef
-var _fitting: DotWeaponFitting
+var _catalogue: GSWeaponAttachments
+var _base: GSWeaponDef
+var _fitting: GSWeaponFitting
 var _rows: Array[HBoxContainer] = []
 var _detail: Label
 
@@ -36,7 +36,7 @@ static func ensure_action() -> void:
 
 
 ## Fills the menu for [param base] (the catalogue definition, unfitted) and its [param fitting].
-func open(catalogue: DotWeaponAttachments, base: DotWeaponDef, fitting: DotWeaponFitting) -> void:
+func open(catalogue: GSWeaponAttachments, base: GSWeaponDef, fitting: GSWeaponFitting) -> void:
 	_catalogue = catalogue
 	_base = base
 	show_fitting(fitting)
@@ -45,7 +45,7 @@ func open(catalogue: DotWeaponAttachments, base: DotWeaponDef, fitting: DotWeapo
 
 
 ## Rebuilds the rows for [param fitting]: the server's answer, or the replicated one.
-func show_fitting(fitting: DotWeaponFitting) -> void:
+func show_fitting(fitting: GSWeaponFitting) -> void:
 	_fitting = fitting
 	var had := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
 	var keep: Variant = had.get_meta(&"choice") if had != null and had.has_meta(&"choice") else null
@@ -107,15 +107,15 @@ func lines_for(mount: StringName, id: StringName) -> PackedStringArray:
 	var then := _catalogue.apply(_base, res.value)
 	if not now.ok or not then.ok:
 		return PackedStringArray()
-	return stat_lines(DotWeaponAttachments.stat_delta(now.value, then.value))
+	return stat_lines(GSWeaponAttachments.stat_delta(now.value, then.value))
 
 
-## Text for [method DotWeaponAttachments.stat_delta]: a percent where the old value is not zero.
+## Text for [method GSWeaponAttachments.stat_delta]: a percent where the old value is not zero.
 static func stat_lines(delta: Dictionary) -> PackedStringArray:
 	var out := PackedStringArray()
 	for field: String in delta.keys():
 		var pair: Array = delta[field]
-		var name := field.trim_prefix(DotWeaponAttachment.PARAMS_PREFIX)
+		var name := field.trim_prefix(GSWeaponAttachment.PARAMS_PREFIX)
 		var a := float(pair[0])
 		var b := float(pair[1])
 		if absf(a) > 0.000001:

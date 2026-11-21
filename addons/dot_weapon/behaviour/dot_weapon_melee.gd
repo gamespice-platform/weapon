@@ -1,10 +1,10 @@
-class_name DotWeaponMelee
-extends DotWeaponBehaviour
+class_name GSWeaponMelee
+extends GSWeaponBehaviour
 
 ## A weapon that reaches a short distance in front of the carrier: a knife, a crowbar,
 ## a bat, a fist.
 ##
-## [b]It is a [DotShot] with a very short range and several pellets in an arc[/b],
+## [b]It is a [GSShot] with a very short range and several pellets in an arc[/b],
 ## rather than a system of its own. A swing that sweeps an arc and a shotgun that
 ## sprays a cone are the same question asked at different scales, and expressing the
 ## first as the second means it goes through the same lag compensation, the same hit
@@ -14,13 +14,13 @@ extends DotWeaponBehaviour
 ## The arc is [code]arc_degrees[/code] wide and sampled at [code]rays[/code] points.
 ## One ray is a lunge; five across sixty degrees is a sweep.
 
-func _ballistics() -> DotWeaponBallistics:
-	if def != null and def.tuning is DotWeaponBallistics:
+func _ballistics() -> GSWeaponBallistics:
+	if def != null and def.tuning is GSWeaponBallistics:
 		return def.tuning
 	return null
 
 
-func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var b := _ballistics()
 
 	var reach := b.max_range if b != null else tune_float(&"reach", 2.0)
@@ -28,9 +28,9 @@ func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
 	var arc := tune_float(&"arc_degrees", 30.0)
 	var rays := maxi(1, tune_int(&"rays", 3))
 
-	var out := DotWeaponOutcome.of(DotWeaponOutcome.KIND_SWING)
+	var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_SWING)
 
-	var shot := DotShot.make(def.id, ctx.entity, ctx.tick, ctx.index)
+	var shot := GSShot.make(def.id, ctx.entity, ctx.tick, ctx.index)
 	shot.origin = ctx.origin
 	shot.direction = ctx.direction
 	shot.damage = damage

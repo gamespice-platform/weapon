@@ -1,28 +1,28 @@
-class_name DotWeaponProfileGroup
-extends DotProfileSet
+class_name GSWeaponProfileGroup
+extends GSProfileSet
 
 ## Every pack's `weapon` profiles behind the one kind, sharing one runtime layer.
-## [DotProfileRuntime] keys a set by kind, so packs cannot each register `weapon`; ids stay bare and an edit lands in [member DotProfileSet.runtime], which every member set reads.
+## [GSProfileRuntime] keys a set by kind, so packs cannot each register `weapon`; ids stay bare and an edit lands in [member GSProfileSet.runtime], which every member set reads.
 
-var _members: Array[DotProfileSet] = []
+var _members: Array[GSProfileSet] = []
 
 
 ## A group for [param p_game]; [param p_roots] replaces the config roots (tests).
-static func make(p_game: String, p_roots: PackedStringArray = PackedStringArray()) -> DotWeaponProfileGroup:
+static func make(p_game: String, p_roots: PackedStringArray = PackedStringArray()) -> GSWeaponProfileGroup:
 	var g := new()
 	g.game = p_game
-	g.rel_path = DotWeaponProfiles.KIND
-	g.schema = DotWeaponProfiles.schema()
+	g.rel_path = GSWeaponProfiles.KIND
+	g.schema = GSWeaponProfiles.schema()
 	g.roots = p_roots
 	return g
 
 
 ## The member set of [param addon], made on first use.
-func add_pack(addon: String) -> DotProfileSet:
+func add_pack(addon: String) -> GSProfileSet:
 	for m in _members:
 		if m.addon_name == addon:
 			return m
-	var m := DotWeaponProfiles.make_set(addon, game, roots, runtime)
+	var m := GSWeaponProfiles.make_set(addon, game, roots, runtime)
 	_members.append(m)
 	return m
 
@@ -53,17 +53,17 @@ func has_id(id: String) -> bool:
 	return _owner_of(id) != null
 
 
-func load_profile(id: String) -> DotResult:
+func load_profile(id: String) -> GSResult:
 	var m := _owner_of(id)
 	if m == null:
-		return DotResult.fail(DotError.CODE_INVALID, "%s/%s: no such profile" % [rel_path, id])
+		return GSResult.fail(GSError.CODE_INVALID, "%s/%s: no such profile" % [rel_path, id])
 	return m.load_profile(id)
 
 
-func check_edit(id: String, path: String, value: Variant) -> DotResult:
+func check_edit(id: String, path: String, value: Variant) -> GSResult:
 	var m := _owner_of(id)
 	if m == null:
-		return DotResult.fail(DotError.CODE_INVALID, "%s: no such profile" % id)
+		return GSResult.fail(GSError.CODE_INVALID, "%s: no such profile" % id)
 	return m.check_edit(id, path, value)
 
 
@@ -79,7 +79,7 @@ func set_runtime(id: String, paths: Dictionary) -> void:
 		m.clear_cache()
 
 
-func _owner_of(id: String) -> DotProfileSet:
+func _owner_of(id: String) -> GSProfileSet:
 	for m in _members:
 		if m.has_id(id):
 			return m

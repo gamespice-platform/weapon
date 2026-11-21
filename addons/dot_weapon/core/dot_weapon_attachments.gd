@@ -1,4 +1,4 @@
-class_name DotWeaponAttachments
+class_name GSWeaponAttachments
 extends RefCounted
 
 ## The attachment catalogue: every attachment a game offers, and the rules for what may go
@@ -15,13 +15,13 @@ extends RefCounted
 
 const KIND := "attachment"
 
-var _by_id: Dictionary = {}  ## StringName -> DotWeaponAttachment
+var _by_id: Dictionary = {}  ## StringName -> GSWeaponAttachment
 var _layouts: Dictionary = {}  ## [id, slot, mounts, tags] -> [method _layout]'s entry
 
 
 ## Fields of an `attachment` profile; a pack ships these as data. Lists are comma-separated.
 static func schema() -> Array:
-	var f := DotProfileSet.field
+	var f := GSProfileSet.field
 	return [
 		f.call("name", "string", ""),
 		f.call("description", "string", ""),
@@ -45,51 +45,51 @@ static func profile_schemas() -> Dictionary:
 	return {KIND: {"schema": schema()}}
 
 
-static func make_set(addon: String, game: String, roots: PackedStringArray = PackedStringArray()) -> DotProfileSet:
-	var s := DotProfileSet.create(addon, game, KIND, schema())
+static func make_set(addon: String, game: String, roots: PackedStringArray = PackedStringArray()) -> GSProfileSet:
+	var s := GSProfileSet.create(addon, game, KIND, schema())
 	s.roots = roots
 	return s
 
 
 ## Adds every profile of [param profiles]; fails on the first that does not load or validate.
-func load_set(profiles: DotProfileSet) -> DotResult:
+func load_set(profiles: GSProfileSet) -> GSResult:
 	var n := 0
 	for id in profiles.list_ids():
 		var res := profiles.load_profile(id)
 		if not res.ok:
 			return res
-		var d := (res.value as DotProfile).to_dictionary()
-		var added := add(DotWeaponAttachment.from_flat(StringName(id), d.get("values", d)))
+		var d := (res.value as GSProfile).to_dictionary()
+		var added := add(GSWeaponAttachment.from_flat(StringName(id), d.get("values", d)))
 		if not added.ok:
 			return added
 		n += 1
-	return DotResult.success(n)
+	return GSResult.success(n)
 
 
-func add(att: DotWeaponAttachment) -> DotResult:
+func add(att: GSWeaponAttachment) -> GSResult:
 	if att == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No attachment given.")
+		return GSResult.fail(GSError.CODE_INVALID, "No attachment given.")
 	var res := att.validate()
 	if not res.ok:
 		return res
 	if _by_id.has(att.id):
-		return DotResult.fail(
-			DotError.CODE_CONFLICT, "Attachment %s is already in the catalogue." % String(att.id),
+		return GSResult.fail(
+			GSError.CODE_CONFLICT, "Attachment %s is already in the catalogue." % String(att.id),
 			String(att.id)
 		)
 	_by_id[att.id] = att
 	_layouts.clear()
-	return DotResult.success(att)
+	return GSResult.success(att)
 
 
-func get_attachment(id: StringName) -> DotWeaponAttachment:
+func get_attachment(id: StringName) -> GSWeaponAttachment:
 	return _by_id.get(id, null)
 
 
 ## The attachment an inventory item grants, or null.
-func for_item(item_id: StringName) -> DotWeaponAttachment:
+func for_item(item_id: StringName) -> GSWeaponAttachment:
 	for id in ids():
-		if (_by_id[id] as DotWeaponAttachment).item() == item_id:
+		if (_by_id[id] as GSWeaponAttachment).item() == item_id:
 			return _by_id[id]
 	return null
 
@@ -104,66 +104,66 @@ func ids() -> Array[StringName]:
 
 
 ## Mount -> text-ordered ids that fit, for every mount of [param def] (possibly empty lists).
-func choices_for(def: DotWeaponDef) -> Dictionary:
+func choices_for(def: GSWeaponDef) -> Dictionary:
 	var out: Dictionary = {}
 	for m in def.mounts:
 		out[m] = [] as Array[StringName]
 	for id in ids():
-		var att: DotWeaponAttachment = _by_id[id]
+		var att: GSWeaponAttachment = _by_id[id]
 		if att.fits(def):
 			(out[att.mount] as Array[StringName]).append(id)
 	return out
 
 
-func validate_fitting(def: DotWeaponDef, fitting: DotWeaponFitting) -> DotResult:
+func validate_fitting(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSResult:
 	if fitting.weapon_id != def.id:
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"The fitting is for %s, not %s." % [String(fitting.weapon_id), String(def.id)]
 		)
 	for m in fitting.mounts():
 		var id := fitting.attachment_on(m)
-		var att: DotWeaponAttachment = _by_id.get(id, null)
+		var att: GSWeaponAttachment = _by_id.get(id, null)
 		if att == null:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "There is no attachment %s." % String(id), String(id)
+			return GSResult.fail(
+				GSError.CODE_INVALID, "There is no attachment %s." % String(id), String(id)
 			)
 		if att.mount != m or not def.mounts.has(m):
-			return DotResult.fail(
-				DotError.CODE_CONFLICT,
+			return GSResult.fail(
+				GSError.CODE_CONFLICT,
 				"%s cannot go on mount %s of %s." % [String(id), String(m), String(def.id)],
 				String(id)
 			)
 		if not att.fits(def):
-			return DotResult.fail(
-				DotError.CODE_FORBIDDEN,
+			return GSResult.fail(
+				GSError.CODE_FORBIDDEN,
 				"%s does not fit %s." % [String(id), String(def.id)], String(id)
 			)
 		for blocked in att.blocks:
 			if fitting.attachment_on(blocked) != &"":
-				return DotResult.fail(
-					DotError.CODE_CONFLICT,
+				return GSResult.fail(
+					GSError.CODE_CONFLICT,
 					"%s blocks mount %s." % [String(id), String(blocked)], String(id)
 				)
-	return DotResult.success(fitting)
+	return GSResult.success(fitting)
 
 
 ## A copy of [param fitting] with everything illegal dropped. Never fails: a replicated code
 ## or a saved loadout from another version should degrade, not refuse.
-func conform(def: DotWeaponDef, fitting: DotWeaponFitting) -> DotWeaponFitting:
-	var out := DotWeaponFitting.make(def.id)
+func conform(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSWeaponFitting:
+	var out := GSWeaponFitting.make(def.id)
 	for m in fitting.mounts():
 		var id := fitting.attachment_on(m)
-		var att: DotWeaponAttachment = _by_id.get(id, null)
+		var att: GSWeaponAttachment = _by_id.get(id, null)
 		if att != null and att.mount == m and att.fits(def) and not _clashes(out, att):
 			out.fit(m, id)
 	return out
 
 
 ## Whether [param att] blocks a mount [param fitting] uses, or a fitted one blocks its mount.
-func _clashes(fitting: DotWeaponFitting, att: DotWeaponAttachment) -> bool:
+func _clashes(fitting: GSWeaponFitting, att: GSWeaponAttachment) -> bool:
 	for m in fitting.mounts():
-		var other: DotWeaponAttachment = _by_id.get(fitting.attachment_on(m), null)
+		var other: GSWeaponAttachment = _by_id.get(fitting.attachment_on(m), null)
 		if att.blocks.has(m) or (other != null and other.blocks.has(att.mount)):
 			return true
 	return false
@@ -171,26 +171,26 @@ func _clashes(fitting: DotWeaponFitting, att: DotWeaponAttachment) -> bool:
 
 ## [param fitting] with [param id] put on [param mount], or taken off when it is already there or
 ## [param id] is empty. Whatever the new one clashes with comes off. Fails like [method validate_fitting].
-func toggle(def: DotWeaponDef, fitting: DotWeaponFitting, mount: StringName, id: StringName) -> DotResult:
+func toggle(def: GSWeaponDef, fitting: GSWeaponFitting, mount: StringName, id: StringName) -> GSResult:
 	var out := fitting.duplicate_fitting()
 	if id == &"" or fitting.attachment_on(mount) == id:
 		out.remove(mount)
-		return DotResult.success(out)
-	var att: DotWeaponAttachment = _by_id.get(id, null)
+		return GSResult.success(out)
+	var att: GSWeaponAttachment = _by_id.get(id, null)
 	if att != null:
 		out.remove(mount)
 		for m in out.mounts():
-			var other: DotWeaponAttachment = _by_id.get(out.attachment_on(m), null)
+			var other: GSWeaponAttachment = _by_id.get(out.attachment_on(m), null)
 			if att.blocks.has(m) or (other != null and other.blocks.has(mount)):
 				out.remove(m)
 	out.fit(mount, id)
 	var res := validate_fitting(def, out)
-	return res if not res.ok else DotResult.success(out)
+	return res if not res.ok else GSResult.success(out)
 
 
 ## Field -> [before, after] for every number that differs between [param base] and [param fitted]
 ## (the definition, its tuning, and numeric params), in text order. For a menu's stat lines.
-static func stat_delta(base: DotWeaponDef, fitted: DotWeaponDef) -> Dictionary:
+static func stat_delta(base: GSWeaponDef, fitted: GSWeaponDef) -> Dictionary:
 	var out: Dictionary = {}
 	var fields: Array[String] = []
 	var before := _numbers(base)
@@ -204,13 +204,13 @@ static func stat_delta(base: DotWeaponDef, fitted: DotWeaponDef) -> Dictionary:
 	return out
 
 
-static func _numbers(def: DotWeaponDef) -> Dictionary:
+static func _numbers(def: GSWeaponDef) -> Dictionary:
 	var out: Dictionary = {}
 	for candidate: Object in [def, def.tuning]:
 		if candidate == null:
 			continue
 		for prop: Dictionary in candidate.get_property_list():
-			# A leading underscore is a private cache (DotWeaponDef._modes_from_fire), never a stat: the attachments menu
+			# A leading underscore is a private cache (GSWeaponDef._modes_from_fire), never a stat: the attachments menu
 			# showed "_modes_from_fire +100%" beside the Laser Sight.
 			if int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE == 0 or str(prop["name"]).begins_with("_"):
 				continue
@@ -219,25 +219,25 @@ static func _numbers(def: DotWeaponDef) -> Dictionary:
 				out[str(prop["name"])] = v
 	for k: Variant in def.params.keys():
 		if def.params[k] is int or def.params[k] is float:
-			out[DotWeaponAttachment.PARAMS_PREFIX + str(k)] = def.params[k]
+			out[GSWeaponAttachment.PARAMS_PREFIX + str(k)] = def.params[k]
 	return out
 
 
 ## The definition with [param fitting] applied: a NEW definition, so the shared one and its
 ## tuning are never mutated (thirty players, one rifle). An empty fitting returns [param def]
 ## itself. Attachments apply in mount text order so every machine gets the same numbers.
-func apply(def: DotWeaponDef, fitting: DotWeaponFitting) -> DotResult:
+func apply(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSResult:
 	var res := validate_fitting(def, fitting)
 	if not res.ok:
 		return res
 	if fitting.is_empty():
-		return DotResult.success(def)
-	var copy := def.duplicate_deep(Resource.DEEP_DUPLICATE_ALL) as DotWeaponDef
+		return GSResult.success(def)
+	var copy := def.duplicate_deep(Resource.DEEP_DUPLICATE_ALL) as GSWeaponDef
 	for m in fitting.mounts():
-		var applied := (_by_id[fitting.attachment_on(m)] as DotWeaponAttachment).apply_to(copy)
+		var applied := (_by_id[fitting.attachment_on(m)] as GSWeaponAttachment).apply_to(copy)
 		if not applied.ok:
 			return applied
-	return DotResult.success(copy)
+	return GSResult.success(copy)
 
 
 # --- Replication ------------------------------------------------------------
@@ -250,16 +250,16 @@ static func _bits_for(choices: int) -> int:
 	return bits
 
 
-func _sorted_mounts(def: DotWeaponDef) -> Array[StringName]:
+func _sorted_mounts(def: GSWeaponDef) -> Array[StringName]:
 	var out: Array[StringName] = def.mounts.duplicate()
 	out.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	return out
 
 
 ## The wire layout of [param def]: [code][mounts in text order, choice list per mount, bits per mount][/code], memoed per
-## value of what [method DotWeaponAttachment.fits] reads (id, slot, mounts, tags); [method add] drops them all. A server
+## value of what [method GSWeaponAttachment.fits] reads (id, slot, mounts, tags); [method add] drops them all. A server
 ## pulls it twice a player a tick, and building it sorts every id (about 25 us a pull).
-func _layout(def: DotWeaponDef) -> Array:
+func _layout(def: GSWeaponDef) -> Array:
 	var hit: Array = _layouts.get([def.id, def.slot, def.mounts, def.tags], [])
 	if not hit.is_empty():
 		return hit
@@ -278,18 +278,18 @@ func _layout(def: DotWeaponDef) -> Array:
 	return hit
 
 
-## Bits [method encode] uses for [param def]. Compare with [constant DotWeaponNetSync.FITTED_BITS].
-func code_bits(def: DotWeaponDef) -> int:
+## Bits [method encode] uses for [param def]. Compare with [constant GSWeaponNetSync.FITTED_BITS].
+func code_bits(def: GSWeaponDef) -> int:
 	var total := 0
 	for bits in (_layout(def)[2] as PackedInt32Array):
 		total += bits
 	return total
 
 
-## The fitting as one integer: per mount of [member DotWeaponDef.mounts] in text order, the
+## The fitting as one integer: per mount of [member GSWeaponDef.mounts] in text order, the
 ## 1-based index in [method choices_for] (0 = none), each in just enough bits, first mount in
 ## the low bits. Anything that does not fit is encoded as none.
-func encode(def: DotWeaponDef, fitting: DotWeaponFitting) -> int:
+func encode(def: GSWeaponDef, fitting: GSWeaponFitting) -> int:
 	var layout := _layout(def)
 	var mounts: Array[StringName] = layout[0]
 	var lists: Array = layout[1]
@@ -304,12 +304,12 @@ func encode(def: DotWeaponDef, fitting: DotWeaponFitting) -> int:
 
 
 ## The inverse of [method encode]. An index past the choices decodes as none.
-func decode(def: DotWeaponDef, code: int) -> DotWeaponFitting:
+func decode(def: GSWeaponDef, code: int) -> GSWeaponFitting:
 	var layout := _layout(def)
 	var mounts: Array[StringName] = layout[0]
 	var lists: Array = layout[1]
 	var bits: PackedInt32Array = layout[2]
-	var out := DotWeaponFitting.make(def.id)
+	var out := GSWeaponFitting.make(def.id)
 	var shift := 0
 	for i in mounts.size():
 		var list: Array = lists[i]

@@ -1,7 +1,7 @@
 extends Node3D
 
-## The bodies half of [DotWeaponDrops]: building, fitting, parking and sweeping the rigid bodies a dropped weapon is.
-## The drops layer extends this; use [DotWeaponDrops].
+## The bodies half of [GSWeaponDrops]: building, fitting, parking and sweeping the rigid bodies a dropped weapon is.
+## The drops layer extends this; use [GSWeaponDrops].
 
 ## The box of a weapon with no model.
 const DEFAULT_SIZE := Vector3(0.12, 0.14, 0.7)
@@ -12,7 +12,7 @@ const LIFT_STEP := 0.02
 const LIFT_MAX := 0.3
 ## The grounding sweep goes down in legs of this (under the thinnest drop), so it cannot step through a thin edge.
 const SWEEP_LEG := 0.05
-var rules: DotWeaponDropRules = DotWeaponDropRules.new()
+var rules: GSWeaponDropRules = GSWeaponDropRules.new()
 ## False on a headless server: no visuals are built.
 var draws: bool = true
 ## [code]look_of.call(weapon_id) -> Node3D[/code] or null for a plain box.

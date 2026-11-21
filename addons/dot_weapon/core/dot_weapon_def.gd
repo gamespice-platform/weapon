@@ -1,5 +1,5 @@
 @tool
-class_name DotWeaponDef
+class_name GSWeaponDef
 extends Resource
 
 ## One thing a player can hold, as a document rather than as a class.
@@ -65,23 +65,23 @@ enum Fire {
 ## own rules about what may be carried.
 ##
 ## The whole of the categorisation system and deliberately no more than that, for
-## [DotEffectDef]'s reason: a rule that names weapon ids directly is a rule that has to
+## [GSEffectDef]'s reason: a rule that names weapon ids directly is a rule that has to
 ## be edited every time a weapon is added.
 @export var tags: Array[StringName] = []
 
 @export_group("Behaviour")
 
-## The behaviour script's path. Must extend [DotWeaponBehaviour].
+## The behaviour script's path. Must extend [GSWeaponBehaviour].
 ##
 ## A path rather than a class, for the reason in the class note. Resolved once by
-## [method DotWeaponCatalogue.instantiate], never by this resource.
+## [method GSWeaponCatalogue.instantiate], never by this resource.
 @export_file("*.gd") var behaviour_path: String = ""
 
 ## Everything the behaviour's own script reads, and nothing this addon interprets.
 ##
 ## [b]Tuning lives here rather than in the script[/b] so one script serves many
 ## entries: a hunting bow and a war bow are one behaviour and two rows. Same argument
-## as [DotPropDef.meta] and [DotFxDef]'s catalogue.
+## as [GSPropDef.meta] and [GSFxDef]'s catalogue.
 ##
 ## Use [member tuning] instead where a game wants the values typed and in the
 ## inspector; the two are not exclusive.
@@ -91,9 +91,9 @@ enum Fire {
 ## through [member params].
 ##
 ## Optional and untouched by this addon beyond being handed to the behaviour. A game
-## subclasses [DotWeaponTuning] and gets range hints, groups and documentation on its
+## subclasses [GSWeaponTuning] and gets range hints, groups and documentation on its
 ## own fields; [member params] stays available for a pack that cannot register a class.
-@export var tuning: DotWeaponTuning = null
+@export var tuning: GSWeaponTuning = null
 
 ## Multiplies the crosshair's gap. 0 falls back to `extra: tuning: crosshair_scale`, then the class default.
 @export_range(0.0, 4.0, 0.01) var crosshair_scale: float = 0.0
@@ -106,7 +106,7 @@ enum Fire {
 
 @export_group("Carrying")
 
-## What it weighs against a carrier's limit ([DotWeaponCarry]); 0 weighs nothing. Ignored while the
+## What it weighs against a carrier's limit ([GSWeaponCarry]); 0 weighs nothing. Ignored while the
 ## arsenal has no carry rules.
 @export_range(0.0, 1000.0, 0.1) var weight: float = 0.0
 
@@ -118,9 +118,9 @@ enum Fire {
 ## [b]Set it and the arsenal scales the definition to the rate it is running at[/b]:
 ## [member deploy_ticks], [member holster_ticks], [member use_interval_ticks],
 ## [member burst_interval_ticks], [member charge_ticks], [member reload_ticks],
-## [member reload_start_ticks] and an outcome's [member DotWeaponOutcome.cooldown_ticks],
+## [member reload_start_ticks] and an outcome's [member GSWeaponOutcome.cooldown_ticks],
 ## and the stock behaviours scale what they read from the tuning the same way
-## ([method DotWeaponBehaviour.scaled_ticks], [method DotWeaponBehaviour.scaled_per_tick]).
+## ([method GSWeaponBehaviour.scaled_ticks], [method GSWeaponBehaviour.scaled_per_tick]).
 ## A pack authored at 64 Hz then fires, reloads and deploys in the same wall-clock time on
 ## a 128 Hz server as on a 64 Hz one.
 ##
@@ -158,7 +158,7 @@ enum Fire {
 @export_range(0, 100000, 1) var use_interval_ticks: int = 7
 
 ## Seconds a press during the cooldown stays queued (semi-auto). 0: dropped; negative: until the cooldown ends;
-## -2: use the arsenal's [member DotWeaponArsenal.fire_buffer_seconds].
+## -2: use the arsenal's [member GSWeaponArsenal.fire_buffer_seconds].
 @export var fire_buffer_seconds: float = -2.0
 
 ## Fire modes the player may cycle between with the fire-mode button: "auto", "semi", "burst". Empty means
@@ -379,55 +379,55 @@ func has_tag(tag: StringName) -> bool:
 ## [b]Deliberately does not load [member behaviour_path].[/b] A dedicated server
 ## validating a catalogue at boot may legitimately not have the script yet, because the
 ## content pack carrying it has not been mounted. Whether the path resolves is
-## [method DotWeaponCatalogue.instantiate]'s question, asked when it matters.
-func validate() -> DotResult:
+## [method GSWeaponCatalogue.instantiate]'s question, asked when it matters.
+func validate() -> GSResult:
 	if id == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "A weapon needs an id.")
+		return GSResult.fail(GSError.CODE_INVALID, "A weapon needs an id.")
 
 	var where := String(id)
 
 	if behaviour_path == "":
-		return DotResult.fail(
-			DotError.CODE_INVALID, "A weapon needs a behaviour_path.", where
+		return GSResult.fail(
+			GSError.CODE_INVALID, "A weapon needs a behaviour_path.", where
 		)
 
 	if not behaviour_path.ends_with(".gd"):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"behaviour_path must name a GDScript file, not %s." % behaviour_path,
 			where
 		)
 
 	if slot < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "slot must be 1 or more.", where)
+		return GSResult.fail(GSError.CODE_INVALID, "slot must be 1 or more.", where)
 
 	if reserve_max > 0 and reserve > reserve_max:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"reserve %d is above reserve_max %d." % [reserve, reserve_max],
 			where
 		)
 
 	if magazine == 0 and reload_ticks > 0 and reload_per_round:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"reload_per_round needs a magazine to put the rounds in.",
 			where
 		)
 
 	if fire_mode == Fire.CHARGE and charge_ticks <= 0:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "A charged weapon needs charge_ticks above zero.", where
+		return GSResult.fail(
+			GSError.CODE_INVALID, "A charged weapon needs charge_ticks above zero.", where
 		)
 
 	if charge_requires_min and (min_charge <= 0.0 or min_charge > 1.0):
-		return DotResult.fail(
-			DotError.CODE_INVALID, "min_charge must be above 0 and at most 1.", where
+		return GSResult.fail(
+			GSError.CODE_INVALID, "min_charge must be above 0 and at most 1.", where
 		)
 
 	if authored_tick_rate < 0:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "authored_tick_rate must be 0 (unscaled) or above.", where
+		return GSResult.fail(
+			GSError.CODE_INVALID, "authored_tick_rate must be 0 (unscaled) or above.", where
 		)
 
 	if tuning != null:
@@ -435,7 +435,7 @@ func validate() -> DotResult:
 		if not res.ok:
 			return res.wrap("The tuning on %s is not valid." % where)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func describe() -> Dictionary:
@@ -456,6 +456,6 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponDef(%s, slot %d, %s)" % [
+	return "GSWeaponDef(%s, slot %d, %s)" % [
 		String(id), slot, Fire.keys()[fire_mode]
 	]

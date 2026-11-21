@@ -1,4 +1,4 @@
-class_name DotWeaponSpawn
+class_name GSWeaponSpawn
 extends RefCounted
 
 ## Something a use put into the world: an arrow, a rocket, a grenade, a thrown knife.
@@ -10,7 +10,7 @@ extends RefCounted
 ## that only needs to know an arrow is travelling at 90 m/s from here does not need the
 ## arrow's mesh.
 ##
-## [b]It is deliberately not a [DotShot].[/b] A shot is resolved the instant it is made,
+## [b]It is deliberately not a [GSShot].[/b] A shot is resolved the instant it is made,
 ## against a world rewound to the tick it was fired on. A spawn is an entity with a
 ## lifetime that will hit something several ticks from now, and lag compensation has
 ## nothing to say about it, because by then everybody has agreed where everybody is.
@@ -29,7 +29,7 @@ var radius: float = 0.1
 ## Ticks before it expires on its own, whatever it thinks it is doing.
 ##
 ## Counted at the RUNNING tick rate: the stock behaviours scale a definition's authored
-## count before they hand it over (see [member DotWeaponDef.authored_tick_rate]), so a
+## count before they hand it over (see [member GSWeaponDef.authored_tick_rate]), so a
 ## game flies it as given and never converts.
 ##
 ## [b]A hard ceiling, not a hint.[/b] A projectile that forgets to free itself is a leak
@@ -42,7 +42,7 @@ var gravity_scale: float = 0.0
 ## What it does on contact. The game applies it; this addon never does.
 var damage: float = 0.0
 
-var damage_type: DotDamageType = null
+var damage_type: GSDamageType = null
 
 ## Radius of the splash on contact. Zero means it only damages what it touched.
 var splash_radius: float = 0.0
@@ -70,8 +70,8 @@ static func make(
 	p_origin: Vector3,
 	p_velocity: Vector3,
 	p_owner: int
-) -> DotWeaponSpawn:
-	var s := DotWeaponSpawn.new()
+) -> GSWeaponSpawn:
+	var s := GSWeaponSpawn.new()
 	s.id = p_id
 	s.origin = p_origin
 	s.velocity = p_velocity
@@ -96,4 +96,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponSpawn(%s, %.1f m/s)" % [String(id), speed()]
+	return "GSWeaponSpawn(%s, %.1f m/s)" % [String(id), speed()]

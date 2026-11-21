@@ -1,8 +1,8 @@
-class_name DotWeaponSound
+class_name GSWeaponSound
 extends RefCounted
 
 ## The family's stock weapon sounds, read by path from GameSpice Audio's [code]stock/weapons/[/code], null when not linked.
-## By path, not by [code]DotAudioStock[/code], so no pack gains a dependency on GameSpice Audio; a pack falls back to its own
+## By path, not by [code]GSAudioStock[/code], so no pack gains a dependency on GameSpice Audio; a pack falls back to its own
 ## stand-in when [method pick] is null. Names are the files' (GameSpice Audio docs/weapons.md).
 
 const DIR := "res://addons/dot_audio/stock/weapons/"
@@ -77,7 +77,7 @@ static func pick(sound: StringName, roll: int = 0) -> AudioStream:
 
 ## Loads every variant a weapon of each of [param sound_classes] can play, so the first shot, reload, dry click, equip or
 ## far report finds its stream already loaded (and, with [member keep_streams], held). Returns the streams, for a caller to
-## hand on to a decoder such as [code]DotAudioPcm.warm[/code]. [param stages] are the reload stages; nothing is capped.
+## hand on to a decoder such as [code]GSAudioPcm.warm[/code]. [param stages] are the reload stages; nothing is capped.
 static func warm(sound_classes: Array, stages: Array = [&"out", &"in"], far: bool = true) -> Array[AudioStream]:
 	var names := {}
 	for sc: Variant in sound_classes:
@@ -149,7 +149,7 @@ static var tail_picker: Callable = Callable()
 
 
 ## The reverberant tail to play [constant TAIL_DELAY] after a report, or null (outdoors, or no
-## recording). [param indoors] comes from the game (GameSpice Audio's [code]DotAmbienceRoof[/code]).
+## recording). [param indoors] comes from the game (GameSpice Audio's [code]GSAmbienceRoof[/code]).
 static func pick_tail(sound_class: StringName, indoors: bool, roll: int = 0) -> AudioStream:
 	if tail_picker.is_valid():
 		return tail_picker.call(sound_class, indoors, roll) as AudioStream

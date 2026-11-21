@@ -1,10 +1,10 @@
-class_name DotWeaponAmmo
+class_name GSWeaponAmmo
 extends RefCounted
 
 ## Reserve ammunition, pooled by name.
 ##
 ## [b]Pooled rather than per-weapon.[/b] Two weapons that declare the same
-## [member DotWeaponDef.ammo_type] draw from one reserve, which is what lets a pistol
+## [member GSWeaponDef.ammo_type] draw from one reserve, which is what lets a pistol
 ## and a carbine share a box of rounds, and what lets a quiver serve both bows. A game
 ## that wants a private reserve gives the weapon an ammo type nobody else uses, and
 ## gets the per-weapon behaviour back with no special case here.

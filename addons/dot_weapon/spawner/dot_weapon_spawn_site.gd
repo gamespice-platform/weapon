@@ -1,9 +1,9 @@
-class_name DotWeaponSpawnSite
+class_name GSWeaponSpawnSite
 extends RefCounted
 
 ## One place that gives something out: where, from which pool, how often, how many at once.
 ##
-## A site is plain data so a headless game, a map document and a [DotWeaponSpawnPoint] node all make the same thing. Config files override these fields by the site's [member id] (see [DotWeaponSpawnerConfig]).
+## A site is plain data so a headless game, a map document and a [GSWeaponSpawnPoint] node all make the same thing. Config files override these fields by the site's [member id] (see [GSWeaponSpawnerConfig]).
 
 ## Names the site in the config and the wire; unique in a map.
 var id: StringName = &""
@@ -29,7 +29,7 @@ var max_alive: int = 1
 var one_shot: bool = false
 ## Seconds an item lies before it goes away (and the timer restarts); 0 keeps it.
 var lifetime_seconds: float = 0.0
-## Sites of one group share the cap [member DotWeaponSpawnerConfig.groups] gives it.
+## Sites of one group share the cap [member GSWeaponSpawnerConfig.groups] gives it.
 var group: StringName = &""
 var enabled: bool = true
 ## Free data carried onto every spawned item, merged under the entry's own.
@@ -37,7 +37,7 @@ var data: Dictionary = {}
 
 
 ## Overrides fields from [param d] (a config or entity mapping); unknown keys are ignored and strings are coerced, since a map entity's values arrive as text.
-func apply(d: Dictionary) -> DotWeaponSpawnSite:
+func apply(d: Dictionary) -> GSWeaponSpawnSite:
 	for key: Variant in d:
 		var v: Variant = d[key]
 		match String(key):
@@ -61,21 +61,21 @@ func apply(d: Dictionary) -> DotWeaponSpawnSite:
 			"enabled": enabled = _bool(v)
 			"data": data = (v as Dictionary).duplicate(true) if v is Dictionary else data
 			"tags_any", "tags_all", "tags_none", "ids":
-				filter[String(key)] = DotWeaponSpawnPool._strs(v)
+				filter[String(key)] = GSWeaponSpawnPool._strs(v)
 			"filter":
 				if v is Dictionary:
 					for fk: Variant in v:
-						filter[String(fk)] = DotWeaponSpawnPool._strs(v[fk])
+						filter[String(fk)] = GSWeaponSpawnPool._strs(v[fk])
 	return self
 
 
 ## A site from a mapping (see [method apply]).
-static func from_dictionary(d: Dictionary) -> DotWeaponSpawnSite:
-	return DotWeaponSpawnSite.new().apply(d)
+static func from_dictionary(d: Dictionary) -> GSWeaponSpawnSite:
+	return GSWeaponSpawnSite.new().apply(d)
 
 
-func duplicate_site() -> DotWeaponSpawnSite:
-	var out := DotWeaponSpawnSite.new()
+func duplicate_site() -> GSWeaponSpawnSite:
+	var out := GSWeaponSpawnSite.new()
 	for p in ["id", "position", "rotation_y", "kind", "pool", "item", "respawn_seconds", "respawn_jitter", "initial_delay", "max_alive", "one_shot", "lifetime_seconds", "group", "enabled"]:
 		out.set(p, get(p))
 	out.filter = filter.duplicate(true)

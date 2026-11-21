@@ -16,17 +16,17 @@ static func apply(model: Object) -> void:
 	model.set(&"scope_mode", model.call(&"resolve_scope_mode", mode))
 
 
-## Registers `cl_scope_mode` and `cl_scope_walk_clear` on [param local] (a DotConsoleLocal).
+## Registers `cl_scope_mode` and `cl_scope_walk_clear` on [param local] (a GSConsoleLocal).
 static func bind_cvars(local: Object) -> void:
 	local.call(&"add_var", &"cl_scope_mode", "Sniper scope view: 1 a lens in the middle of a normal screen, 2 the scope filling the screen (a server's ads scope_mode can pin one).",
 		func() -> Variant: return mode,
 		func(v: Variant) -> Variant:
 			mode = clampi(str(v).to_int(), 1, 2)
-			return DotResult.success(mode)
+			return GSResult.success(mode)
 	)
 	local.call(&"add_var", &"cl_scope_walk_clear", "How much of the scope's picture goes see-through while moving (0 solid, 1 fully clear).",
 		func() -> Variant: return walk_clear,
 		func(v: Variant) -> Variant:
 			walk_clear = clampf(str(v).to_float(), 0.0, 1.0)
-			return DotResult.success(walk_clear)
+			return GSResult.success(walk_clear)
 	)

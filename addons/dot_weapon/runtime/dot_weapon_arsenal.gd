@@ -1,5 +1,5 @@
 @tool
-class_name DotWeaponArsenal
+class_name GSWeaponArsenal
 extends "dot_weapon_arsenal_carry.gd"
 
 ## What one carrier holds, and the state machine that drives it.
@@ -7,14 +7,14 @@ extends "dot_weapon_arsenal_carry.gd"
 ## [b]It decides that a use happened. It never decides what the use hit.[/b] That is
 ## GameSpice Combat's job, and the split is the same one GameSpice Combat draws internally: this
 ## runs on the owning client [i]and[/i] on the server, and both reach the same
-## [DotWeaponOutcome] from the same command. Collapsing the two gives you a client that
+## [GSWeaponOutcome] from the same command. Collapsing the two gives you a client that
 ## decides who dies.
 ##
 ## [b]It is a pure function of the commands it is given.[/b] No device, no wall clock,
 ## no node lookups, no randomness, so a client can predict, a server re-run and a
-## reconciliation replay re-run it to the same answer. See dot-combat's [DotSpread].
+## reconciliation replay re-run it to the same answer. See dot-combat's [GSSpread].
 ##
-## [b]Every weapon-specific decision belongs to a [DotWeaponBehaviour].[/b] This file
+## [b]Every weapon-specific decision belongs to a [GSWeaponBehaviour].[/b] This file
 ## knows about slots, cadence, ammunition, reloading and switching, and deliberately
 ## knows nothing about pellets, arrows, arcs or beams. A game adding a weapon writes a
 ## behaviour; it does not touch this.
@@ -25,10 +25,10 @@ extends "dot_weapon_arsenal_carry.gd"
 ## [b]Validates rather than trusts.[/b] A catalogue with a duplicate id hands a player
 ## the wrong weapon and nothing reports it, so the check happens once, at boot,
 ## headless, where somebody is watching.
-func setup() -> DotResult:
+func setup() -> GSResult:
 	if catalogue == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "An arsenal needs a catalogue before it can be set up."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "An arsenal needs a catalogue before it can be set up."
 		)
 
 	var res := catalogue.validate()
@@ -36,7 +36,7 @@ func setup() -> DotResult:
 		return res.wrap("The weapon catalogue is not valid.")
 
 	_ready_for_use = true
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func is_ready() -> bool:
@@ -52,7 +52,7 @@ func load_ammo(weapon_id: StringName, ammo: StringName) -> void:
 
 
 ## The round [param weapon_id] fires: the one loaded, else the profile that lists the gun, else the default one. Null without [member ammo_types].
-func round_for(weapon_id: StringName) -> DotWeaponAmmoType:
+func round_for(weapon_id: StringName) -> GSWeaponAmmoType:
 	if ammo_types == null:
 		return null
 	var loaded := ammo_of(weapon_id)
@@ -68,10 +68,10 @@ func ammo_of(weapon_id: StringName) -> StringName:
 ## Gives the carrier a weapon, in the slot its definition names.
 ##
 ## [param full] fills the magazine and tops the reserve pool up to the definition's
-## [member DotWeaponDef.reserve]; a pickup off the floor usually wants it false.
-func give(id: StringName, full: bool = true) -> DotResult:
+## [member GSWeaponDef.reserve]; a pickup off the floor usually wants it false.
+func give(id: StringName, full: bool = true) -> GSResult:
 	if not _ready_for_use:
-		return DotResult.fail(DotError.CODE_STATE, "setup() has not been called.")
+		return GSResult.fail(GSError.CODE_STATE, "setup() has not been called.")
 
 	var made := catalogue.instantiate(id, self)
 	if not made.ok:
@@ -80,26 +80,26 @@ func give(id: StringName, full: bool = true) -> DotResult:
 	var def := catalogue.get_def(id)
 
 	if def.slot > max_slots:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"%s wants slot %d but this arsenal has %d." % [
 				String(id), def.slot, max_slots
 			],
 			String(id)
 		)
 
-	var slot := DotWeaponSlot.make(def, made.value)
+	var slot := GSWeaponSlot.make(def, made.value)
 	slot.magazine = def.magazine if full else 0
 
-	var held: DotWeaponSlot = _slots.get(def.slot, null)
+	var held: GSWeaponSlot = _slots.get(def.slot, null)
 	var stow := held != null and held.id() != id and weapons_in(def.slot).size() < slot_capacity() \
 		and not _shelf_has(def.slot, id)
 	var gone := held if (held != null and not stow) else null
 	if carry != null and carry.enabled:
 		var after: float = carried_weight() + carry.weight_of(def) - (carry.weight_of(gone.def) if gone != null else 0.0)
 		if after > capacity() and carry.weight_of(def) > carry.weight_of(gone.def if gone != null else null):
-			return DotResult.fail(
-				DotError.CODE_QUOTA,
+			return GSResult.fail(
+				GSError.CODE_QUOTA,
 				"Too heavy: %s weighs %.1f and you carry %.1f of %.1f." % [
 					def.display_name if def.display_name != "" else String(id),
 					carry.weight_of(def), carried_weight(), capacity()
@@ -126,7 +126,7 @@ func give(id: StringName, full: bool = true) -> DotResult:
 	if _current == 0:
 		_force_select(def.slot)
 
-	return DotResult.success(slot)
+	return GSResult.success(slot)
 
 
 func is_switching() -> bool:
@@ -267,7 +267,7 @@ func _finish_reload(tick: int) -> void:
 ## Marks the start of a reconciliation replay.
 ##
 ## Everything still simulates; what changes is that every context is marked
-## [member DotWeaponContext.replayed], so a behaviour and a listener can decline to
+## [member GSWeaponContext.replayed], so a behaviour and a listener can decline to
 ## make a sound, spawn an effect or bill a statistic a second time.
 func begin_replay() -> void:
 	_replaying = true
@@ -288,7 +288,7 @@ static var phase_us := PackedInt64Array([0, 0, 0, 0, 0])
 static var phase_calls := PackedInt64Array([0, 0, 0])
 static var phase_timers := false
 
-var _idle_out: DotWeaponOutcome
+var _idle_out: GSWeaponOutcome
 
 
 ## Runs one tick of one command. The only entry point a game needs.
@@ -296,22 +296,22 @@ var _idle_out: DotWeaponOutcome
 ## [param ctx] carries the carrier's origin, aim and posture for this tick; the arsenal
 ## fills in the tick, the index, the charge and the replay flag before handing it to a
 ## behaviour. Returns the outcome of a use, or a refusal with
-## [member DotWeaponOutcome.used] false, which is the ordinary case on most ticks.
+## [member GSWeaponOutcome.used] false, which is the ordinary case on most ticks.
 func simulate_tick(
-	command: DotWeaponCommand,
-	ctx: DotWeaponContext,
-	previous: DotWeaponCommand = null
-) -> DotWeaponOutcome:
+	command: GSWeaponCommand,
+	ctx: GSWeaponContext,
+	previous: GSWeaponCommand = null
+) -> GSWeaponOutcome:
 	if not _ready_for_use:
-		return DotWeaponOutcome.nothing("setup() has not been called.")
+		return GSWeaponOutcome.nothing("setup() has not been called.")
 
 	ctx.replayed = _replaying
 	ctx.authority = authority
 	var sprint_blocked := ctx.sprinting and ctx.sprint_blocks_aim
-	ctx.aiming = command.is_pressed(DotWeaponCommand.BUTTON_AIM) and not sprint_blocked
+	ctx.aiming = command.is_pressed(GSWeaponCommand.BUTTON_AIM) and not sprint_blocked
 
 	if disabled:
-		return DotWeaponOutcome.nothing("The arsenal is disabled.")
+		return GSWeaponOutcome.nothing("The arsenal is disabled.")
 
 	var lap := Time.get_ticks_usec() if phase_timers else 0
 	_advance_switch(ctx)
@@ -319,11 +319,11 @@ func simulate_tick(
 
 	var slot := current()
 	if slot == null:
-		return DotWeaponOutcome.nothing("Nothing in hand.")
+		return GSWeaponOutcome.nothing("Nothing in hand.")
 
 	_apply_slot_request(command, ctx.tick)
-	var wants_mode := command.is_pressed(DotWeaponCommand.BUTTON_FIRE_MODE)
-	if wants_mode and not (previous != null and previous.is_pressed(DotWeaponCommand.BUTTON_FIRE_MODE)):
+	var wants_mode := command.is_pressed(GSWeaponCommand.BUTTON_FIRE_MODE)
+	if wants_mode and not (previous != null and previous.is_pressed(GSWeaponCommand.BUTTON_FIRE_MODE)):
 		var _changed := cycle_fire_mode()
 	if lap != 0:
 		lap = _lap(0, lap)
@@ -333,9 +333,9 @@ func simulate_tick(
 		phase_calls[0] += 1
 
 	if is_switching():
-		return DotWeaponOutcome.nothing("Switching.")
+		return GSWeaponOutcome.nothing("Switching.")
 
-	if command.is_pressed(DotWeaponCommand.BUTTON_RELOAD) and not sprint_blocked:
+	if command.is_pressed(GSWeaponCommand.BUTTON_RELOAD) and not sprint_blocked:
 		begin_reload(ctx.tick)
 
 	var out := _advance_use(slot, command, ctx, previous)
@@ -353,7 +353,7 @@ static func _lap(phase: int, since: int) -> int:
 ## Whether [method simulate_tick] would only tick the weapon in hand: no button, no other slot
 ## asked for, nothing switching, reloading, charging or bursting, and a behaviour whose tick
 ## reads no context. A server asks it of every shooter to skip building a context.
-func is_idle_for(command: DotWeaponCommand, previous: DotWeaponCommand) -> bool:
+func is_idle_for(command: GSWeaponCommand, previous: GSWeaponCommand) -> bool:
 	if not _ready_for_use or disabled or command.buttons != 0 or (command.slot > 0 and command.slot != _current):
 		return false
 
@@ -366,13 +366,13 @@ func is_idle_for(command: DotWeaponCommand, previous: DotWeaponCommand) -> bool:
 	var slot := current()
 	if slot == null:
 		return false
-	# With a posture the behaviour need not look for one (DotWeaponBehaviour.idle_gate; 0 asks the plain way).
-	var gate := DotWeaponBehaviour.idle_gate
+	# With a posture the behaviour need not look for one (GSWeaponBehaviour.idle_gate; 0 asks the plain way).
+	var gate := GSWeaponBehaviour.idle_gate
 	if gate == 0 or not idle_posture.is_valid():
 		return not slot.behaviour.tick_needs_context()
 	var needs := slot.behaviour.tick_needs_context_posed()
 	if gate == 2 and needs != slot.behaviour.tick_needs_context():
-		DotWeaponBehaviour.idle_gate_misses += 1
+		GSWeaponBehaviour.idle_gate_misses += 1
 		push_error("dot-weapon idle gate (%s): tick_needs_context_posed says %s, tick_needs_context the opposite" % [slot.def.id, needs])
 	return not needs
 
@@ -380,12 +380,12 @@ func is_idle_for(command: DotWeaponCommand, previous: DotWeaponCommand) -> bool:
 ## Whether [method simulate_tick] with this command and context reads nothing of the context's aim: the attack is
 ## held on a weapon inside its cadence, with no switch, charge, burst or release that a behaviour would be handed it for.
 ## A rig asks it before working out where the barrel points, which costs physics rays on a tick no shot can leave.
-func is_cooling_for(command: DotWeaponCommand, ctx: DotWeaponContext) -> bool:
+func is_cooling_for(command: GSWeaponCommand, ctx: GSWeaponContext) -> bool:
 	if not _ready_for_use or disabled or _switch_done_tick >= 0 or ctx.tick >= _next_use_tick:
 		return false
 
-	var wanted := DotWeaponCommand.BUTTON_ATTACK | DotWeaponCommand.BUTTON_FIRE_MODE
-	if (command.buttons & wanted) != DotWeaponCommand.BUTTON_ATTACK or (ctx.sprinting and ctx.sprint_blocks_fire):
+	var wanted := GSWeaponCommand.BUTTON_ATTACK | GSWeaponCommand.BUTTON_FIRE_MODE
+	if (command.buttons & wanted) != GSWeaponCommand.BUTTON_ATTACK or (ctx.sprinting and ctx.sprint_blocks_fire):
 		return false
 
 	var slot := current()
@@ -393,7 +393,7 @@ func is_cooling_for(command: DotWeaponCommand, ctx: DotWeaponContext) -> bool:
 		return false
 
 	var mode := slot.fire_mode()
-	return mode != DotWeaponDef.Fire.CHARGE and mode != DotWeaponDef.Fire.BURST
+	return mode != GSWeaponDef.Fire.CHARGE and mode != GSWeaponDef.Fire.BURST
 
 
 ## The spread cone half-angle the weapon in hand would fire with now, for a crosshair; 0 with none.
@@ -402,21 +402,21 @@ func spread_now() -> float:
 	return slot.behaviour.spread_now() if slot != null else 0.0
 
 
-## The crosshair gap scale of the weapon in hand (see [member DotWeaponBallistics.crosshair_scale]); 1 with none.
+## The crosshair gap scale of the weapon in hand (see [member GSWeaponBallistics.crosshair_scale]); 1 with none.
 func crosshair_scale() -> float:
 	var slot := current()
 	if slot == null or slot.def == null:
 		return 1.0
 	if slot.def.crosshair_scale > 0.0:
 		return slot.def.crosshair_scale
-	if not (slot.def.tuning is DotWeaponBallistics):
+	if not (slot.def.tuning is GSWeaponBallistics):
 		return 1.0
-	return (slot.def.tuning as DotWeaponBallistics).crosshair_scale_for(slot.def.tags)
+	return (slot.def.tuning as GSWeaponBallistics).crosshair_scale_for(slot.def.tags)
 
 
 ## The tick [method is_idle_for] promised: what [method simulate_tick] does for it, with no context
 ## (or the [member idle_posture] one).
-func idle_tick() -> DotWeaponOutcome:
+func idle_tick() -> GSWeaponOutcome:
 	_held_ticks = 0
 	var behaviour := current().behaviour
 	var lap := Time.get_ticks_usec() if phase_timers else 0
@@ -432,27 +432,27 @@ func idle_tick() -> DotWeaponOutcome:
 	if lap != 0:
 		lap = _lap(3, lap)
 
-	behaviour.tick(idle_posture.call() as DotWeaponContext if idle_posture.is_valid() else null)
+	behaviour.tick(idle_posture.call() as GSWeaponContext if idle_posture.is_valid() else null)
 	if lap != 0:
 		_lap(4, lap)
 	return _idle_nothing()
 
 
-## [method idle_tick] with the [member idle_posture] context already a row ([method DotWeaponBehaviour.idle_row]) and
+## [method idle_tick] with the [member idle_posture] context already a row ([method GSWeaponBehaviour.idle_row]) and
 ## [member idle_still]'s answer already in [param still]: both must be what those callables would say this tick. A
 ## behaviour with a native idle tick takes it in one call; any other runs [method idle_tick]. Same result either way.
-func idle_tick_row(row: PackedFloat64Array, still: bool) -> DotWeaponOutcome:
+func idle_tick_row(row: PackedFloat64Array, still: bool) -> GSWeaponOutcome:
 	if not idle_posture.is_valid():
 		return idle_tick()
 	var lap := Time.get_ticks_usec() if phase_timers else 0
 	var rest := still and idle_rest_skip and idle_still.is_valid()
 	var took := current().behaviour.idle_row_framed(row, rest, spread_rules, crosshair_cone, tick_rate)
-	if took == DotWeaponBehaviour.IDLE_ROW_DECLINED:
+	if took == GSWeaponBehaviour.IDLE_ROW_DECLINED:
 		return idle_tick()
 	_held_ticks = 0
 	if lap != 0:
 		phase_calls[1] += 1
-		if took == DotWeaponBehaviour.IDLE_ROW_RESTED:
+		if took == GSWeaponBehaviour.IDLE_ROW_RESTED:
 			_lap(3, lap)
 			phase_calls[2] += 1
 		else:
@@ -462,17 +462,17 @@ func idle_tick_row(row: PackedFloat64Array, still: bool) -> DotWeaponOutcome:
 
 ## [method idle_tick]'s empty outcome: one per arsenal, read before the next tick. A new one each idle player each tick
 ## was an object and three typed arrays; one a caller wrote to is replaced, never handed out again.
-func _idle_nothing() -> DotWeaponOutcome:
+func _idle_nothing() -> GSWeaponOutcome:
 	var o := _idle_out
-	if o == null or o.used or o.kind != DotWeaponOutcome.KIND_NONE or not o.refusal.is_empty() or not o.shots.is_empty() \
+	if o == null or o.used or o.kind != GSWeaponOutcome.KIND_NONE or not o.refusal.is_empty() or not o.shots.is_empty() \
 			or not o.spawns.is_empty() or not o.events.is_empty() or o.ammo_used != -1 or o.cooldown_ticks != -1 \
 			or o.recoil != Vector2.ZERO or o.recoil_recovery != -1.0 or o.recoil_signed:
-		o = DotWeaponOutcome.nothing("")
+		o = GSWeaponOutcome.nothing("")
 		_idle_out = o
 	return o
 
 
-func _advance_switch(ctx: DotWeaponContext) -> void:
+func _advance_switch(ctx: GSWeaponContext) -> void:
 	if _switch_done_tick < 0 or ctx.tick < _switch_done_tick:
 		return
 
@@ -504,41 +504,41 @@ func _advance_reload(tick: int) -> void:
 		_finish_reload(tick)
 
 
-func _apply_slot_request(command: DotWeaponCommand, tick: int) -> void:
+func _apply_slot_request(command: GSWeaponCommand, tick: int) -> void:
 	if command.slot > 0:
 		select(command.slot, tick)
-	elif command.is_pressed(DotWeaponCommand.BUTTON_NEXT):
+	elif command.is_pressed(GSWeaponCommand.BUTTON_NEXT):
 		select_next(tick)
-	elif command.is_pressed(DotWeaponCommand.BUTTON_PREVIOUS):
+	elif command.is_pressed(GSWeaponCommand.BUTTON_PREVIOUS):
 		select_previous(tick)
-	elif command.is_pressed(DotWeaponCommand.BUTTON_LAST):
+	elif command.is_pressed(GSWeaponCommand.BUTTON_LAST):
 		select_last(tick)
 
 
-func _run_behaviour_tick(slot: DotWeaponSlot, ctx: DotWeaponContext) -> void:
+func _run_behaviour_tick(slot: GSWeaponSlot, ctx: GSWeaponContext) -> void:
 	ctx.charge = _charge_value(slot, ctx.tick)
 	ctx.held_ticks = _held_ticks
 	slot.behaviour.tick(ctx)
 
 
-func _charge_value(slot: DotWeaponSlot, tick: int) -> float:
+func _charge_value(slot: GSWeaponSlot, tick: int) -> float:
 	if _charge_started < 0 or not slot.def.is_charged():
 		return 1.0
 	return charge_for(slot.def, tick - _charge_started)
 
 
 func _advance_use(
-	slot: DotWeaponSlot,
-	command: DotWeaponCommand,
-	ctx: DotWeaponContext,
-	previous: DotWeaponCommand
-) -> DotWeaponOutcome:
+	slot: GSWeaponSlot,
+	command: GSWeaponCommand,
+	ctx: GSWeaponContext,
+	previous: GSWeaponCommand
+) -> GSWeaponOutcome:
 	var def := slot.def
-	var down := command.is_pressed(DotWeaponCommand.BUTTON_ATTACK)
+	var down := command.is_pressed(GSWeaponCommand.BUTTON_ATTACK)
 	if ctx.sprinting and ctx.sprint_blocks_fire:
 		down = false
 	var was_down := previous != null and previous.is_pressed(
-		DotWeaponCommand.BUTTON_ATTACK
+		GSWeaponCommand.BUTTON_ATTACK
 	)
 
 	if down:
@@ -550,20 +550,20 @@ func _advance_use(
 		_buffer_until = -1
 
 	match slot.fire_mode():
-		DotWeaponDef.Fire.CHARGE:
+		GSWeaponDef.Fire.CHARGE:
 			return _advance_charge(slot, ctx, down, was_down)
-		DotWeaponDef.Fire.BURST:
+		GSWeaponDef.Fire.BURST:
 			return _advance_burst(slot, ctx, down, was_down)
-		DotWeaponDef.Fire.AUTO, DotWeaponDef.Fire.HOLD:
+		GSWeaponDef.Fire.AUTO, GSWeaponDef.Fire.HOLD:
 			if down:
 				return _try_use(slot, ctx)
 			if was_down:
 				return slot.behaviour.release(ctx)
-			return DotWeaponOutcome.nothing("")
+			return GSWeaponOutcome.nothing("")
 		_:
 			if down and not was_down:
 				if ctx.tick < _next_use_tick and _arm_buffer(def, ctx.tick):
-					return DotWeaponOutcome.nothing("")
+					return GSWeaponOutcome.nothing("")
 				_buffer_until = -1
 				return _try_use(slot, ctx)
 			if _buffer_until >= ctx.tick and ctx.tick >= _next_use_tick:
@@ -571,11 +571,11 @@ func _advance_use(
 				return _try_use(slot, ctx)
 			if was_down and not down:
 				return slot.behaviour.release(ctx)
-			return DotWeaponOutcome.nothing("")
+			return GSWeaponOutcome.nothing("")
 
 
 ## Remembers a press made inside the cooldown so it fires when the cooldown ends, if that is inside the window.
-func _arm_buffer(def: DotWeaponDef, tick: int) -> bool:
+func _arm_buffer(def: GSWeaponDef, tick: int) -> bool:
 	var seconds := def.fire_buffer_seconds if def.fire_buffer_seconds > -2.0 else fire_buffer_seconds
 	if seconds == 0.0:
 		return false
@@ -584,18 +584,18 @@ func _arm_buffer(def: DotWeaponDef, tick: int) -> bool:
 
 
 func _advance_charge(
-	slot: DotWeaponSlot, ctx: DotWeaponContext, down: bool, was_down: bool
-) -> DotWeaponOutcome:
+	slot: GSWeaponSlot, ctx: GSWeaponContext, down: bool, was_down: bool
+) -> GSWeaponOutcome:
 	var def := slot.def
 
 	if down and not was_down:
 		# Refused up front, not at release: a draw that then does nothing reads as a broken bow.
 		if not _can_pay(slot):
 			dry_used.emit(_current)
-			return DotWeaponOutcome.nothing("Nothing to spend.")
+			return GSWeaponOutcome.nothing("Nothing to spend.")
 		_charge_started = ctx.tick
 		_charge_announced = false
-		return DotWeaponOutcome.nothing("")
+		return GSWeaponOutcome.nothing("")
 
 	if down:
 		if (
@@ -605,10 +605,10 @@ func _advance_charge(
 		):
 			_charge_announced = true
 			charge_full.emit(_current)
-		return DotWeaponOutcome.nothing("")
+		return GSWeaponOutcome.nothing("")
 
 	if not was_down or _charge_started < 0:
-		return DotWeaponOutcome.nothing("")
+		return GSWeaponOutcome.nothing("")
 
 	# Released.
 	var charge := charge_for(def, ctx.tick - _charge_started)
@@ -616,20 +616,20 @@ func _advance_charge(
 	_charge_announced = false
 
 	if def.charge_requires_min and charge < def.min_charge:
-		return DotWeaponOutcome.nothing("Not drawn far enough.")
+		return GSWeaponOutcome.nothing("Not drawn far enough.")
 
 	ctx.charge = charge
 	return _try_use(slot, ctx)
 
 
 func _advance_burst(
-	slot: DotWeaponSlot, ctx: DotWeaponContext, down: bool, was_down: bool
-) -> DotWeaponOutcome:
+	slot: GSWeaponSlot, ctx: GSWeaponContext, down: bool, was_down: bool
+) -> GSWeaponOutcome:
 	if down and not was_down and _burst_left <= 0:
 		_burst_left = slot.def.burst_count
 
 	if _burst_left <= 0:
-		return DotWeaponOutcome.nothing("")
+		return GSWeaponOutcome.nothing("")
 
 	var out := _try_use(slot, ctx)
 	if out.used:
@@ -644,7 +644,7 @@ func _advance_burst(
 
 
 ## Whether the weapon can pay for one use right now.
-func _can_pay(slot: DotWeaponSlot) -> bool:
+func _can_pay(slot: GSWeaponSlot) -> bool:
 	var def := slot.def
 
 	if not def.uses_ammo():
@@ -656,11 +656,11 @@ func _can_pay(slot: DotWeaponSlot) -> bool:
 	return def.infinite_reserve or _ammo.has(def.ammo_type, def.cost_per_use)
 
 
-func _try_use(slot: DotWeaponSlot, ctx: DotWeaponContext) -> DotWeaponOutcome:
+func _try_use(slot: GSWeaponSlot, ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var def := slot.def
 
 	if ctx.tick < _next_use_tick:
-		return DotWeaponOutcome.nothing("")
+		return GSWeaponOutcome.nothing("")
 
 	if not _can_pay(slot):
 		dry_used.emit(_current)
@@ -669,7 +669,7 @@ func _try_use(slot: DotWeaponSlot, ctx: DotWeaponContext) -> DotWeaponOutcome:
 				begin_reload(ctx.tick)
 		elif auto_switch_on_empty:
 			_switch_off_empty(ctx.tick)
-		return DotWeaponOutcome.nothing("Nothing to spend.")
+		return GSWeaponOutcome.nothing("Nothing to spend.")
 
 	# Whether the weapon can pay is asked BEFORE the reload is cancelled: the other way round,
 	# a held trigger on an empty weapon cancels its own reload every cadence and it never refills.
@@ -678,7 +678,7 @@ func _try_use(slot: DotWeaponSlot, ctx: DotWeaponContext) -> DotWeaponOutcome:
 
 	var allowed := slot.behaviour.can_use(ctx)
 	if not allowed.ok:
-		return DotWeaponOutcome.nothing(allowed.error.message)
+		return GSWeaponOutcome.nothing(allowed.error.message)
 
 	ctx.index = _use_index
 	_use_index += 1
@@ -699,7 +699,7 @@ func _try_use(slot: DotWeaponSlot, ctx: DotWeaponContext) -> DotWeaponOutcome:
 	return out
 
 
-func _spend(slot: DotWeaponSlot, out: DotWeaponOutcome) -> void:
+func _spend(slot: GSWeaponSlot, out: GSWeaponOutcome) -> void:
 	var def := slot.def
 
 	if not def.uses_ammo():
@@ -720,7 +720,7 @@ func _switch_off_empty(tick: int) -> void:
 	for s in slots():
 		if s == _current:
 			continue
-		var other: DotWeaponSlot = _slots[s]
+		var other: GSWeaponSlot = _slots[s]
 		if _can_pay(other):
 			select(s, tick)
 			return
@@ -729,19 +729,19 @@ func _switch_off_empty(tick: int) -> void:
 ## Fits [param fitting] to the weapon in [param slot], replacing what was there. The slot's
 ## definition becomes a copy with the attachments applied (the catalogue's is untouched), a
 ## magazine above the new capacity is clamped, and an empty fitting restores the base.
-func fit(slot: int, fitting: DotWeaponFitting) -> DotResult:
+func fit(slot: int, fitting: GSWeaponFitting) -> GSResult:
 	if attachments == null:
-		return DotResult.fail(DotError.CODE_STATE, "This arsenal has no attachment catalogue.")
-	var s: DotWeaponSlot = _slots.get(slot, null)
+		return GSResult.fail(GSError.CODE_STATE, "This arsenal has no attachment catalogue.")
+	var s: GSWeaponSlot = _slots.get(slot, null)
 	if s == null:
-		return DotResult.fail(DotError.CODE_INVALID, "Nothing in slot %d." % slot)
+		return GSResult.fail(GSError.CODE_INVALID, "Nothing in slot %d." % slot)
 	return _apply_fitting(s, fitting)
 
 
-func _apply_fitting(s: DotWeaponSlot, fitting: DotWeaponFitting) -> DotResult:
+func _apply_fitting(s: GSWeaponSlot, fitting: GSWeaponFitting) -> GSResult:
 	var base := catalogue.get_def(s.id())
 	if base == null:
-		return DotResult.fail(DotError.CODE_INVALID, "%s is not in the catalogue." % String(s.id()))
+		return GSResult.fail(GSError.CODE_INVALID, "%s is not in the catalogue." % String(s.id()))
 	var res := attachments.apply(base, fitting)
 	if not res.ok:
 		return res
@@ -752,23 +752,23 @@ func _apply_fitting(s: DotWeaponSlot, fitting: DotWeaponFitting) -> DotResult:
 	if s.def.uses_magazine():
 		s.magazine = mini(s.magazine, s.def.magazine)
 	carried_changed.emit()
-	return DotResult.success(s)
+	return GSResult.success(s)
 
 
 ## What is fitted to [param slot]. Never null; empty when nothing is.
-func fitting_at(slot: int) -> DotWeaponFitting:
-	var s: DotWeaponSlot = _slots.get(slot, null)
+func fitting_at(slot: int) -> GSWeaponFitting:
+	var s: GSWeaponSlot = _slots.get(slot, null)
 	if s == null:
-		return DotWeaponFitting.make(&"")
+		return GSWeaponFitting.make(&"")
 	if s.fitting == null:
-		return DotWeaponFitting.make(s.id())
+		return GSWeaponFitting.make(s.id())
 	return s.fitting.duplicate_fitting()
 
 
 ## [method fitting_at] without the copy, for a reader comparing every snapshot: the slot's own
 ## fitting, or null when nothing is fitted. Read only; change a fitting through [method fit].
-func fitting_ref(slot: int) -> DotWeaponFitting:
-	var s: DotWeaponSlot = _slots.get(slot, null)
+func fitting_ref(slot: int) -> GSWeaponFitting:
+	var s: GSWeaponSlot = _slots.get(slot, null)
 	return null if s == null else s.fitting
 
 
@@ -778,7 +778,7 @@ func snapshot() -> Dictionary:
 
 
 ## Restores a snapshot, rebuilding any weapon this carrier is not currently holding.
-func restore(d: Dictionary) -> DotResult:
+func restore(d: Dictionary) -> GSResult:
 	return _Io.restore(self, d)
 
 

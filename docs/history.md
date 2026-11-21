@@ -4,7 +4,7 @@ Bug stories worth keeping because the bug could come back. The rules they left a
 
 ## Split out of GameSpice Combat
 
-GameSpice Combat lost `weapons/` entirely. `DotWeapon`, `DotArsenal`, `DotWeaponState`, `DotRecoil` and `DotCombatCommand` are gone; `DotSpread` moved to GameSpice Combat's `core/`; `DotShot` stayed and stopped pointing at a weapon. A name from that list in a game or doc is a leftover.
+GameSpice Combat lost `weapons/` entirely. `GSWeapon`, `GSArsenal`, `GSWeaponState`, `GSRecoil` and `GSCombatCommand` are gone; `GSSpread` moved to GameSpice Combat's `core/`; `GSShot` stayed and stopped pointing at a weapon. A name from that list in a game or doc is a leftover.
 
 ## The reload that restarted for ever
 
@@ -16,4 +16,4 @@ Fixed 2026-10-08. mg-deathrun, mg-wipeout and mg-smash-copter all sent the wante
 
 ## A pack written at 64 Hz ran at double speed at 128
 
-Fixed 2026-10-11. `DotWeaponArsenal.tick_rate` existed and nothing read it, so every duration on a definition was used as written whatever the server's rate. zee-dot-weapons is written in 64 Hz ticks, and in game-playlot (128 Hz) every weapon fired, reloaded and deployed in half the time; the game had patched only grenade fuses by hand, in its projectile code. `DotWeaponDef.authored_tick_rate` and the arsenal's `ticks_for` fix it for every pack, and `weapon_selftest`'s "written at 64 Hz" section drives one row at 64 and at 128 and compares shots per second, reload, switch, charge and fuse.
+Fixed 2026-10-11. `GSWeaponArsenal.tick_rate` existed and nothing read it, so every duration on a definition was used as written whatever the server's rate. zee-dot-weapons is written in 64 Hz ticks, and in game-playlot (128 Hz) every weapon fired, reloaded and deployed in half the time; the game had patched only grenade fuses by hand, in its projectile code. `GSWeaponDef.authored_tick_rate` and the arsenal's `ticks_for` fix it for every pack, and `weapon_selftest`'s "written at 64 Hz" section drives one row at 64 and at 128 and compares shots per second, reload, switch, charge and fuse.

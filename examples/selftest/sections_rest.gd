@@ -1,16 +1,16 @@
 extends "sections_accuracy.gd"
 
-## The rest skip of an idle hitscan tick (DotWeaponArsenal.idle_still, DotWeaponBehaviour.rest_tick) must change nothing: the same random
-## command and posture stream through an arsenal with it and one without, full state compared (the first also runs DotWeaponHitscan's steady
+## The rest skip of an idle hitscan tick (GSWeaponArsenal.idle_still, GSWeaponBehaviour.rest_tick) must change nothing: the same random
+## command and posture stream through an arsenal with it and one without, full state compared (the first also runs GSWeaponHitscan's steady
 ## skip, the second not); the last three modes keep the cone on, as FC does, and add flinches, in-place tuning edits and restored snapshots.
 
 const _MODES := ["plain", "rules", "rules_cone_off", "rules_edited", "explicit_still", "rules_hurt", "rules_tuning", "rules_restore"]
 const _CONE_MODES := ["rules", "rules_hurt", "rules_tuning", "rules_restore"]
 
-## On while sections_native runs the streams with DotWeaponHitscan.native_tick on the skipping arsenal (index 0); off,
+## On while sections_native runs the streams with GSWeaponHitscan.native_tick on the skipping arsenal (index 0); off,
 ## both arsenals take the GDScript tick.
 var _rest_native := false
-## With [member _rest_native]: the first arsenal's idle ticks go through [method DotWeaponArsenal.idle_tick_row].
+## With [member _rest_native]: the first arsenal's idle ticks go through [method GSWeaponArsenal.idle_tick_row].
 var _rest_row := false
 
 
@@ -35,8 +35,8 @@ func _posture_data(kind: int) -> Dictionary:
 	return m
 
 
-func _rest_ctx(player: Node, tick: int) -> DotWeaponContext:
-	var c := DotWeaponPlayerBridge.posture_for(player, tick)
+func _rest_ctx(player: Node, tick: int) -> GSWeaponContext:
+	var c := GSWeaponPlayerBridge.posture_for(player, tick)
 	c.entity = 1
 	c.origin = Vector3(0.0, 1.6, 0.0)
 	c.direction = Vector3.FORWARD
@@ -75,7 +75,7 @@ func _test_idle_rest_skip() -> void:
 	var walker := _arsenal(cat2)
 	walker.give(&"rifle")
 	var asked := [0]
-	walker.idle_posture = func() -> DotWeaponContext: return _ctx(0)
+	walker.idle_posture = func() -> GSWeaponContext: return _ctx(0)
 	walker.idle_still = func() -> bool:
 		asked[0] += 1
 		return false
@@ -89,11 +89,11 @@ func _test_idle_rest_skip() -> void:
 
 
 ## The two arsenals of one [param mode] (index 0 skips, index 1 does not), each with its carrier and spread rules.
-func _rest_pair(mode: String, cat: DotWeaponCatalogue) -> Dictionary:
+func _rest_pair(mode: String, cat: GSWeaponCatalogue) -> Dictionary:
 	var st := {"arsenals": [_arsenal(cat), _arsenal(cat)], "rules": [], "players": [], "controllers": [], "hurt": [-1], "now": [0]}
 	var hurt: Array = st["hurt"]
 	var now: Array = st["now"]
-	for a: DotWeaponArsenal in st["arsenals"]:
+	for a: GSWeaponArsenal in st["arsenals"]:
 		a.give(&"rifle")
 		a.give(&"pistol")
 		a.give(&"bow")
@@ -106,7 +106,7 @@ func _rest_pair(mode: String, cat: DotWeaponCatalogue) -> Dictionary:
 		st["players"].append(player)
 		st["controllers"].append(controller)
 		if mode != "plain":
-			var r := DotWeaponSpreadRules.new()
+			var r := GSWeaponSpreadRules.new()
 			r.enabled = true
 			r.recovery = 40.0
 			a.spread_rules = r
@@ -114,28 +114,28 @@ func _rest_pair(mode: String, cat: DotWeaponCatalogue) -> Dictionary:
 			a.crosshair_cone = mode in _CONE_MODES
 		if mode == "rules_hurt":
 			var p := player
-			a.idle_posture = func() -> DotWeaponContext:
-				var c := DotWeaponPlayerBridge.posture_for(p, now[0])
+			a.idle_posture = func() -> GSWeaponContext:
+				var c := GSWeaponPlayerBridge.posture_for(p, now[0])
 				c.hurt_tick = hurt[0]
 				return c
-			a.idle_still = func() -> bool: return DotWeaponPlayerBridge.still_for(p) and (hurt[0] < 0 or now[0] - hurt[0] > 200)
+			a.idle_still = func() -> bool: return GSWeaponPlayerBridge.still_for(p) and (hurt[0] < 0 or now[0] - hurt[0] > 200)
 		elif mode == "explicit_still":
 			var p := player
-			a.idle_posture = func() -> DotWeaponContext: return DotWeaponPlayerBridge.posture_for(p)
-			a.idle_still = func() -> bool: return DotWeaponPlayerBridge.still_for(p)
+			a.idle_posture = func() -> GSWeaponContext: return GSWeaponPlayerBridge.posture_for(p)
+			a.idle_still = func() -> bool: return GSWeaponPlayerBridge.still_for(p)
 		else:
-			a.idle_posture = DotWeaponPlayerBridge.posture_for.bind(player)
+			a.idle_posture = GSWeaponPlayerBridge.posture_for.bind(player)
 	return st
 
 
 ## One random stream of [param mode] through both arsenals of [method _rest_pair], compared tick by tick.
 func _rest_stream(mode: String) -> Dictionary:
 	var cat := _catalogue()
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom = 2.0
-	(cat.get_def(&"rifle").tuning as DotWeaponBallistics).bloom_recovery = 0.2
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom = 2.0
+	(cat.get_def(&"rifle").tuning as GSWeaponBallistics).bloom_recovery = 0.2
 	var st := _rest_pair(mode, cat)
-	var skip: DotWeaponArsenal = st["arsenals"][0]
-	var plain: DotWeaponArsenal = st["arsenals"][1]
+	var skip: GSWeaponArsenal = st["arsenals"][0]
+	var plain: GSWeaponArsenal = st["arsenals"][1]
 	plain.idle_rest_skip = false
 	if mode != "explicit_still":
 		_check(skip.idle_still.is_valid() and plain.idle_still.is_valid(), "%s: binding the bridge's posture_for derives idle_still" % mode)
@@ -143,10 +143,10 @@ func _rest_stream(mode: String) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5150 + _MODES.find(mode)
 	var roll := {"posture": 0, "posture_left": 0, "command_left": 0, "buttons": 0, "slot": 0}
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 	var res := {"skipped": 0, "steady": 0, "same": true, "spread_same": true, "detail": ""}
 	st["saved"] = [{}, {}]
-	var rifle := cat.get_def(&"rifle").tuning as DotWeaponBallistics
+	var rifle := cat.get_def(&"rifle").tuning as GSWeaponBallistics
 	if mode in ["rules_hurt", "rules_tuning", "rules_restore"]:
 		rifle.spread_flinch = 1.5
 		rifle.spread = 1.0
@@ -155,8 +155,8 @@ func _rest_stream(mode: String) -> Dictionary:
 	var held := [rifle.spread]
 
 	# The arsenal counts its rest skips while its phase timers run.
-	var timers := DotWeaponArsenal.phase_timers
-	DotWeaponArsenal.phase_timers = true
+	var timers := GSWeaponArsenal.phase_timers
+	GSWeaponArsenal.phase_timers = true
 	for tick in range(2400):
 		_rest_roll(rng, roll)
 		_rest_edit(mode, tick, rng, st, rifle, held)
@@ -166,8 +166,8 @@ func _rest_stream(mode: String) -> Dictionary:
 		var states: Array = rows[1]
 		var spreads: Array = rows[2]
 
-		DotWeaponHitscan.steady_skip = true
-		previous = DotWeaponCommand.new()
+		GSWeaponHitscan.steady_skip = true
+		previous = GSWeaponCommand.new()
 		previous.buttons = roll["buttons"]
 		previous.slot = roll["slot"]
 
@@ -179,7 +179,7 @@ func _rest_stream(mode: String) -> Dictionary:
 			res["spread_same"] = false
 			res["detail"] = "%s tick %d spread %s" % [mode, tick, spreads]
 
-	DotWeaponArsenal.phase_timers = timers
+	GSWeaponArsenal.phase_timers = timers
 	# A kept cone skips too, through the steady skip's fixed point for the settled posture. The native tick keeps no
 	# fixed point, so a native cone carrier takes every tick.
 	if _rest_native and mode in _CONE_MODES:
@@ -205,9 +205,9 @@ func _rest_roll(rng: RandomNumberGenerator, roll: Dictionary) -> void:
 		roll["slot"] = 0
 		var r := rng.randf()
 		if r < 0.12:
-			roll["buttons"] = DotWeaponCommand.BUTTON_ATTACK
+			roll["buttons"] = GSWeaponCommand.BUTTON_ATTACK
 		elif r < 0.15:
-			roll["buttons"] = DotWeaponCommand.BUTTON_RELOAD
+			roll["buttons"] = GSWeaponCommand.BUTTON_RELOAD
 		elif r < 0.19:
 			roll["slot"] = rng.randi_range(1, 4)
 		roll["command_left"] = rng.randi_range(1, 12) if roll["buttons"] != 0 or roll["slot"] != 0 else rng.randi_range(5, 200)
@@ -215,11 +215,11 @@ func _rest_roll(rng: RandomNumberGenerator, roll: Dictionary) -> void:
 
 
 ## The edits a [param mode] makes mid-stream: spread rules, flinches, and tuning swapped or changed in place.
-func _rest_edit(mode: String, tick: int, rng: RandomNumberGenerator, st: Dictionary, rifle: DotWeaponBallistics, held: Array) -> void:
+func _rest_edit(mode: String, tick: int, rng: RandomNumberGenerator, st: Dictionary, rifle: GSWeaponBallistics, held: Array) -> void:
 	if mode == "rules_edited" and tick % 400 == 399:
 		var field := rng.randi_range(0, 2)
 		var value := rng.randf_range(0.7, 1.4)
-		for r: DotWeaponSpreadRules in st["rules"]:
+		for r: GSWeaponSpreadRules in st["rules"]:
 			match field:
 				0: r.mult_stand = value
 				1: r.mult_hip = value
@@ -242,35 +242,35 @@ func _rest_edit(mode: String, tick: int, rng: RandomNumberGenerator, st: Diction
 
 
 ## One tick of both arsenals; returns [results, states, spreads] and counts skipped and steady ticks into [param res].
-func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, previous: DotWeaponCommand, res: Dictionary) -> Array:
+func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, previous: GSWeaponCommand, res: Dictionary) -> Array:
 	var results: Array = []
 	var states: Array = []
 	var spreads: Array = []
 	var saved: Array = st["saved"]
 	for i in range(2):
-		var a: DotWeaponArsenal = st["arsenals"][i]
-		DotWeaponHitscan.steady_skip = i == 0
-		DotWeaponHitscan.native_tick = _rest_native and i == 0
+		var a: GSWeaponArsenal = st["arsenals"][i]
+		GSWeaponHitscan.steady_skip = i == 0
+		GSWeaponHitscan.native_tick = _rest_native and i == 0
 		if mode == "rules_restore":
 			if tick % 211 == 100:
 				saved[i] = a.snapshot()
 			elif tick % 211 == 160 and not (saved[i] as Dictionary).is_empty():
 				a.restore(saved[i])
 		(st["controllers"][i] as StubController).motion_data = _posture_data(roll["posture"])
-		var cmd := DotWeaponCommand.new()
+		var cmd := GSWeaponCommand.new()
 		cmd.buttons = roll["buttons"]
 		cmd.slot = roll["slot"]
-		var out: DotWeaponOutcome
+		var out: GSWeaponOutcome
 		var was_steady: bool = a.current() != null and a.current().behaviour.get("_steady") == true
 		var hit := _rest_ctx(st["players"][i], tick)
 		hit.hurt_tick = st["hurt"][0]
 		if a.is_idle_for(cmd, previous):
-			var rests := DotWeaponArsenal.phase_calls[2]
+			var rests := GSWeaponArsenal.phase_calls[2]
 			if _rest_row and i == 0:
 				out = a.idle_tick_row(_idle_row_of(a), a.idle_still.is_valid() and bool(a.idle_still.call()))
 			else:
 				out = a.idle_tick()
-			if i == 0 and DotWeaponArsenal.phase_calls[2] != rests:
+			if i == 0 and GSWeaponArsenal.phase_calls[2] != rests:
 				res["skipped"] += 1
 		else:
 			out = a.simulate_tick(cmd, hit, previous)
@@ -282,9 +282,9 @@ func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, 
 	return [results, states, spreads]
 
 
-## The arsenal's [member DotWeaponArsenal.idle_posture] context as the row [method DotWeaponArsenal.idle_tick_row] takes.
-func _idle_row_of(a: DotWeaponArsenal) -> PackedFloat64Array:
-	var c: DotWeaponContext = a.idle_posture.call()
+## The arsenal's [member GSWeaponArsenal.idle_posture] context as the row [method GSWeaponArsenal.idle_tick_row] takes.
+func _idle_row_of(a: GSWeaponArsenal) -> PackedFloat64Array:
+	var c: GSWeaponContext = a.idle_posture.call()
 	return PackedFloat64Array([c.speed, 1.0 if c.airborne else 0.0, 1.0 if c.crouched else 0.0, 1.0 if c.aiming else 0.0,
 			1.0 if c.sliding else 0.0, 1.0 if c.sprinting else 0.0, 1.0 if c.wall_running else 0.0, c.tick, c.hurt_tick])
 

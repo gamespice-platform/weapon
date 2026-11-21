@@ -1,5 +1,5 @@
-class_name DotWeaponBallisticsRules
-extends DotWeaponCvarRules
+class_name GSWeaponBallisticsRules
+extends GSWeaponCvarRules
 
 ## Global ballistics switch and multipliers as `sv_ballistics*` cvars. Off by default: every weapon stays hitscan
 ## whatever its `muzzle_velocity`. Wire with `bind_cvars` (server) and `follow_cvars` (client), then
@@ -31,13 +31,13 @@ func prefix() -> String:
 
 
 ## True when [param b] flies as a simulated bullet under these rules (null rules = off).
-static func simulates(rules: DotWeaponBallisticsRules, b: DotWeaponBallistics) -> bool:
-	return rules != null and rules.enabled and DotWeaponTrajectory.is_simulated(b)
+static func simulates(rules: GSWeaponBallisticsRules, b: GSWeaponBallistics) -> bool:
+	return rules != null and rules.enabled and GSWeaponTrajectory.is_simulated(b)
 
 
 ## A copy of [param b] with the multipliers applied.
-func scaled(b: DotWeaponBallistics) -> DotWeaponBallistics:
-	var out := b.duplicate() as DotWeaponBallistics
+func scaled(b: GSWeaponBallistics) -> GSWeaponBallistics:
+	var out := b.duplicate() as GSWeaponBallistics
 	out.muzzle_velocity *= velocity
 	out.bullet_gravity *= drop
 	out.drag *= drag

@@ -10,7 +10,7 @@ const _ICON := "res://addons/dot_weapon/icon_placeholder.svg"
 
 const _TYPES := [
 	[
-		"DotWeaponArsenal",
+		"GSWeaponArsenal",
 		"Node",
 		"res://addons/dot_weapon/runtime/dot_weapon_arsenal.gd",
 	],

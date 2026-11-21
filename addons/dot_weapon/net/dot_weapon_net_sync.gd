@@ -1,10 +1,10 @@
-class_name DotWeaponNetSync
+class_name GSWeaponNetSync
 extends RefCounted
 
-## What a networked carrier has to replicate of its [DotWeaponArsenal], and how to move
+## What a networked carrier has to replicate of its [GSWeaponArsenal], and how to move
 ## it in and out.
 ##
-## The weapon half of what GameSpice Combat's `DotCombatNetSync` used to carry on its own. A
+## The weapon half of what GameSpice Combat's `GSCombatNetSync` used to carry on its own. A
 ## game using both concatenates the two spec lists; a game with weapons and no health
 ## uses only this one.
 ##
@@ -22,8 +22,8 @@ const SLOT_BITS := 5
 const MAGAZINE_BITS := 9
 const RESERVE_BITS := 11
 
-## Bits of [code]net_fitted[/code]: [method DotWeaponAttachments.encode]. A weapon whose
-## [method DotWeaponAttachments.code_bits] exceed this does not replicate its fitting.
+## Bits of [code]net_fitted[/code]: [method GSWeaponAttachments.encode]. A weapon whose
+## [method GSWeaponAttachments.code_bits] exceed this does not replicate its fitting.
 const FITTED_BITS := 16
 
 ## Bits of [code]net_fire_mode[/code]: the index into the held gun's allowed fire modes.
@@ -95,7 +95,7 @@ static func properties() -> Array[StringName]:
 
 
 ## Copies the arsenal's state onto a replicating object.
-static func pull(arsenal: DotWeaponArsenal, target: Object) -> void:
+static func pull(arsenal: GSWeaponArsenal, target: Object) -> void:
 	if target == null or arsenal == null:
 		return
 
@@ -137,7 +137,7 @@ static func pull(arsenal: DotWeaponArsenal, target: Object) -> void:
 ## prediction undone on every single snapshot.
 ##
 ## [param with_fire_mode] false leaves the mode alone, for the owner who predicts its own.
-static func push(source: Object, arsenal: DotWeaponArsenal, with_fire_mode: bool = true) -> void:
+static func push(source: Object, arsenal: GSWeaponArsenal, with_fire_mode: bool = true) -> void:
 	if source == null or arsenal == null:
 		return
 
@@ -168,7 +168,7 @@ static func push(source: Object, arsenal: DotWeaponArsenal, with_fire_mode: bool
 
 
 ## Whether [method push] would change the held gun's fire mode while the slot stays the same: a watcher's cue to click.
-static func fire_mode_will_change(source: Object, arsenal: DotWeaponArsenal) -> bool:
+static func fire_mode_will_change(source: Object, arsenal: GSWeaponArsenal) -> bool:
 	if source == null or arsenal == null or not (&"net_fire_mode" in source) or arsenal.current() == null:
 		return false
 	var slot := int(source.get(&"net_slot"))
@@ -181,7 +181,7 @@ static func fire_mode_will_change(source: Object, arsenal: DotWeaponArsenal) -> 
 
 ## Server authority for the owner's predicted selector: adopts the snapshot's mode once it has disagreed
 ## for [param grace] snapshots in a row, so a press still in flight is not flipped back. True when it corrected.
-static func correct_fire_mode(source: Object, arsenal: DotWeaponArsenal, grace: int = 3) -> bool:
+static func correct_fire_mode(source: Object, arsenal: GSWeaponArsenal, grace: int = 3) -> bool:
 	if source == null or arsenal == null or not (&"net_fire_mode" in source) or arsenal.current() == null:
 		return false
 	var slot := int(source.get(&"net_slot"))
@@ -209,7 +209,7 @@ static func correct_fire_mode(source: Object, arsenal: DotWeaponArsenal, grace: 
 ## Called by the owning client when reconciliation says its prediction was wrong.
 ## Separate from [method push] because a non-owner has no prediction to correct and
 ## must not have its display overwritten by somebody else's ammunition.
-static func correct_ammo(source: Object, arsenal: DotWeaponArsenal) -> void:
+static func correct_ammo(source: Object, arsenal: GSWeaponArsenal) -> void:
 	if source == null or arsenal == null:
 		return
 

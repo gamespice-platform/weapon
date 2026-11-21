@@ -3,8 +3,8 @@ extends "selftest/harness.gd"
 ## The physics half of drop_selftest: tunnelling, rescue, support gone, blasts. Extended by drop_selftest.gd.
 
 
-func _drops(authority: bool = true) -> DotWeaponDrops:
-	var d := DotWeaponDrops.new()
+func _drops(authority: bool = true) -> GSWeaponDrops:
+	var d := GSWeaponDrops.new()
 	d.is_authority = authority
 	d.draws = false
 	d.collision_mask = 0
@@ -66,7 +66,7 @@ func _test_capped_in_air() -> void:
 	body.global_basis = Basis(Vector3.RIGHT, PI * 0.5)
 	var _b := drops.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(104, 6, 0), Vector3.ZERO, 1)
 	_check(bool(drops._entries[a]["rest"]) and settled.has(a), "the oldest flying drop is rested by the cap")
-	for _i in DotWeaponDrops.GROUND_TICKS + 1:
+	for _i in GSWeaponDrops.GROUND_TICKS + 1:
 		await get_tree().physics_frame
 	var at: Transform3D = settled.get(a, Transform3D())
 	_check(at.origin.y > -0.05 and at.origin.y < 0.3 and absf(at.origin.x - 100.0) < 0.01, "on the floor under it, not 6 m up where it flew", str(at.origin))
@@ -75,7 +75,7 @@ func _test_capped_in_air() -> void:
 	await get_tree().physics_frame
 	var low: Vector3 = (drops._entries[c]["body"] as RigidBody3D).global_position
 	var _d := drops.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(112, 6, 0), Vector3.ZERO, 1)
-	for _i in DotWeaponDrops.GROUND_TICKS + 1:
+	for _i in GSWeaponDrops.GROUND_TICKS + 1:
 		await get_tree().physics_frame
 	_check(settled.has(c) and (settled[c] as Transform3D).origin.y <= low.y + 0.001 and (settled[c] as Transform3D).origin.y > low.y - 0.25, "one already down by the floor comes down onto it, no further", "%s vs %s" % [settled.get(c), low])
 	_check(drops.check_support() == 0, "a drop grounded after a forced rest keeps its support, it does not fall again")
@@ -97,15 +97,15 @@ func _static_box(size: Vector3, at: Vector3) -> StaticBody3D:
 
 
 ## The gap under a drop as the physics sees it (its whole box swept down, other drops ignored).
-func _gap_under(drops: DotWeaponDrops, id: int) -> float:
+func _gap_under(drops: GSWeaponDrops, id: int) -> float:
 	var body: RigidBody3D = drops._entries[id]["body"]
 	return drops._sweep_down(body, body.global_transform, 3.0).length()
 
 
 func _test_settle_rules() -> void:
 	_section("settle_max_sec and refall_max: default 4 / 4, 0 unlimited, bad values refused")
-	var r := DotWeaponDropRules.new()
-	_check(r.settle_max_sec == 4.0 and r.refall_max == 4 and DotWeaponDrops.SETTLE_MAX_SEC == 4.0 and DotWeaponDrops.REFALL_MAX == 4, "defaults are unchanged: 4 s and 4 refalls")
+	var r := GSWeaponDropRules.new()
+	_check(r.settle_max_sec == 4.0 and r.refall_max == 4 and GSWeaponDrops.SETTLE_MAX_SEC == 4.0 and GSWeaponDrops.REFALL_MAX == 4, "defaults are unchanged: 4 s and 4 refalls")
 	_check(r.problems().is_empty() and r.resolve(null).settle_max_sec == 4.0, "defaults are valid and survive resolve")
 	_check(r.set_cvar("sv_weapon_drop_settle_max", "0") and r.settle_max_sec == 0.0 and r.problems().is_empty(), "sv_weapon_drop_settle_max 0 is accepted")
 	_check(not r.set_cvar("sv_weapon_drop_settle_max", "-1") and r.settle_max_sec == 0.0, "a negative settle limit is refused, not clamped")
@@ -232,25 +232,25 @@ func _test_rescue() -> void:
 	air.rules.lifetime = 0.0
 	var a := air.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(0, 5, 0), Vector3.ZERO, 1)
 	var fell: RigidBody3D = air._entries[a]["body"]
-	fell.global_position = Vector3(0, 5.0 - DotWeaponDrops.RESCUE_DEPTH - 1.0, 0)
+	fell.global_position = Vector3(0, 5.0 - GSWeaponDrops.RESCUE_DEPTH - 1.0, 0)
 	air.tick(0.0)
 	_check(air.has_drop(a) and absf(fell.global_position.y - 5.0) < 0.01, "a drop that fell out of the world goes back to its drop point once")
-	fell.global_position = Vector3(0, 5.0 - DotWeaponDrops.RESCUE_DEPTH - 1.0, 0)
+	fell.global_position = Vector3(0, 5.0 - GSWeaponDrops.RESCUE_DEPTH - 1.0, 0)
 	air.tick(0.0)
 	_check(not air.has_drop(a), "and the second time it is removed")
 	var bumps := drops.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(2, 0.6, 0), Vector3.ZERO, 1)
 	var many: RigidBody3D = drops._entries[bumps]["body"]
-	for _i in DotWeaponDrops.RESCUE_MAX + 1:
+	for _i in GSWeaponDrops.RESCUE_MAX + 1:
 		many.global_position = Vector3(2, -1.5, 0)
 		drops.tick(0.0)
 	_check(bool(drops._entries[bumps]["rest"]) and many.global_position.y > 0.0 and many.global_position.y < 0.2, "a drop that keeps tunnelling is frozen lying on top after a few tries", str(many.global_position))
 	var deep := drops.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(4, 0.6, 0), Vector3.ZERO, 1)
 	var sunk: RigidBody3D = drops._entries[deep]["body"]
-	sunk.global_position = Vector3(4, 0.6 - DotWeaponDrops.RESCUE_DEPTH - 1.0, 0)
+	sunk.global_position = Vector3(4, 0.6 - GSWeaponDrops.RESCUE_DEPTH - 1.0, 0)
 	drops.tick(0.0)
 	_check(drops.has_drop(deep) and not bool(drops._entries[deep]["rest"]) and sunk.global_position.y > 0.0 and sunk.global_position.y < 0.6 and absf(sunk.global_position.x - 4.0) < 0.01,
 		"a drop whose tunnel was missed goes back on the floor under its drop point", str(sunk.global_position))
-	sunk.global_position = Vector3(4, 0.6 - DotWeaponDrops.RESCUE_DEPTH - 1.0, 0)
+	sunk.global_position = Vector3(4, 0.6 - GSWeaponDrops.RESCUE_DEPTH - 1.0, 0)
 	drops.tick(0.0)
 	_check(drops.has_drop(deep) and bool(drops._entries[deep]["rest"]) and sunk.global_position.y > 0.0 and sunk.global_position.y < 0.2,
 		"and the second time it is frozen lying on that floor, not removed", str(sunk.global_position))
@@ -311,7 +311,7 @@ func _test_blast() -> void:
 	_check(moved == 0 and pushes.is_empty(), "and wakes nothing and tells no client", "moved %d, pushes %d" % [moved, pushes.size()])
 	drops.rules.blast_scale = 1.0
 
-	var wall := DotTraceFlat.new()
+	var wall := GSTraceFlat.new()
 	var _w := wall.add_box(AABB(Vector3(1.0, 0.0, -3.0), Vector3(0.4, 4.0, 6.0)))
 	drops.can_see = func(a: Vector3, b: Vector3) -> bool: return wall.line_of_sight(a, b)
 	var behind := drops.spawn(state, Vector3(3, 1, 0), Vector3.ZERO, 1)
@@ -362,7 +362,7 @@ func _seeded_run(value: int, noise: int, settle: bool) -> Array:
 	drops.seed_rng(value)
 	drops.rules.lifetime = 0.0
 	drops.rules.max_count = 0
-	drops.rules.evict = DotWeaponDropRules.EVICT_RANDOM
+	drops.rules.evict = GSWeaponDropRules.EVICT_RANDOM
 	var starts: Array = []
 	for i in 4:
 		var id := drops.spawn({"id": &"rifle", "magazine": 5, "reserve": 0}, Vector3(i * 4.0, 1.2, 0), Vector3(1.5, 2.0, -1.0), 1)
@@ -383,9 +383,9 @@ func _seeded_run(value: int, noise: int, settle: bool) -> Array:
 	return [starts, rests, evicted]
 
 
-func _until_still(drops: DotWeaponDrops) -> void:
+func _until_still(drops: GSWeaponDrops) -> void:
 	await get_tree().physics_frame
-	for _i in int((DotWeaponDrops.SETTLE_MAX_SEC + 3.0) * 60.0):
+	for _i in int((GSWeaponDrops.SETTLE_MAX_SEC + 3.0) * 60.0):
 		if drops.active_count() == 0:
 			return
 		await get_tree().physics_frame

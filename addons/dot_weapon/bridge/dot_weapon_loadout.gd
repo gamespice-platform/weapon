@@ -1,4 +1,4 @@
-class_name DotWeaponLoadoutBridge
+class_name GSWeaponLoadoutBridge
 extends RefCounted
 
 ## Fills an arsenal from what a player brought in.
@@ -17,14 +17,14 @@ extends RefCounted
 ##
 ## [codeblock]
 ## var resolved := loadouts.resolve(loadout)
-## var res := DotWeaponLoadoutBridge.fill(arsenal, resolved)
+## var res := GSWeaponLoadoutBridge.fill(arsenal, resolved)
 ## if not res.ok:
-##     DotLog.warn(CHANNEL, "the loadout did not fill", {"why": res.error.message})
+##     GSLog.warn(CHANNEL, "the loadout did not fill", {"why": res.error.message})
 ## [/codeblock]
 
 ## Clears an arsenal and gives it everything in a resolved loadout.
 ##
-## [param resolved] is what `DotLoadoutManager.resolve()` returns. [param mapping] maps
+## [param resolved] is what `GSLoadoutManager.resolve()` returns. [param mapping] maps
 ## an item id to a weapon id for a game whose two id spaces differ; an empty mapping
 ## means they are the same, which is the case worth making easy.
 ##
@@ -32,16 +32,16 @@ extends RefCounted
 ## cosmetics, perks and consumables as well as weapons, and refusing a whole loadout
 ## because it contained a hat would make the two systems impossible to use together.
 static func fill(
-	arsenal: DotWeaponArsenal,
+	arsenal: GSWeaponArsenal,
 	resolved: Array,
 	mapping: Dictionary = {}
-) -> DotResult:
+) -> GSResult:
 	if arsenal == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No arsenal to fill.")
+		return GSResult.fail(GSError.CODE_INVALID, "No arsenal to fill.")
 
 	if not arsenal.is_ready():
-		return DotResult.fail(
-			DotError.CODE_STATE, "The arsenal has not been set up."
+		return GSResult.fail(
+			GSError.CODE_STATE, "The arsenal has not been set up."
 		)
 
 	arsenal.clear()
@@ -79,20 +79,20 @@ static func fill(
 		given += 1
 
 	if given == 0:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"The loadout named no weapon this arsenal knows. Skipped: %s"
 			% (", ".join(skipped) if not skipped.is_empty() else "nothing"),
 		)
 
 	_fit_parts(arsenal, parts)
-	return DotResult.success(given)
+	return GSResult.success(given)
 
 
 ## Fits attachment rows after the weapons: on the row's `arsenal_slot`, or with none on the first
 ## carried weapon it fits. One that does not fit is dropped, never an error (a saved loadout from
 ## another version should degrade).
-static func _fit_parts(arsenal: DotWeaponArsenal, parts: Array[Dictionary]) -> void:
+static func _fit_parts(arsenal: GSWeaponArsenal, parts: Array[Dictionary]) -> void:
 	for part in parts:
 		var att := arsenal.attachments.for_item(part["item"])
 		var targets: Array[int] = arsenal.slots()
@@ -112,7 +112,7 @@ static func _fit_parts(arsenal: DotWeaponArsenal, parts: Array[Dictionary]) -> v
 
 ## The attachment rows to save for what is fitted now: `{arsenal_slot, item}` per attachment, by
 ## slot then mount, so a loadout keeps them through [method fill].
-static func fitted_rows(arsenal: DotWeaponArsenal) -> Array[Dictionary]:
+static func fitted_rows(arsenal: GSWeaponArsenal) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if arsenal == null or arsenal.attachments == null:
 		return out
@@ -130,12 +130,12 @@ static func fitted_rows(arsenal: DotWeaponArsenal) -> Array[Dictionary]:
 ## For a server checking a loadout on the join path: it answers the question before the
 ## player is in the world, where refusing is cheap.
 static func check(
-	catalogue: DotWeaponCatalogue,
+	catalogue: GSWeaponCatalogue,
 	resolved: Array,
 	mapping: Dictionary = {}
-) -> DotResult:
+) -> GSResult:
 	if catalogue == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No catalogue to check against.")
+		return GSResult.fail(GSError.CODE_INVALID, "No catalogue to check against.")
 
 	var seen_slots: Dictionary = {}
 
@@ -156,8 +156,8 @@ static func check(
 		var def := catalogue.get_def(weapon_id)
 
 		if seen_slots.has(def.slot):
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"%s and %s both want slot %d." % [
 					String(seen_slots[def.slot]), String(weapon_id), def.slot
 				]
@@ -165,4 +165,4 @@ static func check(
 
 		seen_slots[def.slot] = weapon_id
 
-	return DotResult.success(seen_slots.keys().size())
+	return GSResult.success(seen_slots.keys().size())

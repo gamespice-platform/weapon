@@ -1,11 +1,11 @@
 @tool
 extends Node
 
-## State, signals and read-only queries for [DotWeaponArsenal]; kept apart so the state machine stays small.
+## State, signals and read-only queries for [GSWeaponArsenal]; kept apart so the state machine stays small.
 
 ## A use produced an outcome. Carries the whole outcome so a listener can tell a swing
 ## from a shot without inspecting it.
-signal used(outcome: DotWeaponOutcome)
+signal used(outcome: GSWeaponOutcome)
 
 ## A use was attempted with nothing to spend.
 signal dry_used(slot: int)
@@ -18,7 +18,7 @@ signal charge_full(slot: int)
 
 signal switched(from: int, to: int)
 
-## The held gun's fire mode changed; [param mode] is a [enum DotWeaponDef.Fire].
+## The held gun's fire mode changed; [param mode] is a [enum GSWeaponDef.Fire].
 signal fire_mode_changed(slot: int, mode: int)
 signal ammo_changed(pool: StringName, amount: int)
 signal carried_changed()
@@ -27,13 +27,13 @@ const _Io := preload("dot_weapon_arsenal_io.gd")
 
 @export_group("Simulation")
 
-## Ticks per second the simulation runs at. A definition with an [member DotWeaponDef.authored_tick_rate] is scaled to
+## Ticks per second the simulation runs at. A definition with an [member GSWeaponDef.authored_tick_rate] is scaled to
 ## this through [method ticks_for]; one with none is used as written. Set it identically on client and server:
 ## deadlines are absolute ticks and travel in [method snapshot] as ticks, so two rates predict different reload ends.
 @export_range(1, 240, 1) var tick_rate: int = 64
 
 ## Seconds a semi-auto press made during the cooldown stays queued (`sv_fire_buffer`). 0 drops it, negative keeps it
-## until the cooldown ends. A weapon's own [member DotWeaponDef.fire_buffer_seconds] overrides this.
+## until the cooldown ends. A weapon's own [member GSWeaponDef.fire_buffer_seconds] overrides this.
 @export var fire_buffer_seconds: float = 0.15
 
 @export_range(1, 16, 1, "or_greater") var max_slots: int = 8
@@ -41,26 +41,26 @@ const _Io := preload("dot_weapon_arsenal_io.gd")
 @export_group("Content")
 
 ## Every weapon this carrier could hold. Required before [method setup].
-@export var catalogue: DotWeaponCatalogue = null
+@export var catalogue: GSWeaponCatalogue = null
 
 ## The attachment catalogue. Null means nothing can be fitted. Plain var: it is a RefCounted.
-## Must be the same on every machine (see [DotWeaponAttachments]).
-var attachments: DotWeaponAttachments = null
+## Must be the same on every machine (see [GSWeaponAttachments]).
+var attachments: GSWeaponAttachments = null
 
 ## Weight and slot-capacity rules, shared by every arsenal of a game. Null: no limit, one weapon per slot.
-var carry: DotWeaponCarry = null
+var carry: GSWeaponCarry = null
 
-## Backpack tier this carrier wears (0: none); see [method DotWeaponCarry.limit_for].
+## Backpack tier this carrier wears (0: none); see [method GSWeaponCarry.limit_for].
 var backpack_tier: int = 0
 
 ## Movement-dependent spread (`sv_spread_*`); null or disabled leaves every gun's own spread.
-var spread_rules: DotWeaponSpreadRules = null
+var spread_rules: GSWeaponSpreadRules = null
 
 ## Whether an idle carrier's crosshair cone is kept current (spread rules attached). A machine nobody
 ## watches, such as a server's stand-in, sets it false so its untouched weapon ticks with no context.
 var crosshair_cone: bool = true
 
-## Returns a [DotWeaponContext] holding only the carrier's posture (speed, airborne, crouched,
+## Returns a [GSWeaponContext] holding only the carrier's posture (speed, airborne, crouched,
 ## sliding, sprinting, and tick and hurt_tick if the flinch should count). Set, an idle tick
 ## with spread rules feeds that to the behaviour instead of a full context, far cheaper.
 var idle_posture: Callable = Callable():
@@ -70,7 +70,7 @@ var idle_posture: Callable = Callable():
 
 ## Whether the carrier's posture is the settled one (speed 0, grounded, not crouched, sliding, wall running, sprinting or
 ## hurt), asked of an idle weapon at rest so its tick is skipped without [member idle_posture]. Must agree with it.
-## A [method DotWeaponPlayerBridge.posture_for] bound to a player in [member idle_posture] sets [method DotWeaponPlayerBridge.still_for].
+## A [method GSWeaponPlayerBridge.posture_for] bound to a player in [member idle_posture] sets [method GSWeaponPlayerBridge.still_for].
 var idle_still: Callable = Callable()
 
 ## False runs every idle tick through [member idle_posture] as before; the result is identical, it only costs more.
@@ -95,16 +95,16 @@ func _derive_idle_still() -> void:
 			_still_derived = true
 
 ## Per-weapon recoil patterns (`sv_recoil_*`); null or disabled leaves every gun's flat kick.
-var recoil_rules: DotWeaponRecoilRules = null
+var recoil_rules: GSWeaponRecoilRules = null
 
 ## Global ballistics switch (`sv_ballistics`); null or off keeps every gun hitscan. Set on both sides.
-var ballistics_rules: DotWeaponBallisticsRules = null
+var ballistics_rules: GSWeaponBallisticsRules = null
 
-## Loaded round per weapon id (see [DotWeaponAmmoTypes]); server side only, not in snapshots.
+## Loaded round per weapon id (see [GSWeaponAmmoTypes]); server side only, not in snapshots.
 var loaded_ammo: Dictionary = {}
 
-## The game's ammo profiles; [method DotWeaponArsenal.round_for] reads them. Null: no ammo types.
-var ammo_types: DotWeaponAmmoTypes = null
+## The game's ammo profiles; [method GSWeaponArsenal.round_for] reads them. Null: no ammo types.
+var ammo_types: GSWeaponAmmoTypes = null
 
 @export_group("Rules")
 
@@ -114,13 +114,13 @@ var ammo_types: DotWeaponAmmoTypes = null
 ## Refuses everything. For a dead player, a cutscene, a freeze time.
 @export var disabled: bool = false
 
-## True on the machine that decides; handed to every [DotWeaponContext]. A behaviour applies nothing when false
+## True on the machine that decides; handed to every [GSWeaponContext]. A behaviour applies nothing when false
 ## and GameSpice Combat resolves no damage; a client still runs everything, for prediction.
 @export var authority: bool = false
 
-var _slots: Dictionary = {}          ## int -> DotWeaponSlot (the one in hand of that slot)
-var _shelf: Dictionary = {}          ## int -> Array[DotWeaponSlot], stowed behind the active one
-var _ammo := DotWeaponAmmo.new()
+var _slots: Dictionary = {}          ## int -> GSWeaponSlot (the one in hand of that slot)
+var _shelf: Dictionary = {}          ## int -> Array[GSWeaponSlot], stowed behind the active one
+var _ammo := GSWeaponAmmo.new()
 var _current: int = 0
 var _previous: int = 0
 
@@ -160,21 +160,21 @@ var _ready_for_use: bool = false
 
 ## [param authored_ticks] off [param def] as a count at [member tick_rate]. Public so a layer over the arsenal
 ## times its own half by the same numbers instead of reading the raw field and drifting at another rate.
-func ticks_for(def: DotWeaponDef, authored_ticks: int) -> int:
+func ticks_for(def: GSWeaponDef, authored_ticks: int) -> int:
 	if def == null:
 		return authored_ticks
 	return def.ticks_at(authored_ticks, tick_rate)
 
 
 ## [param def]'s charge after [param ticks_held] ticks at [member tick_rate].
-func charge_for(def: DotWeaponDef, ticks_held: int) -> float:
+func charge_for(def: GSWeaponDef, ticks_held: int) -> float:
 	if def == null:
 		return 1.0
 	return def.charge_at(ticks_held, tick_rate)
 
 
 func carries(id: StringName) -> bool:
-	for slot: DotWeaponSlot in _slots.values():
+	for slot: GSWeaponSlot in _slots.values():
 		if slot.id() == id:
 			return true
 	return _shelf_has(0, id)
@@ -184,7 +184,7 @@ func has_slot(slot: int) -> bool:
 	return _slots.has(slot)
 
 
-func slot_at(slot: int) -> DotWeaponSlot:
+func slot_at(slot: int) -> GSWeaponSlot:
 	return _slots.get(slot, null)
 
 
@@ -192,11 +192,11 @@ func current_slot() -> int:
 	return _current
 
 
-func current() -> DotWeaponSlot:
+func current() -> GSWeaponSlot:
 	return _slots.get(_current, null)
 
 
-func current_def() -> DotWeaponDef:
+func current_def() -> GSWeaponDef:
 	var slot := current()
 	return slot.def if slot != null else null
 
@@ -209,7 +209,7 @@ func slots() -> Array[int]:
 	return out
 
 
-func ammo() -> DotWeaponAmmo:
+func ammo() -> GSWeaponAmmo:
 	return _ammo
 
 
@@ -219,8 +219,8 @@ func slot_capacity() -> int:
 
 
 ## Every weapon in [param slot], the one in hand first.
-func weapons_in(slot: int) -> Array[DotWeaponSlot]:
-	var out: Array[DotWeaponSlot] = []
+func weapons_in(slot: int) -> Array[GSWeaponSlot]:
+	var out: Array[GSWeaponSlot] = []
 	if _slots.has(slot):
 		out.append(_slots[slot])
 		out.append_array(_shelf_of(slot))
@@ -272,7 +272,7 @@ func _shelf_has(slot: int, id: StringName) -> bool:
 	for s: int in _shelf:
 		if slot != 0 and s != slot:
 			continue
-		for w: DotWeaponSlot in _shelf[s]:
+		for w: GSWeaponSlot in _shelf[s]:
 			if w.id() == id:
 				return true
 	return false
@@ -281,6 +281,6 @@ func _shelf_has(slot: int, id: StringName) -> bool:
 func _shelf_drop(slot: int, id: StringName) -> void:
 	var behind := _shelf_of(slot)
 	for i in behind.size():
-		if (behind[i] as DotWeaponSlot).id() == id:
+		if (behind[i] as GSWeaponSlot).id() == id:
 			behind.remove_at(i)
 			return

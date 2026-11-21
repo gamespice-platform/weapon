@@ -1,4 +1,4 @@
-class_name DotWeaponWheel
+class_name GSWeaponWheel
 extends Resource
 
 ## Previous/next weapon from the mouse wheel or a gamepad: one shared walk over a ring of slots.
@@ -26,8 +26,8 @@ var blocked: Callable
 
 
 ## A wheel over an arsenal's carried slots, in slot order.
-static func from_arsenal(arsenal: Object) -> DotWeaponWheel:
-	var w := DotWeaponWheel.new()
+static func from_arsenal(arsenal: Object) -> GSWeaponWheel:
+	var w := GSWeaponWheel.new()
 	w.ring_provider = func() -> Array: return arsenal.call("slots")
 	w.current_provider = func() -> Variant: return arsenal.call("current_slot")
 	return w
@@ -75,7 +75,7 @@ func handle_event(event: InputEvent) -> bool:
 		return false
 	var to: Variant = target(step)
 	if to != null:
-		DotLog.debug(CHANNEL, "wheel step", {"step": step, "to": str(to)})
+		GSLog.debug(CHANNEL, "wheel step", {"step": step, "to": str(to)})
 		chosen.emit(to)
 	return true
 

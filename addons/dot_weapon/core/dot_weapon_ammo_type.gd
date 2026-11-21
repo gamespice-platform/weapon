@@ -1,8 +1,8 @@
-class_name DotWeaponAmmoType
+class_name GSWeaponAmmoType
 extends RefCounted
 
 ## One kind of round: multipliers over a weapon's own bullet, and how much armour it ignores. Only read
-## while `sv_ballistics` is on, by [DotWeaponBulletBridge].
+## while `sv_ballistics` is on, by [GSWeaponBulletBridge].
 
 var id: StringName = &""
 var display_name: String = ""
@@ -34,9 +34,9 @@ var ricochet_materials: PackedStringArray = PackedStringArray()
 var ricochet_angle: float = 0.0
 ## Share of power a bounce keeps.
 var ricochet_keep: float = 0.6
-## Muzzle speed in m/s for the penetration velocity pass (dot-combat `DotPenetration.speed`); 0 leaves the pass off.
+## Muzzle speed in m/s for the penetration velocity pass (dot-combat `GSPenetration.speed`); 0 leaves the pass off.
 var speed: float = 0.0
-## Speed at which wall and body costs are the plain ones (`DotPenetration.reference_speed`); 0 leaves the pass off.
+## Speed at which wall and body costs are the plain ones (`GSPenetration.reference_speed`); 0 leaves the pass off.
 var reference_speed: float = 0.0
 ## Weapon ids this round is the default for (a profile can serve several guns).
 var guns: PackedStringArray = PackedStringArray()
@@ -67,8 +67,8 @@ static func with_default_materials(listed: Dictionary) -> Dictionary:
 	return out
 
 
-static func from_flat(p_id: StringName, c: Dictionary) -> DotWeaponAmmoType:
-	var t := DotWeaponAmmoType.new()
+static func from_flat(p_id: StringName, c: Dictionary) -> GSWeaponAmmoType:
+	var t := GSWeaponAmmoType.new()
 	t.id = p_id
 	t.display_name = String(c.get("name", ""))
 	t.damage = maxf(0.0, float(c.get("damage", 1.0)))
@@ -95,17 +95,17 @@ static func from_flat(p_id: StringName, c: Dictionary) -> DotWeaponAmmoType:
 	return t
 
 
-## What a hitscan round of this type can pass through, for GameSpice Combat's [code]DotShot.penetration[/code]. Null when it passes nothing.
-func make_penetration() -> DotPenetration:
+## What a hitscan round of this type can pass through, for GameSpice Combat's [code]GSShot.penetration[/code]. Null when it passes nothing.
+func make_penetration() -> GSPenetration:
 	if penetration <= 0.0:
 		return null
-	var p := DotPenetration.new()
+	var p := GSPenetration.new()
 	p.power = penetration
 	p.max_depth = max_depth
 	p.materials = with_default_materials(materials)
 	p.default_resistance = default_resistance
 	p.body_cost = body_cost
-	p.body_zones = DotPenetration.DEFAULT_BODY_ZONES.duplicate()
+	p.body_zones = GSPenetration.DEFAULT_BODY_ZONES.duplicate()
 	for z in body_zones:
 		p.body_zones[z] = body_zones[z]
 	p.min_damage = min_damage
@@ -124,10 +124,10 @@ func alters_flight() -> bool:
 
 
 ## A copy of [param b] flown with this round's velocity and drag.
-func apply_to(b: DotWeaponBallistics) -> DotWeaponBallistics:
+func apply_to(b: GSWeaponBallistics) -> GSWeaponBallistics:
 	if not alters_flight():
 		return b
-	var out := b.duplicate() as DotWeaponBallistics
+	var out := b.duplicate() as GSWeaponBallistics
 	out.muzzle_velocity *= velocity
 	out.drag *= drag
 	return out

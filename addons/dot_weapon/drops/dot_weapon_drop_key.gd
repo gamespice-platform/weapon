@@ -1,11 +1,11 @@
-class_name DotWeaponDropKey
+class_name GSWeaponDropKey
 extends RefCounted
 
 ## One player's drop key: call [method step] every tick with the key state (server), [method client_progress] for a ring.
-## With [member DotWeaponDropRules.key_hold] at 0 a press throws at once; above 0 the throw happens after that hold.
+## With [member GSWeaponDropRules.key_hold] at 0 a press throws at once; above 0 the throw happens after that hold.
 ## One instance per role (a listen host needs two); call [method reset] on death, respawn, disconnect and weapon switch.
 
-var hold := DotWeaponUseHold.new()
+var hold := GSWeaponUseHold.new()
 var _was_down: bool = false
 var _held_id: StringName = &""
 var _holding: bool = false
@@ -20,7 +20,7 @@ func reset() -> void:
 
 
 ## Server side. Returns the new drop id, or 0 when nothing was thrown this tick.
-func step(drops: DotWeaponDrops, arsenal: Object, origin: Vector3, aim: Vector3, owner_id: int,
+func step(drops: GSWeaponDrops, arsenal: Object, origin: Vector3, aim: Vector3, owner_id: int,
 		pressed: bool, delta: float, source: Object = null, inherit: Vector3 = Vector3.ZERO) -> int:
 	var edge := pressed and not _was_down
 	_was_down = pressed
@@ -41,7 +41,7 @@ func step(drops: DotWeaponDrops, arsenal: Object, origin: Vector3, aim: Vector3,
 	if not pressed:
 		_holding = false
 	hold.hold_time = wait
-	if hold.step(pressed, delta) == DotWeaponUseHold.Event.HOLD:
+	if hold.step(pressed, delta) == GSWeaponUseHold.Event.HOLD:
 		return drops.throw(arsenal, origin, aim, owner_id, source, inherit)
 	return 0
 
@@ -55,7 +55,7 @@ func client_progress(pressed: bool, delta: float, hold_time: float, active: bool
 
 
 ## The hold the server uses for [param source] (a class def or null), so the ring matches per-class overrides.
-static func hold_time_for(rules: DotWeaponDropRules, source: Object = null) -> float:
+static func hold_time_for(rules: GSWeaponDropRules, source: Object = null) -> float:
 	return rules.resolve(source).key_hold
 
 

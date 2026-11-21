@@ -1,7 +1,7 @@
-class_name DotWeaponAttachmentModels
+class_name GSWeaponAttachmentModels
 extends RefCounted
 
-## Puts the models of a fitting on a weapon model: each attachment's [member DotWeaponAttachment.model]
+## Puts the models of a fitting on a weapon model: each attachment's [member GSWeaponAttachment.model]
 ## goes under the node named `socket_<mount>` (the family's socket name). Pure presentation; a weapon with no such node shows nothing.
 
 const SOCKET_PREFIX := "socket_"
@@ -9,7 +9,7 @@ const _META := &"dot_attachment_model"
 
 
 ## Replaces what an earlier call placed under [param weapon_model]; returns how many models it placed.
-static func dress(weapon_model: Node, catalogue: DotWeaponAttachments, fitting: DotWeaponFitting) -> int:
+static func dress(weapon_model: Node, catalogue: GSWeaponAttachments, fitting: GSWeaponFitting) -> int:
 	if weapon_model == null:
 		return 0
 	for old in weapon_model.find_children("*", "", true, false):

@@ -1,4 +1,4 @@
-class_name DotWeaponOutcome
+class_name GSWeaponOutcome
 extends RefCounted
 
 ## What one use produced, before anything has been traced, spawned or drawn.
@@ -36,10 +36,10 @@ var used: bool = false
 var refusal: String = ""
 
 ## Things for GameSpice Combat to resolve now, against a world rewound to this tick.
-var shots: Array[DotShot] = []
+var shots: Array[GSShot] = []
 
 ## Things for the game to put into the world, which will hit something later.
-var spawns: Array[DotWeaponSpawn] = []
+var spawns: Array[GSWeaponSpawn] = []
 
 ## Anything else the use produced, for a game's own behaviours.
 ##
@@ -59,8 +59,8 @@ var ammo_used: int = -1
 ## A behaviour overrides it for a weapon whose cadence depends on what it just did,
 ## which is most melee weapons and every charged one.
 ##
-## [b]Counted in the definition's ticks[/b] ([member DotWeaponDef.authored_tick_rate]),
-## like the [member DotWeaponDef.use_interval_ticks] it stands in for: the arsenal scales
+## [b]Counted in the definition's ticks[/b] ([member GSWeaponDef.authored_tick_rate]),
+## like the [member GSWeaponDef.use_interval_ticks] it stands in for: the arsenal scales
 ## it to the running rate, so a behaviour sets it from its own tuning and never converts.
 var cooldown_ticks: int = -1
 
@@ -79,28 +79,28 @@ var recoil_recovery: float = -1.0
 var recoil_signed: bool = false
 
 
-static func nothing(reason: String = "") -> DotWeaponOutcome:
-	var o := DotWeaponOutcome.new()
+static func nothing(reason: String = "") -> GSWeaponOutcome:
+	var o := GSWeaponOutcome.new()
 	o.kind = KIND_NONE
 	o.used = false
 	o.refusal = reason
 	return o
 
 
-static func of(p_kind: StringName) -> DotWeaponOutcome:
-	var o := DotWeaponOutcome.new()
+static func of(p_kind: StringName) -> GSWeaponOutcome:
+	var o := GSWeaponOutcome.new()
 	o.kind = p_kind
 	o.used = true
 	return o
 
 
 ## Adds a shot and returns it, so a behaviour can fill it in place.
-func add_shot(shot: DotShot) -> DotShot:
+func add_shot(shot: GSShot) -> GSShot:
 	shots.append(shot)
 	return shot
 
 
-func add_spawn(spawn: DotWeaponSpawn) -> DotWeaponSpawn:
+func add_spawn(spawn: GSWeaponSpawn) -> GSWeaponSpawn:
 	spawns.append(spawn)
 	return spawn
 
@@ -139,7 +139,7 @@ func describe() -> Dictionary:
 
 func _to_string() -> String:
 	if not used:
-		return "DotWeaponOutcome(%s, refused: %s)" % [String(kind), refusal]
-	return "DotWeaponOutcome(%s, %d shots, %d spawns)" % [
+		return "GSWeaponOutcome(%s, refused: %s)" % [String(kind), refusal]
+	return "GSWeaponOutcome(%s, %d shots, %d spawns)" % [
 		String(kind), shots.size(), spawns.size()
 	]

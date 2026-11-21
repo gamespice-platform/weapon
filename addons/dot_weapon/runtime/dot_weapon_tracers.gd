@@ -1,7 +1,7 @@
-class_name DotWeaponTracers
+class_name GSWeaponTracers
 extends MeshInstance3D
 
-## Draws bullet tracers from [signal DotWeaponBullets.tracer] as camera-facing ribbons in one mesh,
+## Draws bullet tracers from [signal GSWeaponBullets.tracer] as camera-facing ribbons in one mesh,
 ## rebuilt each frame (no node per tracer; fine for the browser). Clients only: hits stay server authority.
 
 var width: float = 0.05
@@ -28,8 +28,8 @@ func _ready() -> void:
 	material_override = m
 
 
-## Connect to a [DotWeaponBullets].
-func follow(bullets: DotWeaponBullets) -> void:
+## Connect to a [GSWeaponBullets].
+func follow(bullets: GSWeaponBullets) -> void:
 	bullets.tracer.connect(add)
 
 

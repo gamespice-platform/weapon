@@ -1,12 +1,12 @@
-class_name DotWeaponKnives
+class_name GSWeaponKnives
 extends Node3D
 ## Thrown knives: aim with the knife in hand throws it. The server flies each on the tick, hurts the first body (rule `damage`), sticks it
-## in a body it kills, bounces it off the world and returns it to whoever walks over it; clients mirror the events ([DotWeaponKnifeWire]).
+## in a body it kills, bounces it off the world and returns it to whoever walks over it; clients mirror the events ([GSWeaponKnifeWire]).
 ## A game owns one as a child: fill the fields, call [method input] before players simulate and [method tick] after, forward [signal changed].
 ## Rule `charge` makes the throw a hold-and-release whose power fills over `charge_sec`; a knife whose fitted def has
 ## [constant PARAM_BOOMERANG] glides a closed loop back to where it left the hand (or homes on the thrower) and sticks in any enemy it hits.
 
-# Players are duck-typed: arsenal (DotWeaponArsenal), is_alive(), muzzle_position(), controller.state.position/.velocity.
+# Players are duck-typed: arsenal (GSWeaponArsenal), is_alive(), muzzle_position(), controller.state.position/.velocity.
 
 ## Server: a knife was thrown, bounced, came to rest, stuck or was taken (GONE, [param victim] the taker).
 signal changed(id: int, owner: int, phase: int, victim: int, at: Vector3, motion: Vector3)
@@ -22,7 +22,7 @@ const DEFAULT_RULES := {
 	"boomerang_empty_hand": true,
 }
 ## cvar suffix after the game's prefix -> the rule key it sets, and what it means.
-const CVAR_SPECS := DotWeaponKnifeCvars.SPECS
+const CVAR_SPECS := GSWeaponKnifeCvars.SPECS
 ## Set true in a fitted def's params (an attachment's params_set) to make that knife a boomerang.
 const PARAM_BOOMERANG := "boomerang"
 ## How hard a homing boomerang turns toward the hand each tick (0..1).
@@ -96,7 +96,7 @@ var weapon_id: StringName = &"knife"
 var is_authority: bool = true
 var draws: bool = false
 var tick_rate: int = 64
-var combat: DotCombatManager = null
+var combat: GSCombatManager = null
 ## Callables from the game: id -> player or null, and the ids of everybody playing.
 var player_for: Callable = Callable()
 var player_ids: Callable = Callable()
@@ -118,7 +118,7 @@ var _model_box: AABB = AABB()
 ## The thrower excluded from a [method _sweep], reused so a flying knife does not build an array a tick.
 var _exclude: Array = []
 ## No hitbox sets, for a knife past its first bounce (the trace only reads it).
-var _no_sets: Array[DotHitboxSet] = []
+var _no_sets: Array[GSHitboxSet] = []
 ## Server: thrower id -> the Boomerang knife id they wait for bare-handed (rule `boomerang_empty_hand`).
 var _empty_for: Dictionary = {}
 
@@ -127,7 +127,7 @@ var _empty_for: Dictionary = {}
 ## server module's add_cvar, shaped [code](name, default, description, flags) -> cvar[/code]); each
 ## change lands in [param rules_dict]. Returns the cvars.
 static func bind_cvars(rules_dict: Dictionary, add: Callable, prefix: String, flags: int = 0) -> Array:
-	return DotWeaponKnifeCvars.bind(rules_dict, add, prefix, flags)
+	return GSWeaponKnifeCvars.bind(rules_dict, add, prefix, flags)
 
 
 func count() -> int:
@@ -156,7 +156,7 @@ static func fill_fraction(rules_dict: Dictionary, held_seconds: float) -> float:
 
 
 ## Whether [param def] (a fitted def) throws as a boomerang; the param may be keyed by String or StringName.
-static func is_boomerang(def: DotWeaponDef) -> bool:
+static func is_boomerang(def: GSWeaponDef) -> bool:
 	return def != null and bool(def.params.get(PARAM_BOOMERANG, def.params.get(StringName(PARAM_BOOMERANG), false)))
 
 
@@ -169,13 +169,13 @@ func charge_of(id: int) -> float:
 
 ## Server, before the player simulates: the aim key's rising edge with the knife in hand throws it, or with
 ## `charge` starts winding up and the release throws. The button is cleared on [param fire] while it is the knife's.
-func input(id: int, player, fire: DotWeaponCommand) -> void:
+func input(id: int, player, fire: GSWeaponCommand) -> void:
 	if not is_authority or fire == null or player == null or player.arsenal == null:
 		return
-	var down := fire.is_pressed(DotWeaponCommand.BUTTON_AIM)
+	var down := fire.is_pressed(GSWeaponCommand.BUTTON_AIM)
 	var was: bool = _aim_held.get(id, false)
 	_aim_held[id] = down
-	var def: DotWeaponDef = player.arsenal.current_def()
+	var def: GSWeaponDef = player.arsenal.current_def()
 	var in_hand := def != null and def.id == weapon_id
 	if not bool(rules.get("enabled", true)):
 		var _off := _charge.erase(id)
@@ -184,7 +184,7 @@ func input(id: int, player, fire: DotWeaponCommand) -> void:
 		if not in_hand or not player.is_alive():
 			var _cancel := _charge.erase(id)
 			return
-		fire.set_button(DotWeaponCommand.BUTTON_AIM, false)
+		fire.set_button(GSWeaponCommand.BUTTON_AIM, false)
 		if down:
 			_charge[id] = int(_charge[id]) + 1
 			return
@@ -194,14 +194,14 @@ func input(id: int, player, fire: DotWeaponCommand) -> void:
 		return
 	if not down or was or not in_hand:
 		return
-	fire.set_button(DotWeaponCommand.BUTTON_AIM, false)
+	fire.set_button(GSWeaponCommand.BUTTON_AIM, false)
 	if bool(rules.get("charge", false)):
 		_charge[id] = 0
 		return
 	_release(id, player, def, fire, 1.0)
 
 
-func _release(id: int, player, def: DotWeaponDef, fire: DotWeaponCommand, power: float) -> void:
+func _release(id: int, player, def: GSWeaponDef, fire: GSWeaponCommand, power: float) -> void:
 	var boomerang := is_boomerang(def)
 	var state: Dictionary = player.arsenal.drop_from_slot(player.arsenal.current_slot())
 	if state.is_empty():
@@ -443,14 +443,14 @@ func _ride(k: Knife) -> void:
 
 
 ## The first enemy the blade meets dies, and the knife stays in them; a boomerang stays in a survivor too.
-func _kill(k: Knife, hit: DotHitbox.Hit) -> bool:
+func _kill(k: Knife, hit: GSHitbox.Hit) -> bool:
 	if combat == null or not combat.is_authority or hit.entity == null:
 		return false
 	var victim := combat.entity_id_of(hit.entity)
 	var health := combat.health_of(victim) if victim != 0 else null
 	if victim == k.owner or health == null or not health.alive:
 		return false
-	var damage := DotDamage.make(k.owner, victim, float(rules.get("damage", 10000.0)), combat.damage_type(&"strike"))
+	var damage := GSDamage.make(k.owner, victim, float(rules.get("damage", 10000.0)), combat.damage_type(&"strike"))
 	damage.tick = _tick
 	damage.point = hit.point
 	damage.direction = k.velocity.normalized()
@@ -474,7 +474,7 @@ func _kill(k: Knife, hit: DotHitbox.Hit) -> bool:
 	return true
 
 
-func _bounce(k: Knife, hit: DotHitbox.Hit) -> void:
+func _bounce(k: Knife, hit: GSHitbox.Hit) -> void:
 	var normal := hit.normal
 	if normal.length_squared() < 0.0001:
 		normal = -k.velocity.normalized()
@@ -492,10 +492,10 @@ func _bounce(k: Knife, hit: DotHitbox.Hit) -> void:
 
 
 ## One tick of flight against the world and, before its first bounce, every body but the thrower's.
-func _sweep(k: Knife, step: Vector3) -> DotHitbox.Hit:
+func _sweep(k: Knife, step: Vector3) -> GSHitbox.Hit:
 	if combat == null or combat.trace == null or step.length() <= 0.0:
 		return null
-	var sets: Array[DotHitboxSet] = combat.hitbox_sets() if k.bounces == 0 and is_authority else _no_sets
+	var sets: Array[GSHitboxSet] = combat.hitbox_sets() if k.bounces == 0 and is_authority else _no_sets
 	var thrower := combat.hitboxes_of(k.owner)
 	_exclude.clear()
 	if thrower != null:
@@ -555,7 +555,7 @@ func _finish(k: Knife, to: int, returning: bool) -> void:
 
 ## Gives the knife to [param p] with what was fitted to it when it left the hand.
 func _give_back(p, k: Knife) -> bool:
-	var given: DotResult = p.arsenal.give(weapon_id, true)
+	var given: GSResult = p.arsenal.give(weapon_id, true)
 	if given.ok and k.state.has("fit"):
 		p.arsenal.apply_dropped(k.state)
 	return given.ok

@@ -6,7 +6,7 @@ const CHECKS := 833
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -14,7 +14,7 @@ func _run() -> void:
 	print("dot-weapon self-test")
 	print("")
 	# The sections below prove the GDScript tick (and count its steady skips); _test_native_tick turns the native one on.
-	DotWeaponHitscan.native_tick = false
+	GSWeaponHitscan.native_tick = false
 	_run_sections()
 
 	print("")
@@ -207,7 +207,7 @@ func _test_catalogue() -> void:
 
 	_check(c.validate_behaviours().ok, "every behaviour in this table resolves")
 
-	var missing := DotWeaponCatalogue.new()
+	var missing := GSWeaponCatalogue.new()
 	var ghost := _rifle()
 	ghost.behaviour_path = "res://fixtures/nothing_here.gd"
 	missing.add(ghost)
@@ -287,8 +287,8 @@ func _test_id_order() -> void:
 		", ".join(name_order.slice(0, 4)))
 
 	# Added in intern order, so a sort that did nothing would also fail.
-	var c := DotWeaponCatalogue.new()
-	var pool := DotWeaponAmmo.new()
+	var c := GSWeaponCatalogue.new()
+	var pool := GSWeaponAmmo.new()
 	for id: StringName in interned:
 		var def := _rifle()
 		def.id = id
@@ -321,8 +321,8 @@ func _test_behaviour_resolution() -> void:
 
 	var made := c.instantiate(&"rifle")
 	_check(made.ok, "a behaviour is built from its path")
-	_check(made.value is DotWeaponHitscan, "as the right type")
-	_check((made.value as DotWeaponBehaviour).def.id == &"rifle", "bound to its row")
+	_check(made.value is GSWeaponHitscan, "as the right type")
+	_check((made.value as GSWeaponBehaviour).def.id == &"rifle", "bound to its row")
 
 	var again := c.instantiate(&"rifle")
 	_check(
@@ -343,7 +343,7 @@ func _test_carrying_and_switching() -> void:
 	var a := _arsenal()
 	_check(a.is_ready(), "an arsenal with a valid catalogue sets up")
 
-	var bad := DotWeaponArsenal.new()
+	var bad := GSWeaponArsenal.new()
 	add_child(bad)
 	_check(not bad.setup().ok, "one with no catalogue does not")
 	_drop(bad)
@@ -469,7 +469,7 @@ func _test_cadence() -> void:
 	# Burst: one press, burst_count uses, at the burst interval.
 	var burst_cat := _catalogue()
 	var br := burst_cat.get_def(&"rifle")
-	br.fire_mode = DotWeaponDef.Fire.BURST
+	br.fire_mode = GSWeaponDef.Fire.BURST
 	br.burst_count = 3
 	br.burst_interval_ticks = 2
 	br.use_interval_ticks = 30
@@ -490,7 +490,7 @@ func _test_cadence() -> void:
 	cool.give(&"rifle")
 	var cooling := 0
 	var used_while_cooling := 0
-	var before: DotWeaponCommand = null
+	var before: GSWeaponCommand = null
 	for t in 60:
 		var c := _cmd(true)
 		var ctx := _ctx(t)
@@ -542,7 +542,7 @@ func _test_ammunition() -> void:
 	)
 
 	# A pickup that does not fit must report what it left behind.
-	var pool := DotWeaponAmmo.new()
+	var pool := GSWeaponAmmo.new()
 	pool.set_cap(&"rifle_rounds", 100)
 	pool.set_count(&"rifle_rounds", 96)
 	_check(
@@ -679,8 +679,8 @@ func _test_charge_and_bow() -> void:
 	a.charge_full.connect(func(_s: int) -> void: full_draws[0] += 1)
 
 	# Hold for a full draw, then release.
-	var previous: DotWeaponCommand = null
-	var outcome: DotWeaponOutcome = null
+	var previous: GSWeaponCommand = null
+	var outcome: GSWeaponOutcome = null
 
 	for i in range(70):
 		var cmd := _cmd(true)
@@ -693,7 +693,7 @@ func _test_charge_and_bow() -> void:
 	outcome = a.simulate_tick(release, _ctx(170), previous)
 
 	_check(outcome.used, "releasing a drawn bow looses an arrow")
-	_check(outcome.kind == DotWeaponOutcome.KIND_SPAWN, "as a spawn, not a hitscan")
+	_check(outcome.kind == GSWeaponOutcome.KIND_SPAWN, "as a spawn, not a hitscan")
 	_check(outcome.spawns.size() == 1, "one arrow")
 
 	var arrow := outcome.spawns[0]

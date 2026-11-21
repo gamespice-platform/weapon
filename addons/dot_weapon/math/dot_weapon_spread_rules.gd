@@ -1,4 +1,4 @@
-class_name DotWeaponSpreadRules
+class_name GSWeaponSpreadRules
 extends RefCounted
 
 ## Movement-dependent accuracy as replicated `sv_spread_*` cvars; multiplies a gun's own spread, so its numbers stay
@@ -27,7 +27,7 @@ const FIELDS := {
 }
 
 ## Counts edits to the fields below, however made (a cvar, a test, a direct set), so a holder of a copy of them
-## (GameSpice Sim's native spread tick, see [DotWeaponHitscan]) refreshes it on a change without comparing every field. One
+## (GameSpice Sim's native spread tick, see [GSWeaponHitscan]) refreshes it on a change without comparing every field. One
 ## element, not an int, so a walk over the numeric fields never sees it as a rule.
 var revision := PackedInt64Array([0])
 
@@ -94,7 +94,7 @@ var max_spread: float = 20.0:
 
 
 ## The multiplier this context asks for right now, before recovery smooths it.
-func target_factor(ctx: DotWeaponContext) -> float:
+func target_factor(ctx: GSWeaponContext) -> float:
 	if not enabled or ctx == null:
 		return 1.0
 	var f := mult_air if ctx.airborne else mult_stand

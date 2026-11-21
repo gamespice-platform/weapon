@@ -1,9 +1,9 @@
 @tool
-class_name DotWeaponAttachment
+class_name GSWeaponAttachment
 extends Resource
 
 ## One thing that can be fitted to a weapon: a scope, a suppressor, a grip, an extended
-## magazine. A document, like [DotWeaponDef], so a server validates it with no content.
+## magazine. A document, like [GSWeaponDef], so a server validates it with no content.
 ##
 ## [b]An attachment changes numbers, never behaviour.[/b] It scales and adds to fields of
 ## the definition (or of its tuning) and sets params the presentation reads. What it looks
@@ -65,7 +65,7 @@ const PARAMS_PREFIX := "params."
 
 
 ## Whether this can go on [param def]: the weapon has the mount, no excluded tag, a listed slot, and the fit lists allow it.
-func fits(def: DotWeaponDef) -> bool:
+func fits(def: GSWeaponDef) -> bool:
 	if def == null or not def.mounts.has(mount):
 		return false
 	if not fits_slots.is_empty() and not fits_slots.has(def.slot):
@@ -87,9 +87,9 @@ func item() -> StringName:
 	return item_id if item_id != &"" else id
 
 
-## Builds one from a flat profile (see [method DotWeaponAttachments.schema]); lists are comma-separated.
-static func from_flat(p_id: StringName, c: Dictionary) -> DotWeaponAttachment:
-	var a := DotWeaponAttachment.new()
+## Builds one from a flat profile (see [method GSWeaponAttachments.schema]); lists are comma-separated.
+static func from_flat(p_id: StringName, c: Dictionary) -> GSWeaponAttachment:
+	var a := GSWeaponAttachment.new()
 	a.id = p_id
 	a.display_name = str(c.get("name", ""))
 	a.description = str(c.get("description", ""))
@@ -118,35 +118,35 @@ static func _names(v: Variant) -> Array[StringName]:
 	return out
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if id == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "An attachment needs an id.")
+		return GSResult.fail(GSError.CODE_INVALID, "An attachment needs an id.")
 	var where := String(id)
 	if mount == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "An attachment needs a mount.", where)
+		return GSResult.fail(GSError.CODE_INVALID, "An attachment needs a mount.", where)
 	for field: Variant in scale.keys():
 		var m: Variant = scale[field]
 		if not (m is float or m is int) or not is_finite(float(m)) or float(m) <= 0.0:
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"The multiplier for %s must be finite and above zero." % str(field), where
 			)
 	for field: Variant in add.keys():
 		var a: Variant = add[field]
 		if not (a is float or a is int) or not is_finite(float(a)):
-			return DotResult.fail(
-				DotError.CODE_INVALID, "The addition for %s must be finite." % str(field), where
+			return GSResult.fail(
+				GSError.CODE_INVALID, "The addition for %s must be finite." % str(field), where
 			)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-## Applies this to [param def], MUTATING it. [method DotWeaponAttachments.apply] hands it a
+## Applies this to [param def], MUTATING it. [method GSWeaponAttachments.apply] hands it a
 ## deep copy; never pass a definition from a catalogue.
 ##
 ## An unknown or non-numeric field fails (a typo that silently did nothing would ship as a
 ## suppressor that is not quiet). Whole-number fields round; a count never goes below zero,
 ## and a magazine that held rounds keeps at least one.
-func apply_to(def: DotWeaponDef) -> DotResult:
+func apply_to(def: GSWeaponDef) -> GSResult:
 	var fields: Array[String] = []
 	for key: Variant in scale.keys():
 		if not fields.has(str(key)):
@@ -160,8 +160,8 @@ func apply_to(def: DotWeaponDef) -> DotResult:
 	for field in fields:
 		var target: Variant = _owner_of(def, field)
 		if target == null:
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"%s changes %s, which is not a number on %s or its tuning." % [
 					String(id), field, String(def.id)
 				],
@@ -188,10 +188,10 @@ func apply_to(def: DotWeaponDef) -> DotResult:
 			def.tags.append(tag)
 	for key: Variant in params_set.keys():
 		def.params[key] = params_set[key]
-	return DotResult.success(def)
+	return GSResult.success(def)
 
 
-func _apply_param(def: DotWeaponDef, field: String) -> void:
+func _apply_param(def: GSWeaponDef, field: String) -> void:
 	var key := field.trim_prefix(PARAMS_PREFIX)
 	if not def.params.has(key):
 		return  ## A weapon without the param is not changed: params are optional per weapon.
@@ -200,7 +200,7 @@ func _apply_param(def: DotWeaponDef, field: String) -> void:
 
 
 ## The object holding [param field]: the def, its tuning, or the def's params dictionary for a numeric "params." field.
-func _owner_of(def: DotWeaponDef, field: String) -> Variant:
+func _owner_of(def: GSWeaponDef, field: String) -> Variant:
 	if field.begins_with(PARAMS_PREFIX):
 		var v: Variant = def.params.get(field.trim_prefix(PARAMS_PREFIX), null)
 		return def.params if (typeof(v) == TYPE_NIL or v is int or v is float) else null
@@ -230,4 +230,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponAttachment(%s on %s)" % [String(id), String(mount)]
+	return "GSWeaponAttachment(%s on %s)" % [String(id), String(mount)]

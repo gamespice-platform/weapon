@@ -5,16 +5,16 @@ extends Node3D
 
 
 func _ready() -> void:
-	var rules := DotWeaponBallisticsRules.new()
+	var rules := GSWeaponBallisticsRules.new()
 	rules.enabled = true
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.muzzle_velocity = 300.0
 	b.max_range = 150.0
 	b.tracer_interval = 1
-	var bullets := DotWeaponBullets.new()
+	var bullets := GSWeaponBullets.new()
 	bullets.rules = rules
 	add_child(bullets)
-	var tracers := DotWeaponTracers.new()
+	var tracers := GSWeaponTracers.new()
 	tracers.life = 5.0
 	tracers.width = 0.12
 	add_child(tracers)

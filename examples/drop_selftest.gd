@@ -6,7 +6,7 @@ const CHECKS := 204
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -56,7 +56,7 @@ class _ClassStub extends RefCounted:
 
 func _test_rules() -> void:
 	_section("rules and class overrides")
-	var r := DotWeaponDropRules.new()
+	var r := GSWeaponDropRules.new()
 	_check(r.lifetime == 120.0 and r.max_count == 32 and r.scan_interval == 10.0 and r.evict == 1, "defaults: 120 s, 32 on the map, 10 s scan, evict idle")
 	var c := r.resolve(_ClassStub.new())
 	_check(c.throw_force == 12.0, "a class sets the throw force")
@@ -136,13 +136,13 @@ func _test_throw_and_swap() -> void:
 	_check(b.carries(&"rifle") and b.current().magazine == 12, "and the one underfoot is in the slot (12 rounds)")
 	_check(drops.count() == 1 and drops.has_drop(mine), "leaving only the thrown one")
 
-	var off := DotWeaponDropRules.new()
+	var off := GSWeaponDropRules.new()
 	off.enabled = false
 	drops.rules = off
 	var c2 := _arsenal()
 	var _g3 := c2.give(&"pistol")
 	_check(drops.throw(c2, Vector3.ZERO, Vector3.FORWARD, 1) == 0 and c2.carries(&"pistol"), "disabled rules drop nothing")
-	drops.rules = DotWeaponDropRules.new()
+	drops.rules = GSWeaponDropRules.new()
 	var held := _arsenal()
 	_check(drops.throw(held, Vector3.ZERO, Vector3.FORWARD, 1) == 0, "an empty-handed player drops nothing")
 	var dead := _arsenal()
@@ -158,7 +158,7 @@ func _test_throw_and_swap() -> void:
 func _test_cleanup_scan() -> void:
 	_section("cleanup scan interval and eviction priority")
 	var drops := _drops()
-	var r := DotWeaponDropRules.new()
+	var r := GSWeaponDropRules.new()
 	r.lifetime = 5.0
 	r.max_count = 0
 	r.scan_interval = 10.0
@@ -173,7 +173,7 @@ func _test_cleanup_scan() -> void:
 	_check(not drops.has_drop(a), "the scan removes it")
 	r.lifetime = 0.0
 	r.max_count = 3
-	r.evict = DotWeaponDropRules.EVICT_OLDEST
+	r.evict = GSWeaponDropRules.EVICT_OLDEST
 	var ids: Array[int] = []
 	for i in range(3):
 		ids.append(drops.spawn(st, Vector3(i, 5, 0), Vector3.ZERO, 1))
@@ -181,7 +181,7 @@ func _test_cleanup_scan() -> void:
 	r.max_count = 2
 	_check(drops.count() == 3, "lowering the cap waits for the scan")
 	_check(drops.scan() == 1 and not drops.has_drop(ids[0]), "oldest evicts the first spawned")
-	r.evict = DotWeaponDropRules.EVICT_IDLE
+	r.evict = GSWeaponDropRules.EVICT_IDLE
 	r.max_count = 3
 	var late := drops.spawn(st, Vector3(9, 5, 0), Vector3.ZERO, 1)
 	for id: int in [ids[1], ids[2], late]:
@@ -193,7 +193,7 @@ func _test_cleanup_scan() -> void:
 	r.max_count = 2
 	var _n := drops.scan()
 	_check(drops.has_drop(ids[1]) and not drops.has_drop(ids[2]), "idle evicts the one untouched longest, not the oldest")
-	r.evict = DotWeaponDropRules.EVICT_RANDOM
+	r.evict = GSWeaponDropRules.EVICT_RANDOM
 	r.max_count = 1
 	_check(drops.scan() == 1 and drops.count() == 1, "random still holds the cap")
 	r.max_count = 0
@@ -208,11 +208,11 @@ func _test_lifetime_and_cap() -> void:
 	var drops := _drops()
 	var gone: Array = []
 	drops.removed.connect(func(id: int, taker: int) -> void: gone.append([id, taker]))
-	var r := DotWeaponDropRules.new()
+	var r := GSWeaponDropRules.new()
 	r.lifetime = 2.0
 	r.max_count = 3
 	r.scan_interval = 0.0
-	r.evict = DotWeaponDropRules.EVICT_OLDEST
+	r.evict = GSWeaponDropRules.EVICT_OLDEST
 	drops.rules = r
 	var ids: Array[int] = []
 	for i in range(4):
@@ -257,7 +257,7 @@ func _test_settle_and_mirror() -> void:
 	var id := server.spawn({"id": &"rifle", "magazine": 5, "reserve": 0}, Vector3(0, 1.5, 0), Vector3(2, 0, 0), 1)
 	_check(client.has_drop(id), "a client mirrors the drop")
 	# The settle cap is 4 s, exactly 240 frames: wait for the signal, bounded, not for a frame count.
-	for i in range(int((DotWeaponDrops.SETTLE_MAX_SEC + 2.0) * 60.0)):
+	for i in range(int((GSWeaponDrops.SETTLE_MAX_SEC + 2.0) * 60.0)):
 		if rested.has(id):
 			break
 		await get_tree().physics_frame
@@ -334,21 +334,21 @@ func _test_pickup_rules() -> void:
 
 func _test_hold_and_ammo() -> void:
 	_section("hold, tap and ammunition")
-	var hold := DotWeaponUseHold.new()
+	var hold := GSWeaponUseHold.new()
 	hold.hold_time = 0.5
-	_check(hold.step(true, 0.2) == DotWeaponUseHold.Event.NONE and absf(hold.progress - 0.4) < 0.01, "a held key fills the circle")
-	_check(hold.step(false, 0.0) == DotWeaponUseHold.Event.TAP and hold.progress == 0.0, "release before the time is a tap")
+	_check(hold.step(true, 0.2) == GSWeaponUseHold.Event.NONE and absf(hold.progress - 0.4) < 0.01, "a held key fills the circle")
+	_check(hold.step(false, 0.0) == GSWeaponUseHold.Event.TAP and hold.progress == 0.0, "release before the time is a tap")
 	var _a := hold.step(true, 0.3)
-	_check(hold.step(true, 0.3) == DotWeaponUseHold.Event.HOLD, "reaching the time fires the hold")
-	_check(hold.step(true, 0.3) == DotWeaponUseHold.Event.NONE and hold.step(false, 0.0) == DotWeaponUseHold.Event.NONE, "once, and the release after it is no tap")
+	_check(hold.step(true, 0.3) == GSWeaponUseHold.Event.HOLD, "reaching the time fires the hold")
+	_check(hold.step(true, 0.3) == GSWeaponUseHold.Event.NONE and hold.step(false, 0.0) == GSWeaponUseHold.Event.NONE, "once, and the release after it is no tap")
 	var _b := hold.step(true, 0.2)
-	_check(hold.step(true, 0.1, false) == DotWeaponUseHold.Event.NONE and hold.progress == 0.0, "looking away cancels")
+	_check(hold.step(true, 0.1, false) == GSWeaponUseHold.Event.NONE and hold.progress == 0.0, "looking away cancels")
 
 	var drops := _drops()
 	var a := _arsenal()
 	var _g := a.give(&"rifle")
 	var pool: StringName = a.catalogue.get_def(&"rifle").ammo_type
-	var ammo: DotWeaponAmmo = a.ammo()
+	var ammo: GSWeaponAmmo = a.ammo()
 	ammo.set_cap(pool, 100)
 	ammo.set_count(pool, 70)
 	var changed: Array = []
@@ -372,21 +372,21 @@ func _test_hold_and_ammo() -> void:
 	_done()
 
 
-func _fitted_arsenal() -> DotWeaponArsenal:
+func _fitted_arsenal() -> GSWeaponArsenal:
 	var cat := _catalogue()
 	cat.get_def(&"rifle").mounts = [&"muzzle"] as Array[StringName]
 	var a := _arsenal(cat)
-	a.attachments = DotWeaponAttachments.new()
+	a.attachments = GSWeaponAttachments.new()
 	for id in ["suppressor", "brake"]:
-		var att := DotWeaponAttachment.new()
+		var att := GSWeaponAttachment.new()
 		att.id = StringName(id)
 		att.mount = &"muzzle"
 		var _r := a.attachments.add(att)
 	return a
 
 
-func _fit_with(a: DotWeaponArsenal, id: StringName) -> void:
-	var f := DotWeaponFitting.make(&"rifle")
+func _fit_with(a: GSWeaponArsenal, id: StringName) -> void:
+	var f := GSWeaponFitting.make(&"rifle")
 	f.fit(&"muzzle", id)
 	var r := a.fit(a.catalogue.get_def(&"rifle").slot, f)
 	_check(r.ok, "fitted %s" % id)
@@ -396,7 +396,7 @@ func _test_drop_key_hold() -> void:
 	_section("drop key hold")
 	var at := Vector3(0, 1.6, 0)
 	var drops := _drops()
-	var key := DotWeaponDropKey.new()
+	var key := GSWeaponDropKey.new()
 	var a := _arsenal()
 	var _g := a.give(&"rifle")
 	_check(drops.rules.key_hold == 0.0, "the hold is off by default")
@@ -407,7 +407,7 @@ func _test_drop_key_hold() -> void:
 	drops.rules.key_hold = 0.5
 	var b := _arsenal()
 	var _g2 := b.give(&"rifle")
-	var k2 := DotWeaponDropKey.new()
+	var k2 := GSWeaponDropKey.new()
 	_check(k2.step(drops, b, at, Vector3.FORWARD, 1, true, 0.2) == 0 and b.carries(&"rifle"), "hold 0.5: nothing yet at 0.2 s")
 	_check(absf(k2.hold.progress - 0.4) < 0.01, "the progress reads the fraction")
 	_check(k2.step(drops, b, at, Vector3.FORWARD, 1, false, 0.016) == 0 and b.carries(&"rifle") and drops.count() == 0, "a tap shorter than the hold throws nothing")
@@ -417,19 +417,19 @@ func _test_drop_key_hold() -> void:
 	var id := k2.step(drops, b, at, Vector3.FORWARD, 1, true, 0.3)
 	_check(id > 0 and not b.carries(&"rifle") and drops.count() == 1, "held long enough: the weapon is thrown")
 	_check(k2.step(drops, b, at, Vector3.FORWARD, 1, true, 0.3) == 0, "once per hold")
-	var k3 := DotWeaponDropKey.new()
+	var k3 := GSWeaponDropKey.new()
 	var _p := k3.client_progress(true, 0.25, 0.5)
 	_check(absf(k3.client_progress(true, 0.0, 0.5) - 0.5) < 0.01, "the client ring fills toward the rule")
 	_check(k3.client_progress(true, 0.1, 0.0) == 0.0, "and stays empty when the hold is off")
-	_check(DotWeaponDropKey.new().client_progress(true, 0.25, 0.5, false) == 0.0, "no ring when a throw is not possible (unarmed or disabled)")
+	_check(GSWeaponDropKey.new().client_progress(true, 0.25, 0.5, false) == 0.0, "no ring when a throw is not possible (unarmed or disabled)")
 	var stub := _ClassStub.new()
 	stub.drop_key_hold = 1.0
-	_check(DotWeaponDropKey.hold_time_for(drops.rules, stub) == 1.0 and DotWeaponDropKey.hold_time_for(drops.rules) == 0.5, "the ring's hold time follows a class override like the server")
+	_check(GSWeaponDropKey.hold_time_for(drops.rules, stub) == 1.0 and GSWeaponDropKey.hold_time_for(drops.rules) == 0.5, "the ring's hold time follows a class override like the server")
 	drops.clear()
 	var c := _arsenal()
 	var _g3 := c.give(&"rifle")
 	var _g4 := c.give(&"pistol")
-	var k4 := DotWeaponDropKey.new()
+	var k4 := GSWeaponDropKey.new()
 	var _h := k4.step(drops, c, at, Vector3.FORWARD, 1, true, 0.3)
 	k4.reset()
 	_check(k4.step(drops, c, at, Vector3.FORWARD, 1, true, 0.3) == 0 and drops.count() == 0, "a reset (respawn) mid-hold throws nothing and restarts the hold")
@@ -462,7 +462,7 @@ func _test_e_key_rules() -> void:
 	var pool: StringName = a.catalogue.get_def(&"rifle").ammo_type
 	a.ammo().set_cap(pool, 100)
 	a.ammo().set_count(pool, 50)
-	var fit_d := DotWeaponFitting.make(&"rifle")
+	var fit_d := GSWeaponFitting.make(&"rifle")
 	fit_d.fit(&"muzzle", &"brake")
 	var d2 := drops.spawn({"id": &"rifle", "magazine": 3, "reserve": 9, "fit": fit_d.to_dictionary()}, at, Vector3.ZERO, 1)
 	drops.tick(1.0)
@@ -517,7 +517,7 @@ func _test_swap_hold() -> void:
 	_section("replace by hold")
 	var at := Vector3(0, 1, 0)
 	var drops := _drops()
-	var r := DotWeaponDropRules.new()
+	var r := GSWeaponDropRules.new()
 	_check(not r.swap_hold and r.lie_flat, "defaults: a tap still replaces, drops lie flat")
 	_check(r.set_cvar("sv_weapon_drop_swap_hold", "1") and r.swap_hold, "sv_weapon_drop_swap_hold turns the hold on")
 	_check(r.set_cvar("sv_weapon_drop_flat", "0") and not r.lie_flat, "sv_weapon_drop_flat turns the lying off")
@@ -538,12 +538,12 @@ func _test_swap_hold() -> void:
 	drops.tick(1.0)
 	var info := drops.prompt_for(a, at, Vector3.FORWARD)
 	_check(info.get("mode") == "swap" and info.get("hold") == true and info.get("ammo_ok") == true, "prompt: replace needs a hold, ammo is on offer")
-	var key := DotWeaponUseKey.new()
+	var key := GSWeaponUseKey.new()
 	var _b := key.step(drops, a, at, Vector3.FORWARD, 2, true, 0.2)
 	var _c := key.step(drops, a, at, Vector3.FORWARD, 2, false, 0.0)
 	_check(a.carries(&"pistol") and not a.carries(&"rifle"), "a tap does not replace the weapon")
 	_check(a.ammo().count(pool) > 10, "a tap takes ammunition from the drop")
-	_check(DotWeaponUseKey.new().client_progress(info, true, 0.25, 0.5) > 0.4, "the circle fills on the client while held")
+	_check(GSWeaponUseKey.new().client_progress(info, true, 0.25, 0.5) > 0.4, "the circle fills on the client while held")
 	var _d := key.step(drops, a, at, Vector3.FORWARD, 2, true, 0.3)
 	_check(a.carries(&"pistol"), "held for less than the time: nothing yet")
 	var _e := key.step(drops, a, at, Vector3.FORWARD, 2, true, 0.3)
@@ -558,7 +558,7 @@ func _test_swap_hold() -> void:
 	drops.tick(1.0)
 	var full := drops.prompt_for(a, at, Vector3.FORWARD)
 	_check(full.get("ammo_ok") == false, "full ammunition: the take-ammo key is marked unusable")
-	var view := DotWeaponPickupView.new()
+	var view := GSWeaponPickupView.new()
 	_check("\u0336" in view.text_for(full), "and the prompt text crosses it out")
 	_check(not ("\u0336" in view.text_for(info)), "while a usable one is not crossed")
 	view.free()
@@ -600,7 +600,7 @@ func _test_lies_flat() -> void:
 	var rested: Array = []
 	drops.settled.connect(func(id: int, _at: Transform3D) -> void: rested.append(id))
 	var id := drops.spawn({"id": &"rifle", "magazine": 5, "reserve": 0}, Vector3(0, 1.4, 0), Vector3.UP * 1.5, 1)
-	for i in range(int((DotWeaponDrops.SETTLE_MAX_SEC + 3.0) * 60.0)):
+	for i in range(int((GSWeaponDrops.SETTLE_MAX_SEC + 3.0) * 60.0)):
 		if rested.has(id):
 			break
 		await get_tree().physics_frame

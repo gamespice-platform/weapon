@@ -1,7 +1,7 @@
-class_name DotWeaponSpawner
+class_name GSWeaponSpawner
 extends RefCounted
 
-## The server's spawner: sites, seeded draws from pools, respawn timers, caps. Authoritative; clients mirror it with [DotWeaponSpawnView].
+## The server's spawner: sites, seeded draws from pools, respawn timers, caps. Authoritative; clients mirror it with [GSWeaponSpawnView].
 ## It places nothing: it says "item X now lies at P" through [signal changed] and the game makes the pickup. Time is whatever clock the game passes to [method tick].
 ## Usage and determinism: docs/spawners.md.
 
@@ -14,7 +14,7 @@ const EV_SPAWN := &"spawn"
 ## Event: `[&"take", instance, taker]` (taker empty when the item expired or was removed).
 const EV_TAKE := &"take"
 
-## One event for every change a client must see; feed it to [method DotWeaponSpawnView.apply].
+## One event for every change a client must see; feed it to [method GSWeaponSpawnView.apply].
 signal changed(event: Array)
 signal spawned(instance: int, site: StringName, item: StringName, kind: StringName, at: Vector3)
 signal taken(instance: int, site: StringName, item: StringName, taker: StringName)
@@ -23,7 +23,7 @@ signal taken(instance: int, site: StringName, item: StringName, taker: StringNam
 const EMPTY_RETRIES := 5
 const EMPTY_RETRY_SECONDS := 5.0
 
-var config := DotWeaponSpawnerConfig.new()
+var config := GSWeaponSpawnerConfig.new()
 var map_id: String = ""
 var round_number: int = 0
 
@@ -33,7 +33,7 @@ var _order: Array[StringName] = []
 var _slots: Dictionary = {}
 var _live: Dictionary = {}
 var _draws: Dictionary = {}
-var _root: DotRandomStream = DotRandomStream.new(0, &"weapon_spawner")
+var _root: GSRandomStream = GSRandomStream.new(0, &"weapon_spawner")
 var _next_instance: int = 1
 var _now: float = 0.0
 var _warned: Dictionary = {}
@@ -49,11 +49,11 @@ func load_map(p_map_id: String, sites: Array = []) -> void:
 	_live.clear()
 	_draws.clear()
 	for s: Variant in sites:
-		add_site(s as DotWeaponSpawnSite)
+		add_site(s as GSWeaponSpawnSite)
 
 
 ## Adds one site, applying the config's per-id and default-pool overrides. Returns the site as kept.
-func add_site(site: DotWeaponSpawnSite) -> DotWeaponSpawnSite:
+func add_site(site: GSWeaponSpawnSite) -> GSWeaponSpawnSite:
 	var kept := site.duplicate_site()
 	var over: Variant = (_structure.get("sites", {}) as Dictionary).get(String(kept.id))
 	if over is Dictionary:
@@ -67,9 +67,9 @@ func add_site(site: DotWeaponSpawnSite) -> DotWeaponSpawnSite:
 
 
 ## Sites from map entities `{classname, origin (Vector3 or [x,y,z]), angle (degrees, optional), props (strings fine)}`: the config's `classes` globs (and [constant ENTITY_CLASS]) pick the entities, their mapping is the site's defaults, the entity's `props` come over that. Returns the sites added.
-func add_entities(entities: Array) -> Array[DotWeaponSpawnSite]:
+func add_entities(entities: Array) -> Array[GSWeaponSpawnSite]:
 	var classes: Dictionary = _structure.get("classes", {})
-	var out: Array[DotWeaponSpawnSite] = []
+	var out: Array[GSWeaponSpawnSite] = []
 	var index := 0
 	for e: Variant in entities:
 		if not (e is Dictionary):
@@ -89,7 +89,7 @@ func add_entities(entities: Array) -> Array[DotWeaponSpawnSite]:
 			d.merge(defaults as Dictionary, true)
 		if ed.get("props") is Dictionary:
 			d.merge(ed["props"] as Dictionary, true)
-		out.append(add_site(DotWeaponSpawnSite.from_dictionary(d)))
+		out.append(add_site(GSWeaponSpawnSite.from_dictionary(d)))
 	return out
 
 
@@ -97,26 +97,26 @@ func add_entities(entities: Array) -> Array[DotWeaponSpawnSite]:
 func begin_round(now: float, p_round: int) -> void:
 	_now = now
 	round_number = p_round
-	_root = DotRandomStream.new(config.seed_override() if config.seed_override() != 0 else map_id.hash(), &"weapon_spawner")
+	_root = GSRandomStream.new(config.seed_override() if config.seed_override() != 0 else map_id.hash(), &"weapon_spawner")
 	for inst: int in _live.keys():
 		_remove(inst, &"")
 	_draws.clear()
 	_slots.clear()
 	for sid in _order:
-		var site: DotWeaponSpawnSite = _sites[sid]
+		var site: GSWeaponSpawnSite = _sites[sid]
 		var slots: Array = []
 		if config.enabled() and site.enabled:
 			for i in _cap(site):
 				slots.append({"inst": 0, "ready": now + site.initial_delay, "until": 0.0})
 		_slots[sid] = slots
-	DotLog.info(CHANNEL, "round begun", {"map": map_id, "round": p_round, "sites": _order.size()})
+	GSLog.info(CHANNEL, "round begun", {"map": map_id, "round": p_round, "sites": _order.size()})
 
 
 ## Spawns what is due and expires what has lain too long. Call every server tick with the game clock.
 func tick(now: float) -> void:
 	_now = now
 	for sid in _order:
-		var site: DotWeaponSpawnSite = _sites[sid]
+		var site: GSWeaponSpawnSite = _sites[sid]
 		for slot: Dictionary in _slots.get(sid, []):
 			if int(slot["inst"]) != 0:
 				if float(slot["until"]) > 0.0 and now >= float(slot["until"]):
@@ -127,25 +127,25 @@ func tick(now: float) -> void:
 
 
 ## The item [param instance] was used up by [param taker]: frees its slot and starts the respawn timer. Fails (CODE_STATE) for an instance already gone, so two players using one pickup in a tick cannot both win. Value: `{item, kind, site, data}`.
-func take(instance: int, taker: StringName = &"") -> DotResult:
+func take(instance: int, taker: StringName = &"") -> GSResult:
 	if not _live.has(instance):
-		return DotResult.fail(DotError.CODE_STATE, "no live spawner item %d" % instance)
+		return GSResult.fail(GSError.CODE_STATE, "no live spawner item %d" % instance)
 	var info: Dictionary = (_live[instance] as Dictionary).duplicate()
 	var slot: Dictionary = info["slot"]
 	_remove(instance, taker)
 	_schedule(_sites[info["site"]], slot)
-	return DotResult.success({"item": info["item"], "kind": info["kind"], "site": info["site"], "data": info["data"]})
+	return GSResult.success({"item": info["item"], "kind": info["kind"], "site": info["site"], "data": info["data"]})
 
 
 ## What site [param site_id] gives at draw number [param index], without spawning (a trader's shelf, a preview): `{id, kind, weight, tags, data}`, empty when the site or pool is unknown or the filter leaves nothing.
 func roll(site_id: StringName, index: int) -> Dictionary:
 	if not _sites.has(site_id):
 		return {}
-	var site: DotWeaponSpawnSite = _sites[site_id]
+	var site: GSWeaponSpawnSite = _sites[site_id]
 	if site.item != &"":
 		return {"id": site.item, "kind": site.kind, "data": site.data.duplicate(true)}
 	var pool_id := config.pool_override() if config.pool_override() != &"" else site.pool
-	var pool: DotWeaponSpawnPool = (_structure.get("pools", {}) as Dictionary).get(pool_id)
+	var pool: GSWeaponSpawnPool = (_structure.get("pools", {}) as Dictionary).get(pool_id)
 	if pool == null:
 		return {}
 	return pool.pick(site.filter, _stream(site_id).unit_at(2 * index))
@@ -156,7 +156,7 @@ func live() -> Dictionary:
 	var out := {}
 	for inst: int in _live:
 		var i: Dictionary = _live[inst]
-		out[inst] = {"site": i["site"], "item": i["item"], "kind": i["kind"], "at": (_sites[i["site"]] as DotWeaponSpawnSite).position, "data": i["data"]}
+		out[inst] = {"site": i["site"], "item": i["item"], "kind": i["kind"], "at": (_sites[i["site"]] as GSWeaponSpawnSite).position, "data": i["data"]}
 	return out
 
 
@@ -169,7 +169,7 @@ func site_ids() -> Array[StringName]:
 	return _order
 
 
-func site(id: StringName) -> DotWeaponSpawnSite:
+func site(id: StringName) -> GSWeaponSpawnSite:
 	return _sites.get(id)
 
 
@@ -192,7 +192,7 @@ func seconds_until(site_id: StringName) -> float:
 	return best
 
 
-## Everything a joining client needs: `{round, items: [spawn events], waiting: [[site, seconds]]}`; feed it to [method DotWeaponSpawnView.apply_snapshot].
+## Everything a joining client needs: `{round, items: [spawn events], waiting: [[site, seconds]]}`; feed it to [method GSWeaponSpawnView.apply_snapshot].
 func snapshot() -> Dictionary:
 	var items: Array = []
 	for inst: int in _live:
@@ -206,29 +206,29 @@ func snapshot() -> Dictionary:
 
 
 func describe_lines() -> PackedStringArray:
-	var out := PackedStringArray(["DotWeaponSpawner map=%s round=%d sites=%d alive=%d" % [map_id, round_number, _order.size(), _live.size()]])
+	var out := PackedStringArray(["GSWeaponSpawner map=%s round=%d sites=%d alive=%d" % [map_id, round_number, _order.size(), _live.size()]])
 	for sid in _order:
-		out.append("  %s pool=%s alive=%d next=%.1fs" % [sid, (_sites[sid] as DotWeaponSpawnSite).pool, alive(sid), seconds_until(sid)])
+		out.append("  %s pool=%s alive=%d next=%.1fs" % [sid, (_sites[sid] as GSWeaponSpawnSite).pool, alive(sid), seconds_until(sid)])
 	return out
 
 
-func _cap(site: DotWeaponSpawnSite) -> int:
+func _cap(site: GSWeaponSpawnSite) -> int:
 	if site.max_alive <= 0 or config.max_scale() <= 0.0:
 		return 0
 	var want := maxi(roundi(site.max_alive * config.max_scale()), 1)
 	if want > config.max_alive_cap:
 		if not _warned.has(StringName("cap_" + String(site.id))):
 			_warned[StringName("cap_" + String(site.id))] = true
-			DotLog.warn(CHANNEL, "a spawner site's max_alive was clamped", {"site": String(site.id), "wanted": want, "cap": config.max_alive_cap})
+			GSLog.warn(CHANNEL, "a spawner site's max_alive was clamped", {"site": String(site.id), "wanted": want, "cap": config.max_alive_cap})
 		return config.max_alive_cap
 	return want
 
 
-func _stream(site_id: StringName) -> DotRandomStream:
+func _stream(site_id: StringName) -> GSRandomStream:
 	return _root.stream(site_id).stream_for(&"round", round_number)
 
 
-func _schedule(site: DotWeaponSpawnSite, slot: Dictionary) -> void:
+func _schedule(site: GSWeaponSpawnSite, slot: Dictionary) -> void:
 	slot["inst"] = 0
 	if site.one_shot:
 		slot["ready"] = -1.0
@@ -238,7 +238,7 @@ func _schedule(site: DotWeaponSpawnSite, slot: Dictionary) -> void:
 	slot["ready"] = _now + site.respawn_seconds * config.respawn_scale() * (1.0 + jitter)
 
 
-func _try_spawn(site: DotWeaponSpawnSite, slot: Dictionary) -> void:
+func _try_spawn(site: GSWeaponSpawnSite, slot: Dictionary) -> void:
 	if site.group != &"":
 		var cap: Variant = (_structure.get("groups", {}) as Dictionary).get(String(site.group))
 		if cap != null and _group_alive(site.group) >= maxi(roundi(float(cap) * config.max_scale()), 1 if float(cap) > 0.0 else 0):
@@ -249,7 +249,7 @@ func _try_spawn(site: DotWeaponSpawnSite, slot: Dictionary) -> void:
 	if entry.is_empty():
 		if not _warned.has(site.id):
 			_warned[site.id] = true
-			DotLog.warn(CHANNEL, "a spawner site has nothing to draw", {"site": String(site.id), "pool": String(site.pool)})
+			GSLog.warn(CHANNEL, "a spawner site has nothing to draw", {"site": String(site.id), "pool": String(site.pool)})
 		var tries: int = int(slot.get("retries", 0))
 		if tries < EMPTY_RETRIES:
 			slot["retries"] = tries + 1
@@ -272,14 +272,14 @@ func _try_spawn(site: DotWeaponSpawnSite, slot: Dictionary) -> void:
 
 func _spawn_event(inst: int) -> Array:
 	var i: Dictionary = _live[inst]
-	var site: DotWeaponSpawnSite = _sites[i["site"]]
+	var site: GSWeaponSpawnSite = _sites[i["site"]]
 	return [EV_SPAWN, inst, i["site"], i["item"], i["kind"], site.position, site.rotation_y, i["data"]]
 
 
 func _group_alive(group: StringName) -> int:
 	var n := 0
 	for inst: int in _live:
-		if (_sites[(_live[inst] as Dictionary)["site"]] as DotWeaponSpawnSite).group == group:
+		if (_sites[(_live[inst] as Dictionary)["site"]] as GSWeaponSpawnSite).group == group:
 			n += 1
 	return n
 

@@ -1,7 +1,7 @@
-class_name DotWeaponTrajectory
+class_name GSWeaponTrajectory
 extends RefCounted
 
-## Pure ballistic maths for [DotWeaponBallistics]: fixed sub-steps with a ray per step (no tunnelling),
+## Pure ballistic maths for [GSWeaponBallistics]: fixed sub-steps with a ray per step (no tunnelling),
 ## damage falloff, and the aim solver bots use. No nodes, no clock, no random stream, so server, client
 ## and replay agree. A game batches bullets in one node and calls [method fly] for each.
 
@@ -13,12 +13,12 @@ const GRAVITY := 9.8
 
 
 ## True when [param b] asks for a simulated bullet rather than a hitscan.
-static func is_simulated(b: DotWeaponBallistics) -> bool:
+static func is_simulated(b: GSWeaponBallistics) -> bool:
 	return b != null and b.muzzle_velocity > 0.0
 
 
 ## One sub-step: returns [new_pos, new_vel]. Semi-implicit Euler, drag applied to speed.
-static func step(pos: Vector3, vel: Vector3, b: DotWeaponBallistics, dt: float = STEP) -> Array:
+static func step(pos: Vector3, vel: Vector3, b: GSWeaponBallistics, dt: float = STEP) -> Array:
 	vel += Vector3.DOWN * GRAVITY * b.bullet_gravity * dt
 	var speed := vel.length()
 	if speed > 0.0 and b.drag > 0.0:
@@ -29,7 +29,7 @@ static func step(pos: Vector3, vel: Vector3, b: DotWeaponBallistics, dt: float =
 ## Flies a bullet from [param origin] along [param dir] until it hits, runs out of range or outlives [param max_time].
 ## [param cast] is `func(from, to) -> Dictionary` (empty = clear), called once per sub-step over the whole segment.
 ## Returns `{hit, position, time, distance, speed, path_end}`.
-static func fly(origin: Vector3, dir: Vector3, b: DotWeaponBallistics, cast: Callable, max_time: float = 10.0) -> Dictionary:
+static func fly(origin: Vector3, dir: Vector3, b: GSWeaponBallistics, cast: Callable, max_time: float = 10.0) -> Dictionary:
 	var pos := origin
 	var vel := dir.normalized() * b.muzzle_velocity
 	var t := 0.0
@@ -51,7 +51,7 @@ static func fly(origin: Vector3, dir: Vector3, b: DotWeaponBallistics, cast: Cal
 
 ## Vertical drop in metres below the bore line, flight time and remaining speed at horizontal
 ## [param range_m] for a bullet fired level.
-static func drop_at(b: DotWeaponBallistics, range_m: float) -> Dictionary:
+static func drop_at(b: GSWeaponBallistics, range_m: float) -> Dictionary:
 	var pos := Vector3.ZERO
 	var vel := Vector3(0.0, 0.0, -b.muzzle_velocity)
 	var t := 0.0
@@ -64,7 +64,7 @@ static func drop_at(b: DotWeaponBallistics, range_m: float) -> Dictionary:
 
 
 ## Damage multiplier at [param dist] metres: 1 up to falloff_start, then linear to falloff_min at max_range.
-static func falloff(b: DotWeaponBallistics, dist: float) -> float:
+static func falloff(b: GSWeaponBallistics, dist: float) -> float:
 	if b.falloff_min >= 1.0 or dist <= b.falloff_start or b.max_range <= b.falloff_start:
 		return 1.0
 	return lerpf(1.0, b.falloff_min, clampf((dist - b.falloff_start) / (b.max_range - b.falloff_start), 0.0, 1.0))
@@ -72,7 +72,7 @@ static func falloff(b: DotWeaponBallistics, dist: float) -> float:
 
 ## Damage after passing [param thickness] metres of material that stops [param stopping] metres of
 ## penetration depth at full strength. Returns the multiplier, 0 when stopped.
-static func through(b: DotWeaponBallistics, thickness: float, stopping: float = 1.0) -> float:
+static func through(b: GSWeaponBallistics, thickness: float, stopping: float = 1.0) -> float:
 	if b.penetration <= 0.0:
 		return 0.0
 	var need := thickness * maxf(stopping, 0.0001)
@@ -82,7 +82,7 @@ static func through(b: DotWeaponBallistics, thickness: float, stopping: float = 
 ## Scope holdover: radians to aim above the sight line at [param range_m] for a scope zeroed at
 ## [param zero_m] (the range where bore and sight cross). 0 at the zero, positive beyond it. NAN
 ## when either range is out of reach. Reticle marks are this in mils ([method holdover_mils]).
-static func holdover(b: DotWeaponBallistics, zero_m: float, range_m: float) -> float:
+static func holdover(b: GSWeaponBallistics, zero_m: float, range_m: float) -> float:
 	var at := solve_pitch(b, range_m)
 	var zero := solve_pitch(b, zero_m)
 	if is_nan(at) or is_nan(zero):
@@ -91,12 +91,12 @@ static func holdover(b: DotWeaponBallistics, zero_m: float, range_m: float) -> f
 
 
 ## [method holdover] in milliradians (1 mil = 1 m at 1000 m), the unit range-marked reticles use.
-static func holdover_mils(b: DotWeaponBallistics, zero_m: float, range_m: float) -> float:
+static func holdover_mils(b: GSWeaponBallistics, zero_m: float, range_m: float) -> float:
 	return holdover(b, zero_m, range_m) * 1000.0
 
 
 ## Reticle marks for [param ranges]: an array of `{range, mils}` (mils NAN when out of reach).
-static func holdover_marks(b: DotWeaponBallistics, zero_m: float, ranges: PackedFloat32Array) -> Array:
+static func holdover_marks(b: GSWeaponBallistics, zero_m: float, ranges: PackedFloat32Array) -> Array:
 	var out: Array = []
 	for r in ranges:
 		out.append({"range": r, "mils": holdover_mils(b, zero_m, r)})
@@ -113,7 +113,7 @@ const RICOCHET_KEEP := 0.7
 ## Ricochet of a bullet along [param dir] off a hard surface with unit [param normal]; [param roll] is 0..1 from the caller's
 ## seeded stream (so server, client and replay agree). Returns `{ricochet, dir, speed_scale, angle}`: it bounces (mirrored about the
 ## surface) when the grazing angle is within [constant RICOCHET_MAX_ANGLE] and roll is under ricochet_chance, scaled down towards the limit.
-static func ricochet(b: DotWeaponBallistics, dir: Vector3, normal: Vector3, roll: float) -> Dictionary:
+static func ricochet(b: GSWeaponBallistics, dir: Vector3, normal: Vector3, roll: float) -> Dictionary:
 	var d := dir.normalized()
 	var n := normal.normalized()
 	var angle := asin(clampf(absf(d.dot(n)), 0.0, 1.0))
@@ -131,7 +131,7 @@ static func ricochet(b: DotWeaponBallistics, dir: Vector3, normal: Vector3, roll
 
 ## Pitch in radians above the line to the target that lands the bullet on a target [param range_m]
 ## away horizontally and [param height] metres above the muzzle. NAN when out of reach.
-static func solve_pitch(b: DotWeaponBallistics, range_m: float, height: float = 0.0) -> float:
+static func solve_pitch(b: GSWeaponBallistics, range_m: float, height: float = 0.0) -> float:
 	var lo := -0.5
 	var hi := 0.8
 	if _miss_height(b, hi, range_m, height) < 0.0:
@@ -147,7 +147,7 @@ static func solve_pitch(b: DotWeaponBallistics, range_m: float, height: float = 
 
 ## Aim point for a moving target: the position to aim the bore at (drop compensated) given the
 ## target's position and velocity. Iterates the flight time, which converges in a few passes.
-static func lead(b: DotWeaponBallistics, muzzle: Vector3, target: Vector3, target_vel: Vector3) -> Vector3:
+static func lead(b: GSWeaponBallistics, muzzle: Vector3, target: Vector3, target_vel: Vector3) -> Vector3:
 	var aim := target
 	for i in 4:
 		var flat := Vector2(aim.x - muzzle.x, aim.z - muzzle.z)
@@ -170,7 +170,7 @@ static func lead(b: DotWeaponBallistics, muzzle: Vector3, target: Vector3, targe
 
 
 ## Flight time to horizontal [param range_m] when fired at [param pitch] radians.
-static func drop_time(b: DotWeaponBallistics, range_m: float, pitch: float) -> float:
+static func drop_time(b: GSWeaponBallistics, range_m: float, pitch: float) -> float:
 	var pos := Vector3.ZERO
 	var vel := Vector3(0.0, sin(pitch), -cos(pitch)) * b.muzzle_velocity
 	var t := 0.0
@@ -184,7 +184,7 @@ static func drop_time(b: DotWeaponBallistics, range_m: float, pitch: float) -> f
 
 # Height of the bullet above the target when it reaches the target's range, fired at [param pitch]
 # relative to the line to the target (negative = below).
-static func _miss_height(b: DotWeaponBallistics, pitch: float, range_m: float, height: float) -> float:
+static func _miss_height(b: GSWeaponBallistics, pitch: float, range_m: float, height: float) -> float:
 	var angle := pitch
 	var pos := Vector3.ZERO
 	var vel := Vector3(0.0, sin(angle), -cos(angle)) * b.muzzle_velocity

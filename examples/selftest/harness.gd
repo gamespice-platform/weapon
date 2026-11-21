@@ -38,7 +38,7 @@ func _close(got: float, want: float, what: String, epsilon: float = 0.01) -> boo
 	return _check(absf(got - want) <= epsilon, what, "got %.4f, want %.4f" % [got, want])
 
 
-func _catalogue_extra() -> DotWeaponDef:
+func _catalogue_extra() -> GSWeaponDef:
 	var d := _pistol()
 	d.id = &"toy_blaster"
 	return d
@@ -52,8 +52,8 @@ const _THROWN := "res://addons/dot_weapon/behaviour/dot_weapon_thrown.gd"
 const _ROD := "res://fixtures/lightning_rod.gd"
 
 
-func _ballistics(damage: float) -> DotWeaponBallistics:
-	var b := DotWeaponBallistics.new()
+func _ballistics(damage: float) -> GSWeaponBallistics:
+	var b := GSWeaponBallistics.new()
 	b.damage = damage
 	b.spread = 0.0
 	b.spread_moving = 0.0
@@ -65,13 +65,13 @@ func _ballistics(damage: float) -> DotWeaponBallistics:
 	return b
 
 
-func _rifle() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _rifle() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"rifle"
 	d.display_name = "Rifle"
 	d.behaviour_path = _HITSCAN
 	d.slot = 1
-	d.fire_mode = DotWeaponDef.Fire.AUTO
+	d.fire_mode = GSWeaponDef.Fire.AUTO
 	d.use_interval_ticks = 6
 	d.magazine = 30
 	d.reserve = 90
@@ -84,12 +84,12 @@ func _rifle() -> DotWeaponDef:
 	return d
 
 
-func _pistol() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _pistol() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"pistol"
 	d.behaviour_path = _HITSCAN
 	d.slot = 2
-	d.fire_mode = DotWeaponDef.Fire.SEMI
+	d.fire_mode = GSWeaponDef.Fire.SEMI
 	d.use_interval_ticks = 8
 	d.magazine = 12
 	d.reserve = 36
@@ -101,12 +101,12 @@ func _pistol() -> DotWeaponDef:
 	return d
 
 
-func _bow() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _bow() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"bow"
 	d.behaviour_path = _PROJECTILE
 	d.slot = 3
-	d.fire_mode = DotWeaponDef.Fire.CHARGE
+	d.fire_mode = GSWeaponDef.Fire.CHARGE
 	d.charge_ticks = 64
 	d.use_interval_ticks = 8
 	d.ammo_type = &"arrows"
@@ -124,12 +124,12 @@ func _bow() -> DotWeaponDef:
 	return d
 
 
-func _knife() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _knife() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"knife"
 	d.behaviour_path = _MELEE
 	d.slot = 4
-	d.fire_mode = DotWeaponDef.Fire.SEMI
+	d.fire_mode = GSWeaponDef.Fire.SEMI
 	d.use_interval_ticks = 20
 	d.deploy_ticks = 0
 	d.holster_ticks = 0
@@ -141,12 +141,12 @@ func _knife() -> DotWeaponDef:
 	return d
 
 
-func _flamer() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _flamer() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"flamer"
 	d.behaviour_path = _BEAM
 	d.slot = 5
-	d.fire_mode = DotWeaponDef.Fire.HOLD
+	d.fire_mode = GSWeaponDef.Fire.HOLD
 	d.use_interval_ticks = 4
 	d.ammo_type = &"fuel"
 	d.reserve = 200
@@ -161,12 +161,12 @@ func _flamer() -> DotWeaponDef:
 	return d
 
 
-func _grenade() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _grenade() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"grenade"
 	d.behaviour_path = _THROWN
 	d.slot = 6
-	d.fire_mode = DotWeaponDef.Fire.CHARGE
+	d.fire_mode = GSWeaponDef.Fire.CHARGE
 	d.charge_ticks = 192
 	d.use_interval_ticks = 30
 	d.ammo_type = &"grenades"
@@ -185,12 +185,12 @@ func _grenade() -> DotWeaponDef:
 	return d
 
 
-func _rod() -> DotWeaponDef:
-	var d := DotWeaponDef.new()
+func _rod() -> GSWeaponDef:
+	var d := GSWeaponDef.new()
 	d.id = &"rod"
 	d.behaviour_path = _ROD
 	d.slot = 7
-	d.fire_mode = DotWeaponDef.Fire.SEMI
+	d.fire_mode = GSWeaponDef.Fire.SEMI
 	d.use_interval_ticks = 5
 	d.ammo_type = &"charges"
 	d.reserve = 9
@@ -201,15 +201,15 @@ func _rod() -> DotWeaponDef:
 	return d
 
 
-func _catalogue() -> DotWeaponCatalogue:
-	var c := DotWeaponCatalogue.new()
+func _catalogue() -> GSWeaponCatalogue:
+	var c := GSWeaponCatalogue.new()
 	c.add(_rifle()).add(_pistol()).add(_bow()).add(_knife())
 	c.add(_flamer()).add(_grenade()).add(_rod())
 	return c
 
 
-func _arsenal(catalogue: DotWeaponCatalogue = null) -> DotWeaponArsenal:
-	var a := DotWeaponArsenal.new()
+func _arsenal(catalogue: GSWeaponCatalogue = null) -> GSWeaponArsenal:
+	var a := GSWeaponArsenal.new()
 	a.catalogue = catalogue if catalogue != null else _catalogue()
 	a.tick_rate = RATE
 	a.authority = true
@@ -220,27 +220,27 @@ func _arsenal(catalogue: DotWeaponCatalogue = null) -> DotWeaponArsenal:
 	return a
 
 
-func _ctx(tick: int, entity: int = 1) -> DotWeaponContext:
-	return DotWeaponContext.make(entity, tick, Vector3(0.0, 1.6, 0.0), Vector3.FORWARD)
+func _ctx(tick: int, entity: int = 1) -> GSWeaponContext:
+	return GSWeaponContext.make(entity, tick, Vector3(0.0, 1.6, 0.0), Vector3.FORWARD)
 
 
-func _cmd(attack: bool = false, slot: int = 0) -> DotWeaponCommand:
-	var c := DotWeaponCommand.new()
-	c.set_button(DotWeaponCommand.BUTTON_ATTACK, attack)
+func _cmd(attack: bool = false, slot: int = 0) -> GSWeaponCommand:
+	var c := GSWeaponCommand.new()
+	c.set_button(GSWeaponCommand.BUTTON_ATTACK, attack)
 	c.slot = slot
 	return c
 
 
 ## Runs an arsenal for a span of ticks, holding the given buttons, collecting outcomes.
 func _drive(
-	arsenal: DotWeaponArsenal,
+	arsenal: GSWeaponArsenal,
 	from_tick: int,
 	ticks: int,
 	attack: bool,
 	entity: int = 1
-) -> Array[DotWeaponOutcome]:
-	var out: Array[DotWeaponOutcome] = []
-	var previous: DotWeaponCommand = null
+) -> Array[GSWeaponOutcome]:
+	var out: Array[GSWeaponOutcome] = []
+	var previous: GSWeaponCommand = null
 
 	for i in range(ticks):
 		var cmd := _cmd(attack)

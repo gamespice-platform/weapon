@@ -1,4 +1,4 @@
-class_name DotWeaponBullets
+class_name GSWeaponBullets
 extends Node
 
 ## Every simulated bullet in one node (no node per bullet), stepped once per game tick. Server authority: [signal hit]
@@ -7,7 +7,7 @@ extends Node
 
 ## Bullet [param id] hit [param info] (the cast result) after [param distance] metres.
 ## [param damage_mult] is the falloff multiplier at that distance.
-signal hit(id: int, owner_id: int, info: Dictionary, distance: float, damage_mult: float, tuning: DotWeaponBallistics)
+signal hit(id: int, owner_id: int, info: Dictionary, distance: float, damage_mult: float, tuning: GSWeaponBallistics)
 ## A tracer bullet moved from [param from] to [param to] this tick.
 signal tracer(id: int, from: Vector3, to: Vector3)
 ## Emitted just before the world is rewound for [param owner_id]'s bullet, so a game can leave the shooter where they are.
@@ -20,7 +20,7 @@ var cast_fn: Callable = Callable()
 ## `func(tick: float)` and `func()`, as GameSpice Combat's.
 var rewind_fn: Callable = Callable()
 var restore_fn: Callable = Callable()
-var rules: DotWeaponBallisticsRules = null
+var rules: GSWeaponBallisticsRules = null
 var tick_rate: int = 64
 
 var _next_id: int = 1
@@ -56,15 +56,15 @@ func despawn(id: int) -> bool:
 
 
 ## Starts a bullet; returns its id, or 0 when rules are off, the weapon is hitscan, or the cap is hit.
-func spawn(owner_id: int, origin: Vector3, dir: Vector3, b: DotWeaponBallistics, lag_ticks: float = 0.0) -> int:
-	if not DotWeaponBallisticsRules.simulates(rules, b) or _ids.size() >= int(rules.max_bullets):
+func spawn(owner_id: int, origin: Vector3, dir: Vector3, b: GSWeaponBallistics, lag_ticks: float = 0.0) -> int:
+	if not GSWeaponBallisticsRules.simulates(rules, b) or _ids.size() >= int(rules.max_bullets):
 		return 0
 	var key := b.get_instance_id()
 	if not _scaled.has(key):
 		_scaled[key] = rules.scaled(b)
 		if not rules.changed.is_connected(_drop_cache):
 			rules.changed.connect(_drop_cache)
-	var eff: DotWeaponBallistics = _scaled[key]
+	var eff: GSWeaponBallistics = _scaled[key]
 	var id := _next_id
 	_next_id += 1
 	_ids.append(id)
@@ -82,7 +82,7 @@ func spawn(owner_id: int, origin: Vector3, dir: Vector3, b: DotWeaponBallistics,
 
 ## Advances every bullet by one game tick at [param now_tick]. Call from the physics tick on the server.
 func step(now_tick: float) -> void:
-	var subs := maxi(1, roundi(1.0 / (float(tick_rate) * DotWeaponTrajectory.STEP)))
+	var subs := maxi(1, roundi(1.0 / (float(tick_rate) * GSWeaponTrajectory.STEP)))
 	var i := _ids.size() - 1
 	while i >= 0:
 		if _fly_tick(i, now_tick, subs):
@@ -91,7 +91,7 @@ func step(now_tick: float) -> void:
 
 
 func _fly_tick(i: int, now_tick: float, subs: int) -> bool:
-	var b: DotWeaponBallistics = _tuning[i]
+	var b: GSWeaponBallistics = _tuning[i]
 	var start := _pos[i]
 	var rewound := false
 	if _lags[i] > 0.0 and rewind_fn.is_valid() and restore_fn.is_valid():
@@ -100,14 +100,14 @@ func _fly_tick(i: int, now_tick: float, subs: int) -> bool:
 		rewound = true
 	var done := false
 	for _s in subs:
-		var st := DotWeaponTrajectory.step(_pos[i], _vel[i], b)
+		var st := GSWeaponTrajectory.step(_pos[i], _vel[i], b)
 		var next: Vector3 = st[0]
 		var h: Dictionary = cast_fn.call(_pos[i], next, _owners[i]) if cast_fn.is_valid() else {}
 		if not h.is_empty():
 			var at: Vector3 = h.get("position", next)
 			_dist[i] += _pos[i].distance_to(at)
 			_pos[i] = at
-			hit.emit(_ids[i], _owners[i], h, _dist[i], DotWeaponTrajectory.falloff(b, _dist[i]), b)
+			hit.emit(_ids[i], _owners[i], h, _dist[i], GSWeaponTrajectory.falloff(b, _dist[i]), b)
 			done = true
 			break
 		_dist[i] += _pos[i].distance_to(next)

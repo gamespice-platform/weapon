@@ -1,10 +1,10 @@
-class_name DotWeaponUseKey
+class_name GSWeaponUseKey
 extends RefCounted
 
 ## One player's use key over a dropped weapon. Keep one per player and call [method step] every tick with the key state.
-## Over a free slot the press takes at once; over a different weapon it replaces at once unless [member DotWeaponDropRules.swap_hold]; over the weapon in hand (or with swap_hold) a tap takes its ammo and a hold of [member DotWeaponDropRules.hold_time] replaces it; looking away or letting go cancels.
+## Over a free slot the press takes at once; over a different weapon it replaces at once unless [member GSWeaponDropRules.swap_hold]; over the weapon in hand (or with swap_hold) a tap takes its ammo and a hold of [member GSWeaponDropRules.hold_time] replaces it; looking away or letting go cancels.
 
-var hold := DotWeaponUseHold.new()
+var hold := GSWeaponUseHold.new()
 var _was_down: bool = false
 
 
@@ -14,7 +14,7 @@ static func _holds(info: Dictionary) -> bool:
 
 
 ## Server side. Returns true while the key is busy with a drop (so nothing else should act on it).
-func step(drops: DotWeaponDrops, arsenal: Object, position: Vector3, direction: Vector3, taker_id: int,
+func step(drops: GSWeaponDrops, arsenal: Object, position: Vector3, direction: Vector3, taker_id: int,
 		pressed: bool, delta: float, source: Object = null, taker_team: int = 0) -> bool:
 	var edge := pressed and not _was_down
 	_was_down = pressed
@@ -29,9 +29,9 @@ func step(drops: DotWeaponDrops, arsenal: Object, position: Vector3, direction: 
 			var _taken := drops.use(arsenal, position, direction, taker_id, source, false)
 		return pressed
 	var event := hold.step(pressed, delta)
-	if event != DotWeaponUseHold.Event.NONE:
-		var _used := drops.use(arsenal, position, direction, taker_id, source, event == DotWeaponUseHold.Event.HOLD)
-	return pressed or event != DotWeaponUseHold.Event.NONE
+	if event != GSWeaponUseHold.Event.NONE:
+		var _used := drops.use(arsenal, position, direction, taker_id, source, event == GSWeaponUseHold.Event.HOLD)
+	return pressed or event != GSWeaponUseHold.Event.NONE
 
 
 ## Client side, for the progress ring: 0..1 while the key is held over the weapon in hand, else 0.

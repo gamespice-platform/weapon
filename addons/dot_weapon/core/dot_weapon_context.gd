@@ -1,4 +1,4 @@
-class_name DotWeaponContext
+class_name GSWeaponContext
 extends RefCounted
 
 ## Everything a behaviour is told about one use, and nothing it could use to cheat.
@@ -13,9 +13,9 @@ extends RefCounted
 ## [b]Every field is an input to a pure function.[/b] Two machines handed the same
 ## context must produce the same outcome, because one of them is predicting what the
 ## other will do. Nothing here is a wall clock and nothing here is drawn from a random
-## stream; see GameSpice Combat's [DotSpread] for why that matters more than it looks.
+## stream; see GameSpice Combat's [GSSpread] for why that matters more than it looks.
 
-## The carrier, in the game's own id space. Matched against [member DotDamage.attacker].
+## The carrier, in the game's own id space. Matched against [member GSDamage.attacker].
 var entity: int = 0
 
 ## The tick this use happens on. Authoritative on a server, claimed on a client.
@@ -33,13 +33,13 @@ var origin: Vector3 = Vector3.ZERO
 ## Unit aim direction, before any spread the behaviour applies.
 var direction: Vector3 = Vector3.FORWARD
 
-## 0..1 for a [constant DotWeaponDef.Fire.CHARGE] weapon, 1 for everything else.
+## 0..1 for a [constant GSWeaponDef.Fire.CHARGE] weapon, 1 for everything else.
 ##
 ## A bow reads this and scales its arrow; a railgun reads it and scales its damage; a
 ## pistol ignores it and gets 1.
 var charge: float = 1.0
 
-## Ticks the use button has been held, for a [constant DotWeaponDef.Fire.HOLD] weapon.
+## Ticks the use button has been held, for a [constant GSWeaponDef.Fire.HOLD] weapon.
 ##
 ## A flamethrower that ramps up, a repair tool that heals faster the longer it is on
 ## one target, a physics gun that has been holding something for a while.
@@ -78,7 +78,7 @@ var sprint_blocks_fire: bool = false
 ## Whether a sprinting shot leaves along the lowered barrel (the controller's `sv_sprint_barrel`); the weapon rig turns [member direction].
 var sprint_shot_follows_barrel: bool = false
 
-## Whether the carrier is aiming down sights (the command's [constant DotWeaponCommand.BUTTON_AIM]).
+## Whether the carrier is aiming down sights (the command's [constant GSWeaponCommand.BUTTON_AIM]).
 var aiming: bool = false
 
 ## Set on a use produced by a replay rather than by a fresh command.
@@ -103,8 +103,8 @@ static func make(
 	p_tick: int,
 	p_origin: Vector3,
 	p_direction: Vector3
-) -> DotWeaponContext:
-	var ctx := DotWeaponContext.new()
+) -> GSWeaponContext:
+	var ctx := GSWeaponContext.new()
 	ctx.entity = p_entity
 	ctx.tick = p_tick
 	ctx.origin = p_origin
@@ -125,4 +125,4 @@ func describe() -> Dictionary:
 
 
 func _to_string() -> String:
-	return "DotWeaponContext(entity %d, tick %d, index %d)" % [entity, tick, index]
+	return "GSWeaponContext(entity %d, tick %d, index %d)" % [entity, tick, index]

@@ -4,12 +4,12 @@ extends "sections_ballistics.gd"
 ## settling, flinch, the global scales, profile overrides, recoil posture and client/server agreement.
 
 
-func _heavy() -> DotWeaponDef:
+func _heavy() -> GSWeaponDef:
 	var d := _rifle()
 	d.id = &"lmg_test"
 	d.use_interval_ticks = 5
 	d.magazine = 200
-	var b := DotWeaponBallistics.new()
+	var b := GSWeaponBallistics.new()
 	b.damage = 20.0
 	b.spread = 0.9
 	b.spread_moving = 3.8
@@ -25,15 +25,15 @@ func _heavy() -> DotWeaponDef:
 	return d
 
 
-func _heavy_arsenal() -> DotWeaponArsenal:
-	var c := DotWeaponCatalogue.new()
+func _heavy_arsenal() -> GSWeaponArsenal:
+	var c := GSWeaponCatalogue.new()
 	c.add(_heavy())
 	var a := _arsenal(c)
 	a.give(&"lmg_test")
 	return a
 
 
-func _posture(key: String, tick: int) -> DotWeaponContext:
+func _posture(key: String, tick: int) -> GSWeaponContext:
 	var c := _ctx(tick)
 	c.speed = {"walk": 2.0, "run": 6.0, "sprint": 7.5}.get(key, 0.0)
 	c.sprinting = key == "sprint"
@@ -49,7 +49,7 @@ func _posture(key: String, tick: int) -> DotWeaponContext:
 func _cone(key: String, aim: bool = false) -> float:
 	var a := _heavy_arsenal()
 	var cmd := _cmd(false)
-	cmd.set_button(DotWeaponCommand.BUTTON_AIM, aim)
+	cmd.set_button(GSWeaponCommand.BUTTON_AIM, aim)
 	var _o := a.simulate_tick(cmd, _posture(key, 10), null)
 	var got := a.spread_now()
 	_drop(a)
@@ -58,7 +58,7 @@ func _cone(key: String, aim: bool = false) -> float:
 
 func _test_accuracy_classes() -> void:
 	_section("accuracy classes and the posture ladder")
-	var R := DotWeaponAccuracyClass
+	var R := GSWeaponAccuracyClass
 	_check(R.resolve("", [], &"aw_lmg") == "lmg" and R.resolve("", [], &"machine_pistol") == "smg", "classes from id words, smg before pistol")
 	_check(R.resolve("", [&"scoped"], &"rifle") == "sniper" and R.resolve("none", [], &"lmg") == "", "a tag beats the id; an unknown explicit class is neutral")
 	_check(R.preset("lmg", "spread_aim") < 1.0 and R.preset("lmg", "recoil_crouch") < R.preset("rifle", "recoil_crouch"), "an lmg is tighter aimed and settles harder crouched than a rifle")
@@ -76,13 +76,13 @@ func _test_accuracy_classes() -> void:
 
 
 ## API 35: the cone reads each accuracy term as the field or the class preset kept with the class, not through
-## DotWeaponBallistics.accuracy by name. Every class, preset and own fields, every posture: the same float as by name.
+## GSWeaponBallistics.accuracy by name. Every class, preset and own fields, every posture: the same float as by name.
 func _test_accuracy_cone_reads() -> void:
 	_section("the cone's kept class presets equal accuracy() by name")
 	var a := _heavy_arsenal()
-	var beh := a.current().behaviour as DotWeaponHitscan
-	var b := a.current().def.tuning as DotWeaponBallistics
-	var classes: Array = DotWeaponAccuracyClass.PRESETS.keys()
+	var beh := a.current().behaviour as GSWeaponHitscan
+	var b := a.current().def.tuning as GSWeaponBallistics
+	var classes: Array = GSWeaponAccuracyClass.PRESETS.keys()
 	var cases := 0
 	var wrong: Array = []
 	for own in [false, true]:
@@ -115,8 +115,8 @@ func _test_accuracy_cone_reads() -> void:
 	_done()
 
 
-## The cone of DotWeaponHitscan._spread_with before API 35 (no rules), every term through accuracy() by name.
-func _cone_by_name(beh: DotWeaponHitscan, b: DotWeaponBallistics, ctx: DotWeaponContext) -> float:
+## The cone of GSWeaponHitscan._spread_with before API 35 (no rules), every term through accuracy() by name.
+func _cone_by_name(beh: GSWeaponHitscan, b: GSWeaponBallistics, ctx: GSWeaponContext) -> float:
 	var klass := beh.accuracy_class()
 	var motion := maxf(float(beh.state.get(&"motion", 0.0)), clampf(ctx.speed / maxf(0.001, b.spread_speed_ref), 0.0, 1.0))
 	var out := b.spread_for_motion(motion, ctx.airborne, ctx.crouched)
@@ -129,7 +129,7 @@ func _cone_by_name(beh: DotWeaponHitscan, b: DotWeaponBallistics, ctx: DotWeapon
 	if ctx.hurt_tick >= 0 and ctx.tick >= ctx.hurt_tick:
 		var running := beh.running_tick_rate()
 		var rate := float(maxi(running, 1)) if running > 0 else 64.0
-		var left := 1.0 - float(ctx.tick - ctx.hurt_tick) / (DotWeaponAccuracyClass.FLINCH_SEC * rate)
+		var left := 1.0 - float(ctx.tick - ctx.hurt_tick) / (GSWeaponAccuracyClass.FLINCH_SEC * rate)
 		out += b.accuracy("spread_flinch", klass) * clampf(left, 0.0, 1.0)
 	var bloom := minf(float(beh.state.get(&"bloom", 0.0)), b.bloom_max)
 	if ctx.crouched:
@@ -144,11 +144,11 @@ func _cone_by_name(beh: DotWeaponHitscan, b: DotWeaponBallistics, ctx: DotWeapon
 func _burst_cones(key: String, shots: int, aim: bool = false) -> Array:
 	var a := _heavy_arsenal()
 	var cones: Array = []
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 	var tick := 10
 	while cones.size() < shots and tick < 2000:
 		var cmd := _cmd(true)
-		cmd.set_button(DotWeaponCommand.BUTTON_AIM, aim)
+		cmd.set_button(GSWeaponCommand.BUTTON_AIM, aim)
 		var out := a.simulate_tick(cmd, _posture(key, tick), previous)
 		if out.used:
 			cones.append(out.shots[0].spread)
@@ -204,7 +204,7 @@ func _test_accuracy_scale_profile() -> void:
 	_section("sv_spread_scale, sv_recoil_scale and per-weapon profile values")
 	var base := _cone("still")
 	var a := _heavy_arsenal()
-	var rules := DotWeaponSpreadRules.new()
+	var rules := GSWeaponSpreadRules.new()
 	_check(rules.set_cvar("sv_spread_scale", "0") and rules.scale == 0.0, "sv_spread_scale is a cvar")
 	a.spread_rules = rules
 	var out := a.simulate_tick(_cmd(true), _posture("run", 10), null)
@@ -215,8 +215,8 @@ func _test_accuracy_scale_profile() -> void:
 	_check(absf(a.spread_now() - 2.0 * base) < 0.01, "2 doubles the cone", "%s vs %s" % [a.spread_now(), base])
 	_drop(a)
 
-	var b := _heavy().tuning as DotWeaponBallistics
-	_check(b.accuracy("spread_aim", "lmg") == DotWeaponAccuracyClass.preset("lmg", "spread_aim"), "-1 takes the class preset")
+	var b := _heavy().tuning as GSWeaponBallistics
+	_check(b.accuracy("spread_aim", "lmg") == GSWeaponAccuracyClass.preset("lmg", "spread_aim"), "-1 takes the class preset")
 	b.spread_aim = 0.2
 	_check(is_equal_approx(b.accuracy("spread_aim", "lmg"), 0.2), "a weapon's own value beats the class")
 
@@ -226,16 +226,16 @@ func _test_accuracy_scale_profile() -> void:
 	_profile_write(root.path_join("base/addons/acc/weapon/lmg_test.yml"), "extra:\n  tuning:\n    spread_aim: 0.5\n    bloom_crouch: 0.3\n    accuracy_class: \"sniper\"\n")
 	_profile_write(root.path_join("server/addons/acc/weapon/lmg_test.yml"), "extra:\n  tuning:\n    spread_aim: 0.25\n")
 	var def := _heavy()
-	var defs: Array[DotWeaponDef] = [def]
-	var set := DotWeaponProfiles.overlay_set("acc", "", "", PackedStringArray([root.path_join("base"), root.path_join("server")]))
-	var errors := DotWeaponProfiles.tune(defs, set)
-	var t := def.tuning as DotWeaponBallistics
+	var defs: Array[GSWeaponDef] = [def]
+	var set := GSWeaponProfiles.overlay_set("acc", "", "", PackedStringArray([root.path_join("base"), root.path_join("server")]))
+	var errors := GSWeaponProfiles.tune(defs, set)
+	var t := def.tuning as GSWeaponBallistics
 	_check(errors.is_empty() and is_equal_approx(t.bloom_crouch, 0.3) and t.accuracy_class == "sniper", "the weapon profile sets accuracy fields and the class")
 	_check(is_equal_approx(t.spread_aim, 0.25), "the server's profile overrides the shipped one", str(t.spread_aim))
-	_check(DotWeaponProfiles.to_yaml(def, "Acc").contains("spread_aim: 0.25"), "and the exporter writes them")
+	_check(GSWeaponProfiles.to_yaml(def, "Acc").contains("spread_aim: 0.25"), "and the exporter writes them")
 	set.clear_cache()
 
-	var rr := DotWeaponRecoilRules.new()
+	var rr := GSWeaponRecoilRules.new()
 	rr.enabled = true
 	_check(rr.set_cvar("sv_recoil_scale", "0"), "sv_recoil_scale is a cvar")
 	var ra := _heavy_arsenal()
@@ -247,11 +247,11 @@ func _test_accuracy_scale_profile() -> void:
 
 
 ## The first kick of a burst in [param key].
-func _kick(key: String, aim: bool, rr: DotWeaponRecoilRules) -> Vector2:
+func _kick(key: String, aim: bool, rr: GSWeaponRecoilRules) -> Vector2:
 	var a := _heavy_arsenal()
 	a.recoil_rules = rr
 	var cmd := _cmd(true)
-	cmd.set_button(DotWeaponCommand.BUTTON_AIM, aim)
+	cmd.set_button(GSWeaponCommand.BUTTON_AIM, aim)
 	var out := a.simulate_tick(cmd, _posture(key, 10), null)
 	_drop(a)
 	return out.recoil
@@ -260,18 +260,18 @@ func _kick(key: String, aim: bool, rr: DotWeaponRecoilRules) -> Vector2:
 func _test_accuracy_recoil() -> void:
 	_section("recoil per weapon posture and camera share")
 	for on in [false, true]:
-		var rr := DotWeaponRecoilRules.new()
+		var rr := GSWeaponRecoilRules.new()
 		rr.enabled = on
 		var still := _kick("still", false, rr).x
 		var tag := " (patterns on)" if on else " (flat kick)"
 		_check(_kick("crouch", false, rr).x < still * 0.7, "crouched kicks less" + tag, "%s vs %s" % [_kick("crouch", false, rr).x, still])
 		_check(_kick("still", true, rr).x < still, "aimed kicks less" + tag)
 		_check(_kick("run", false, rr).x > still and _kick("air", false, rr).x > still, "moving and airborne kick more" + tag)
-	var rr2 := DotWeaponRecoilRules.new()
+	var rr2 := GSWeaponRecoilRules.new()
 	rr2.enabled = true
 	var a := _heavy_arsenal()
 	a.recoil_rules = rr2
-	(a.current().def.tuning as DotWeaponBallistics).recoil_camera = 0.0
+	(a.current().def.tuning as GSWeaponBallistics).recoil_camera = 0.0
 	var out := a.simulate_tick(_cmd(true), _posture("still", 10), null)
 	_check(out.used and out.recoil == Vector2.ZERO, "recoil_camera 0 keeps the camera still (the kick goes to the bullet)")
 	_drop(a)
@@ -284,14 +284,14 @@ func _test_accuracy_prediction() -> void:
 	var client := _heavy_arsenal()
 	client.authority = false
 	var keys := ["still", "run", "run", "air", "crouch", "still", "walk", "sprint"]
-	var previous: DotWeaponCommand = null
+	var previous: GSWeaponCommand = null
 	var same := true
 	var first := ""
 	var cones := 0
 	for i in range(400):
 		var key: String = keys[(i / 20) % keys.size()]
 		var cmd := _cmd(i % 40 < 30)
-		cmd.set_button(DotWeaponCommand.BUTTON_AIM, i % 50 > 35)
+		cmd.set_button(GSWeaponCommand.BUTTON_AIM, i % 50 > 35)
 		var s := server.simulate_tick(cmd, _posture(key, 10 + i), previous)
 		var c := client.simulate_tick(cmd, _posture(key, 10 + i), previous)
 		previous = cmd
@@ -311,7 +311,7 @@ func _test_accuracy_prediction() -> void:
 
 func _test_accuracy_distribution() -> void:
 	_section("the crosshair cone is the shots' real spread")
-	var cat := DotWeaponCatalogue.new()
+	var cat := GSWeaponCatalogue.new()
 	var long_mag := _heavy()
 	long_mag.magazine = 1000
 	cat.add(long_mag)
@@ -328,7 +328,7 @@ func _test_accuracy_distribution() -> void:
 		var out := a.simulate_tick(_cmd(true), _posture("run", 10 + i * 64), null)
 		if not out.used:
 			continue
-		var shot: DotShot = out.shots[0]
+		var shot: GSShot = out.shots[0]
 		cones.append(absf(shot.spread - shown))
 		var angle := rad_to_deg(shot.pellets[0].angle_to(shot.direction))
 		widest = maxf(widest, angle / shown)

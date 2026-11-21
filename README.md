@@ -12,7 +12,7 @@ It needs [GameSpice Core](https://github.com/gamespice-platform/core) and GameSp
 ## Use
 
 ```gdscript
-var arsenal := DotWeaponArsenal.new()
+var arsenal := GSWeaponArsenal.new()
 arsenal.catalogue = my_catalogue
 arsenal.authority = is_server
 add_child(arsenal)
@@ -21,7 +21,7 @@ arsenal.setup()
 arsenal.give(&"rifle")
 
 # once a tick
-var ctx := DotWeaponContext.make(player_id, tick, eye_position, aim_direction)
+var ctx := GSWeaponContext.make(player_id, tick, eye_position, aim_direction)
 ctx.speed = state.horizontal_speed()
 ctx.airborne = not state.is_grounded()
 
@@ -41,9 +41,9 @@ A behaviour is a script that returns what a use produced:
 ```gdscript
 extends "res://addons/dot_weapon/behaviour/dot_weapon_behaviour.gd"
 
-func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
-    var out := DotWeaponOutcome.of(DotWeaponOutcome.KIND_SPAWN)
-    var arrow := DotWeaponSpawn.make(&"arrow", ctx.origin, ctx.direction * lerpf(
+func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
+    var out := GSWeaponOutcome.of(GSWeaponOutcome.KIND_SPAWN)
+    var arrow := GSWeaponSpawn.make(&"arrow", ctx.origin, ctx.direction * lerpf(
         25.0, 90.0, ctx.charge
     ), ctx.entity)
     arrow.damage = lerpf(14.0, 70.0, ctx.charge)
@@ -67,7 +67,7 @@ Durations are counted in ticks. A definition that sets `authored_tick_rate` is s
 ## Design rules
 
 - **The script is a path, not a `class_name`.** A GameSpice Cloud pack mounted at runtime does not register its `class_name` globals, so naming by path is what lets downloaded content bring its own weapons.
-- **A behaviour decides that a use happened, never what it hit.** It returns a `DotWeaponOutcome`; dot-combat resolves shots against the world at the tick the trigger was pulled, so a client can predict and the server decide.
+- **A behaviour decides that a use happened, never what it hit.** It returns a `GSWeaponOutcome`; dot-combat resolves shots against the world at the tick the trigger was pulled, so a client can predict and the server decide.
 - **Behaviours are pure functions of the context**: an origin and direction, a tick, an entity id. Scatter comes from a hash of shooter, tick, use index and pellet index rather than a random stream, so a predicted use matches the server's.
 - **Ammunition is pooled by name.** Weapons with the same ammo type share a reserve. A pickup returns how many rounds fitted.
 
@@ -75,20 +75,20 @@ Durations are counted in ticks. A definition that sets `authored_tick_rate` is s
 
 | Bridge | What it does |
 | --- | --- |
-| `DotWeaponPlayerBridge` | Builds a context from a dot-player: origin at the eye, direction along the view, a stable entity number, view model on the weapon mount, an arsenal from a class definition. |
-| `DotWeaponLoadoutBridge` | Fills an arsenal from what GameSpice Loadout resolved. |
-| `DotWeaponInventoryBridge` | Keeps reserve ammunition matching the bag, which is the truth. |
+| `GSWeaponPlayerBridge` | Builds a context from a dot-player: origin at the eye, direction along the view, a stable entity number, view model on the weapon mount, an arsenal from a class definition. |
+| `GSWeaponLoadoutBridge` | Fills an arsenal from what GameSpice Loadout resolved. |
+| `GSWeaponInventoryBridge` | Keeps reserve ammunition matching the bag, which is the truth. |
 
 All are duck-typed; none of those addons is imported.
 
 ```gdscript
-var ctx := DotWeaponPlayerBridge.context_for(player, tick, index)
+var ctx := GSWeaponPlayerBridge.context_for(player, tick, index)
 var outcome := arsenal.use(ctx)
 ```
 
 ## Attachments
 
-A weapon lists its mount points. A `DotWeaponAttachment` names a mount and the numbers it scales or adds, and a `DotWeaponFitting` records what a player fitted. `arsenal.fit(slot, fitting)` gives that slot a modified copy of the definition, and `DotWeaponNetSync.fitting_specs()` replicates the choice. Both machines must share the attachment catalogue.
+A weapon lists its mount points. A `GSWeaponAttachment` names a mount and the numbers it scales or adds, and a `GSWeaponFitting` records what a player fitted. `arsenal.fit(slot, fitting)` gives that slot a modified copy of the definition, and `GSWeaponNetSync.fitting_specs()` replicates the choice. Both machines must share the attachment catalogue.
 
 ## Testing
 

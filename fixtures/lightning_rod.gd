@@ -7,7 +7,7 @@ extends "res://addons/dot_weapon/behaviour/dot_weapon_behaviour.gd"
 ## more ammunition the more it chains, it refuses to fire indoors, and it keeps its own
 ## cooldown. None of those ideas appear anywhere in GameSpice Weapon, and adding it required
 ## editing no file in the addon: it extends the base **by path**, reads its tuning from
-## [member DotWeaponDef.params], and returns an ordinary [DotWeaponOutcome].
+## [member GSWeaponDef.params], and returns an ordinary [GSWeaponOutcome].
 ##
 ## The suite asserts all of that, because "it is extensible" is the kind of claim that
 ## is true when it is written and false four refactors later.
@@ -19,25 +19,25 @@ func _setup() -> void:
 	state[_CHARGES] = tune_int(&"charges", 3)
 
 
-func _can_use(ctx: DotWeaponContext) -> DotResult:
+func _can_use(ctx: GSWeaponContext) -> GSResult:
 	# A rule the addon has no concept of: this weapon needs open sky.
 	if bool(ctx.extra.get("indoors", false)):
-		return DotResult.fail(DotError.CODE_STATE, "The sky is not visible here.")
+		return GSResult.fail(GSError.CODE_STATE, "The sky is not visible here.")
 
 	if int(state.get(_CHARGES, 0)) <= 0:
-		return DotResult.fail(DotError.CODE_STATE, "No charges left.")
+		return GSResult.fail(GSError.CODE_STATE, "No charges left.")
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-func _use(ctx: DotWeaponContext) -> DotWeaponOutcome:
+func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var targets: Array = ctx.extra.get("targets", [])
 	var chain := mini(targets.size(), tune_int(&"max_chain", 3))
 
-	var out := DotWeaponOutcome.of(&"chain_lightning")
+	var out := GSWeaponOutcome.of(&"chain_lightning")
 
 	for i in range(chain):
-		var shot := DotShot.make(def.id, ctx.entity, ctx.tick, ctx.index + i)
+		var shot := GSShot.make(def.id, ctx.entity, ctx.tick, ctx.index + i)
 		shot.origin = ctx.origin
 		shot.direction = ctx.direction
 		shot.damage = tune_float(&"damage", 18.0) / float(i + 1)

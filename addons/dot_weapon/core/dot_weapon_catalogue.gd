@@ -1,5 +1,5 @@
 @tool
-class_name DotWeaponCatalogue
+class_name GSWeaponCatalogue
 extends Resource
 
 ## Every weapon a game knows, as one table a server can check at boot.
@@ -16,7 +16,7 @@ extends Resource
 ##
 ## [b]Two sources, one table.[/b] [member weapons] holds what code registered ([method add]),
 ## which is the whole table in a build that ships its content. [method follow_content] adds
-## weapons a mounted content pack delivered, read from a [DotContentIndex], and only those of
+## weapons a mounted content pack delivered, read from a [GSContentIndex], and only those of
 ## the index's [i]current session[/i]: a solo (Workshop) weapon is invisible in an online
 ## session because the index hides it, so a server that never followed anything and a client
 ## that did agree on what exists. Every query below answers over both.
@@ -31,7 +31,7 @@ const CHANNEL := "dot.weapon.catalogue"
 const KIND := &"weapon"
 
 ## A weapon became visible (registered, or delivered in the current session).
-signal weapon_added(listing: DotWeaponListing)
+signal weapon_added(listing: GSWeaponListing)
 
 ## (Not `changed`: Resource already has one, for the editor.)
 ## The visible set changed in any way, including a session switch hiding solo weapons. A
@@ -39,12 +39,12 @@ signal weapon_added(listing: DotWeaponListing)
 signal listings_changed
 
 ## Weapons registered from code. Delivered ones are not in here; see [method listings].
-@export var weapons: Array[DotWeaponDef] = []
+@export var weapons: Array[GSWeaponDef] = []
 
 ## Menu data for code weapons, by id: {category, icon}.
 var _code_meta: Dictionary = {}
 
-var _index: DotContentIndex = null
+var _index: GSContentIndex = null
 
 ## Delivered rows that loaded, by entry key.
 var _delivered: Dictionary = {}
@@ -72,8 +72,8 @@ var _indexed: bool = false
 ## Registers a weapon from code. [param category] and [param icon_path] are menu data only
 ## and optional; a game that never builds a menu passes neither.
 func add(
-	def: DotWeaponDef, category: String = "", icon_path: String = ""
-) -> DotWeaponCatalogue:
+	def: GSWeaponDef, category: String = "", icon_path: String = ""
+) -> GSWeaponCatalogue:
 	weapons.append(def)
 	_indexed = false
 	if def != null and def.id != &"":
@@ -101,7 +101,7 @@ func index() -> void:
 	# Delivered rows after code ones, so an id clash resolves to the code weapon (see the class
 	# comment) and a delivered slot list keeps code weapons first.
 	for key in _visible_keys:
-		var listing: DotWeaponListing = _delivered.get(key, null)
+		var listing: GSWeaponListing = _delivered.get(key, null)
 		if listing == null or _by_id.has(listing.id):
 			continue
 		_by_id[listing.id] = listing.def
@@ -125,7 +125,7 @@ func has(id: StringName) -> bool:
 	return _by_id.has(id)
 
 
-func get_def(id: StringName) -> DotWeaponDef:
+func get_def(id: StringName) -> GSWeaponDef:
 	_ensure_indexed()
 	return _by_id.get(id, null)
 
@@ -155,12 +155,12 @@ func ids_in_slot(slot: int) -> Array[StringName]:
 ## Every weapon carrying [param tag].
 ##
 ## Tags rather than ids is how a mode says "no explosives" without naming a weapon; see
-## [member DotWeaponDef.tags].
+## [member GSWeaponDef.tags].
 func ids_with_tag(tag: StringName) -> Array[StringName]:
 	_ensure_indexed()
 	var out: Array[StringName] = []
 	for id: StringName in ids():
-		var def: DotWeaponDef = _by_id[id]
+		var def: GSWeaponDef = _by_id[id]
 		if def.has_tag(tag):
 			out.append(id)
 	return out
@@ -174,14 +174,14 @@ func size() -> int:
 
 # --- Content packs ----------------------------------------------------------
 
-## Starts following [param index] (default [method DotContentIndex.shared]): weapon entries
+## Starts following [param index] (default [method GSContentIndex.shared]): weapon entries
 ## of packs mounted for the index's current session become part of this catalogue now and as
 ## packs are mounted later. Order does not matter, so a catalogue built before the first
 ## mount and one built after it see the same table. Safe to call twice; the second call
 ## replaces the first.
-func follow_content(index: DotContentIndex = null) -> DotWeaponCatalogue:
+func follow_content(index: GSContentIndex = null) -> GSWeaponCatalogue:
 	unfollow_content()
-	_index = index if index != null else DotContentIndex.shared()
+	_index = index if index != null else GSContentIndex.shared()
 	_index.pack_added.connect(_on_pack_added)
 	_index.session_changed.connect(_on_session_changed)
 	_refresh()
@@ -205,7 +205,7 @@ func unfollow_content() -> void:
 		listings_changed.emit()
 
 
-func _on_pack_added(_pack: Dictionary, _entries: Array[DotContentEntry]) -> void:
+func _on_pack_added(_pack: Dictionary, _entries: Array[GSContentEntry]) -> void:
 	_refresh()
 
 
@@ -219,17 +219,17 @@ func _refresh() -> void:
 		return
 	var before := _visible_keys.duplicate()
 	var next: Array[String] = []
-	var added: Array[DotWeaponListing] = []
+	var added: Array[GSWeaponListing] = []
 
 	for entry in _index.entries(KIND):
-		var listing: DotWeaponListing = _delivered.get(entry.key, null)
+		var listing: GSWeaponListing = _delivered.get(entry.key, null)
 		if listing == null:
 			if _rejected.has(entry.key):
 				continue
 			var made := _load_entry(entry)
 			if not made.ok:
 				_rejected[entry.key] = true
-				DotLog.warn(CHANNEL, "refused a delivered weapon", {
+				GSLog.warn(CHANNEL, "refused a delivered weapon", {
 					"key": entry.key, "why": made.error.message,
 				})
 				continue
@@ -249,18 +249,18 @@ func _refresh() -> void:
 
 
 ## Turns one index entry into a listing, or says why it cannot be one.
-func _load_entry(entry: DotContentEntry) -> DotResult:
+func _load_entry(entry: GSContentEntry) -> GSResult:
 	var def_path := entry.path("def")
 	if def_path == "":
-		return DotResult.fail(DotError.CODE_INVALID, "Weapon entry %s names no `def`." % entry.key)
+		return GSResult.fail(GSError.CODE_INVALID, "Weapon entry %s names no `def`." % entry.key)
 	if not ResourceLoader.exists(def_path):
-		return DotResult.fail(DotError.CODE_IO, "No definition at %s." % def_path)
-	var def := load(def_path) as DotWeaponDef
+		return GSResult.fail(GSError.CODE_IO, "No definition at %s." % def_path)
+	var def := load(def_path) as GSWeaponDef
 	if def == null:
-		return DotResult.fail(DotError.CODE_INVALID, "%s is not a DotWeaponDef." % def_path)
+		return GSResult.fail(GSError.CODE_INVALID, "%s is not a GSWeaponDef." % def_path)
 	if String(def.id) != entry.id:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"%s has id %s but its entry is %s. A loadout names one id, so they must match."
 			% [def_path, String(def.id), entry.id]
 		)
@@ -268,12 +268,12 @@ func _load_entry(entry: DotContentEntry) -> DotResult:
 	if not checked.ok:
 		return checked
 	if _code_has(def.id):
-		return DotResult.fail(
-			DotError.CODE_CONFLICT,
+		return GSResult.fail(
+			GSError.CODE_CONFLICT,
 			"%s is already a weapon registered from code; code wins." % String(def.id)
 		)
 
-	var l := DotWeaponListing.new()
+	var l := GSWeaponListing.new()
 	l.id = def.id
 	l.def = def
 	l.display_name = entry.name if entry.name != "" else def.name_or_id()
@@ -288,7 +288,7 @@ func _load_entry(entry: DotContentEntry) -> DotResult:
 	l.version = entry.version
 	l.pack_title = entry.pack_title
 	l.entry_key = entry.key
-	return DotResult.success(l)
+	return GSResult.success(l)
 
 
 func _code_has(id: StringName) -> bool:
@@ -298,11 +298,11 @@ func _code_has(id: StringName) -> bool:
 	return false
 
 
-func _visible_delivered() -> Array[DotWeaponListing]:
-	var out: Array[DotWeaponListing] = []
+func _visible_delivered() -> Array[GSWeaponListing]:
+	var out: Array[GSWeaponListing] = []
 	var seen: Dictionary = {}
 	for key in _visible_keys:
-		var l: DotWeaponListing = _delivered.get(key, null)
+		var l: GSWeaponListing = _delivered.get(key, null)
 		# Two packs delivering one id: the first mounted keeps it.
 		if l != null and not seen.has(l.id):
 			seen[l.id] = true
@@ -310,9 +310,9 @@ func _visible_delivered() -> Array[DotWeaponListing]:
 	return out
 
 
-func _code_listing(def: DotWeaponDef) -> DotWeaponListing:
+func _code_listing(def: GSWeaponDef) -> GSWeaponListing:
 	var meta: Dictionary = _code_meta.get(def.id, {})
-	var l := DotWeaponListing.new()
+	var l := GSWeaponListing.new()
 	l.id = def.id
 	l.def = def
 	l.display_name = def.name_or_id()
@@ -327,8 +327,8 @@ func _code_listing(def: DotWeaponDef) -> DotWeaponListing:
 
 ## Every visible weapon as a menu row: code weapons in the order added, then delivered ones
 ## in mount order. Pass [param category] to keep one group.
-func listings(category: String = "") -> Array[DotWeaponListing]:
-	var out: Array[DotWeaponListing] = []
+func listings(category: String = "") -> Array[GSWeaponListing]:
+	var out: Array[GSWeaponListing] = []
 	var seen: Dictionary = {}
 	for def in weapons:
 		if def == null or def.id == &"" or seen.has(def.id):
@@ -341,11 +341,11 @@ func listings(category: String = "") -> Array[DotWeaponListing]:
 			out.append(l)
 	if category == "":
 		return out
-	return out.filter(func(l: DotWeaponListing) -> bool: return l.category == category)
+	return out.filter(func(l: GSWeaponListing) -> bool: return l.category == category)
 
 
 ## The row for [param id], or null.
-func listing(id: StringName) -> DotWeaponListing:
+func listing(id: StringName) -> GSWeaponListing:
 	_ensure_indexed()
 	for l in listings():
 		if l.id == id:
@@ -370,11 +370,11 @@ func categories() -> PackedStringArray:
 ## [b]This is where the path is resolved[/b], and where a weapon delivered in a content
 ## pack that has not been mounted fails — by name, with the path in the message, rather
 ## than as a null somewhere later.
-func instantiate(id: StringName, arsenal: Object = null) -> DotResult:
+func instantiate(id: StringName, arsenal: Object = null) -> GSResult:
 	var def := get_def(id)
 	if def == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "No weapon called %s." % String(id)
+		return GSResult.fail(
+			GSError.CODE_INVALID, "No weapon called %s." % String(id)
 		)
 
 	var script_res := _script_for(def)
@@ -384,25 +384,25 @@ func instantiate(id: StringName, arsenal: Object = null) -> DotResult:
 	var script: Script = script_res.value
 	var made: Variant = script.new()
 
-	if not (made is DotWeaponBehaviour):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
-			"%s does not extend DotWeaponBehaviour." % def.behaviour_path,
+	if not (made is GSWeaponBehaviour):
+		return GSResult.fail(
+			GSError.CODE_INVALID,
+			"%s does not extend GSWeaponBehaviour." % def.behaviour_path,
 			String(id)
 		)
 
-	var behaviour: DotWeaponBehaviour = made
+	var behaviour: GSWeaponBehaviour = made
 	behaviour.setup(def, arsenal)
-	return DotResult.success(behaviour)
+	return GSResult.success(behaviour)
 
 
-func _script_for(def: DotWeaponDef) -> DotResult:
+func _script_for(def: GSWeaponDef) -> GSResult:
 	if _scripts.has(def.behaviour_path):
-		return DotResult.success(_scripts[def.behaviour_path])
+		return GSResult.success(_scripts[def.behaviour_path])
 
 	if not ResourceLoader.exists(def.behaviour_path):
-		return DotResult.fail(
-			DotError.CODE_IO,
+		return GSResult.fail(
+			GSError.CODE_IO,
 			"No script at %s. A weapon delivered in a content pack needs that pack "
 			% def.behaviour_path + "mounted before the weapon can be built.",
 			String(def.id)
@@ -410,14 +410,14 @@ func _script_for(def: DotWeaponDef) -> DotResult:
 
 	var loaded: Variant = load(def.behaviour_path)
 	if not (loaded is Script):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"%s is not a script." % def.behaviour_path,
 			String(def.id)
 		)
 
 	_scripts[def.behaviour_path] = loaded
-	return DotResult.success(loaded)
+	return GSResult.success(loaded)
 
 
 ## Loads every weapon's behaviour script now, for a loading gate. The first `instantiate` of each otherwise pays the load and compile (1-5 ms each) in the middle of the first spawn.
@@ -437,7 +437,7 @@ func forget_scripts() -> void:
 # --- Validation -------------------------------------------------------------
 
 ## Checks every row and the table as a whole, without loading a behaviour.
-func validate() -> DotResult:
+func validate() -> GSResult:
 	index()
 
 	var seen: Dictionary = {}
@@ -446,8 +446,8 @@ func validate() -> DotResult:
 		var def := weapons[i]
 
 		if def == null:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "Entry %d is null." % i
+			return GSResult.fail(
+				GSError.CODE_INVALID, "Entry %d is null." % i
 			)
 
 		var res := def.validate()
@@ -455,8 +455,8 @@ func validate() -> DotResult:
 			return res
 
 		if seen.has(def.id):
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"Two weapons share the id %s. An id is what a loadout names, so a "
 				% String(def.id) + "duplicate silently gives a player the wrong one.",
 				String(def.id)
@@ -464,19 +464,19 @@ func validate() -> DotResult:
 
 		seen[def.id] = true
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Checks that every behaviour actually resolves. Loads scripts, so it is not the boot
 ## check; run it once after content is mounted.
-func validate_behaviours() -> DotResult:
+func validate_behaviours() -> GSResult:
 	for def in weapons:
 		if def == null:
 			continue
 		var res := _script_for(def)
 		if not res.ok:
 			return res
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func describe() -> Dictionary:
@@ -498,10 +498,10 @@ func describe_lines() -> PackedStringArray:
 		", following session %s" % String(_index.session()) if _index != null else "",
 	])
 	for id in ids():
-		var def: DotWeaponDef = _by_id[id]
+		var def: GSWeaponDef = _by_id[id]
 		var l := listing(id)
 		out.append("  %-18s slot %d  %-6s %s%s" % [
-			String(id), def.slot, DotWeaponDef.Fire.keys()[def.fire_mode],
+			String(id), def.slot, GSWeaponDef.Fire.keys()[def.fire_mode],
 			l.category if l != null else "",
 			"  <- %s" % l.content_id if l != null and l.is_delivered() else "",
 		])

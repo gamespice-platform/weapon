@@ -1,9 +1,9 @@
-class_name DotWeaponSpawnView
+class_name GSWeaponSpawnView
 extends RefCounted
 
-## A client's mirror of a [DotWeaponSpawner]: what lies where, and how long until the next one. It decides nothing.
+## A client's mirror of a [GSWeaponSpawner]: what lies where, and how long until the next one. It decides nothing.
 ##
-## Feed it the server's [signal DotWeaponSpawner.changed] events through [method apply] and a joining client's [method DotWeaponSpawner.snapshot] through [method apply_snapshot]; draw from [signal appeared] and [signal vanished].
+## Feed it the server's [signal GSWeaponSpawner.changed] events through [method apply] and a joining client's [method GSWeaponSpawner.snapshot] through [method apply_snapshot]; draw from [signal appeared] and [signal vanished].
 
 signal appeared(instance: int, site: StringName, item: StringName, kind: StringName, at: Vector3, rotation_y: float, data: Dictionary)
 signal vanished(instance: int, taker: StringName)
@@ -20,14 +20,14 @@ func apply(event: Array) -> void:
 	if event.is_empty():
 		return
 	match StringName(event[0]):
-		DotWeaponSpawner.EV_SPAWN:
+		GSWeaponSpawner.EV_SPAWN:
 			if event.size() < 8:
 				return
 			var inst := int(event[1])
 			items[inst] = {"site": event[2], "item": event[3], "kind": event[4], "at": event[5], "rotation_y": float(event[6]), "data": event[7]}
 			waiting.erase(event[2])
 			appeared.emit(inst, event[2], event[3], event[4], event[5], float(event[6]), event[7])
-		DotWeaponSpawner.EV_TAKE:
+		GSWeaponSpawner.EV_TAKE:
 			if items.erase(int(event[1])):
 				vanished.emit(int(event[1]), StringName(event[2]) if event.size() > 2 else &"")
 
@@ -40,7 +40,7 @@ func apply_snapshot(snap: Dictionary) -> void:
 		keep[int((ev as Array)[1])] = true
 	for inst: int in items.keys():
 		if not keep.has(inst):
-			apply([DotWeaponSpawner.EV_TAKE, inst, &""])
+			apply([GSWeaponSpawner.EV_TAKE, inst, &""])
 	for ev: Variant in snap.get("items", []):
 		if not items.has(int((ev as Array)[1])):
 			apply(ev as Array)
