@@ -1,7 +1,7 @@
 """Numpy half of the weapon texture pipeline: classifies every texel (blued steel, brass, polymer, wood) from the painted colour, builds
 albedo with wear / dirt / scratches, a packed ORM (occlusion, roughness, metal) and a tangent-space normal map from baked edge / AO / seeded
 noise, then rewrites the GLB (new UV layout from tex_bake.py, three new images). Deterministic: a rerun gives the same bytes.
-Run: python3 -I tex_gen.py <model.glb> <bake dir> <out.glb> [--size N]"""
+Run: python3 -P tex_gen.py <model.glb> <bake dir> <out.glb> [--size N]"""
 import sys, os, json, struct, io
 import numpy as np
 from PIL import Image, ImageDraw

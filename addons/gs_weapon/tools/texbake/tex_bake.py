@@ -133,10 +133,16 @@ def emission_mat(name, build):
 
 
 def bake_pass(name, mat_for, btype='EMIT', srgb=False, **kw):
+    """mat_for(o) gives one material for the whole node, or a list: the node's own slots, kept as they are (a node with several
+    materials, one colour each, as the Kenney and zee guns have, bakes every face with its own)."""
     im = new_image(name, srgb)
     mats = {}
     for o in targets:
         mat = mat_for(o)
+        if isinstance(mat, list):
+            for m_ in mat:
+                mats[m_.name] = m_
+            continue
         o.data.materials.clear()
         o.data.materials.append(mat)
         for p in o.data.polygons:
@@ -183,8 +189,7 @@ for o in targets:
         else:
             em.inputs['Color'].default_value = bc.default_value
         nt.links.new(em.outputs[0], out_n.inputs['Surface'])
-bake_keep = {o.name: o.data.materials[0] if o.data.materials else None for o in targets}
-bake_pass('albedo_src', lambda o: bake_keep[o.name], srgb=True)
+bake_pass('albedo_src', lambda o: [m for m in orig_mats[o.name] if m], srgb=True)
 
 
 def ao_world(dist):
