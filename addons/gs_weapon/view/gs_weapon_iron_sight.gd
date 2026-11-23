@@ -140,7 +140,7 @@ static func span(weapon: Node, space: Node3D, forward: Vector3, fraction: float,
 
 
 ## The line a model marks for itself: nodes [constant MARK_REAR] and [constant MARK_FRONT] (real modelled sights, e.g.
-## zed-gs-weapons' baked carbine) in [param space]; empty without marks. Used as is: no ring fitted, no sight built,
+## a pack's baked carbine) in [param space]; empty without marks. Used as is: no ring fitted, no sight built,
 ## because the model's own sights are what the eye lines up.
 static func from_marks(weapon: Node, space: Node3D, forward: Vector3) -> Dictionary:
 	var rear := weapon.find_child(MARK_REAR, true, false) as Node3D
