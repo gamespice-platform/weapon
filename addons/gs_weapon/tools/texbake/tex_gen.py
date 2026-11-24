@@ -112,7 +112,7 @@ STIP_AMT = {'grenade_launcher': 0.12, 'drum_shotgun': 0.12}
 # models whose metal is capped (a mirror-like blade reflects nothing in a room and reads black): max metallic, min roughness, forced finish
 BLADE = {'knife': (0.40, 0.36, 2), 'knife_ph': (0.40, 0.36, 2)}
 # models whose painted (coat) colour is replaced by one flat paint colour (linear): the source's coat texels are a photo-like green smear
-COAT_FLAT = {'quad_rocket_launcher': (0.060, 0.072, 0.040)}
+COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # models whose source paint is AI-generated noise (Polyy's low-poly packs): its blotches became hammered-looking bumps and a pale bare-steel
 # finish. 'finish' forces one metal finish on every part (3 black anodised), 'detail' scales the bumps taken from the painted albedo,
 # 'bump' scales the broad noise in the height, 'as_poly' reads the metal and painted (coat) texels as black polymer (a polymer-bodied gun),
@@ -132,6 +132,7 @@ LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, '
         'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
         'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
+        'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
