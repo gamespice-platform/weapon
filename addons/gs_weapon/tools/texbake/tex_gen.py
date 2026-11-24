@@ -136,7 +136,7 @@ WOOD_MODELS = {'derringer', 'rifle', 'pump_shotgun', 'battle_rifle', 'revolver',
 
 
 # polymer colours (linear): graphite, olive drab, dull coyote; the part's pick comes from the model's LOOK entry
-POLY_TINTS = np.array([[0.060, 0.062, 0.068], [0.070, 0.082, 0.050], [0.150, 0.120, 0.078]], np.float32)
+POLY_TINTS = np.array([[0.038, 0.039, 0.043], [0.042, 0.050, 0.032], [0.082, 0.066, 0.044]], np.float32)
 
 
 def polymer_detail(size, k, part, cover, edgew, ao_small, seed, spec):
@@ -343,11 +343,11 @@ def build(name, size, rng):
         pt, pseam, pdecal = polymer_detail(size, k, part, cover, edgew, ao_small, seed, look['poly'])
         pw = np.clip(edgew * 0.85 + scr * 0.5 + handling * 0.5, 0, 1) * look.get('wear', 1.0)
         base_p = pt * (0.75 + 0.5 * low[..., None]) * (0.88 + 0.24 * stip[..., None])
-        core = np.clip(pt * 2.6 + 0.04, 0, 1)      # worn through the skin: the lighter core shows at edges and handled spots
+        core = np.clip(pt * 1.8 + 0.015, 0, 1)      # worn through the skin: the lighter core shows at edges and handled spots
         p_alb = lerp(base_p, core, pw[..., None] * 0.8)
         p_alb = p_alb * (1 - 0.45 * dirt[..., None]) * (1 - 0.4 * groove[..., None])
         p_alb = p_alb * (1 - 0.55 * pseam[..., None])
-        p_alb = lerp(p_alb, np.array([0.40, 0.40, 0.38], np.float32)[None, None, :] * (1 - 0.35 * pw[..., None]), pdecal[..., None] * 0.85)
+        p_alb = lerp(p_alb, np.array([0.30, 0.30, 0.28], np.float32)[None, None, :] * (1 - 0.35 * pw[..., None]), pdecal[..., None] * 0.85)
         p_rough = np.maximum(np.clip(0.80 + 0.14 * (fine - 0.5) + 0.12 * (low - 0.5) - pw * 0.12, 0, 1), look['poly']['rough_min'])
         p_h = p_h - pseam * 0.22 + pdecal * 0.05
     # ---- wood: warm figured grain (rings along V, pores, mid-tone from the old paint), satin lacquer, worn raw at edges
