@@ -184,6 +184,11 @@ for o in targets:
                 nt.links.new(uvn.outputs[0], n.inputs['Vector'])
         em = nt.nodes.new('ShaderNodeEmission')
         bc = bsdf.inputs['Base Color']
+        # some sources (the flash, smoke, incendiary and frag grenades, the ammo can) paint their colour into the Emission slot and leave
+        # Base Color black and unlinked: that texture is the albedo
+        ec = bsdf.inputs.get('Emission Color')
+        if not bc.is_linked and max(bc.default_value[:3]) < 0.01 and ec is not None and ec.is_linked:
+            bc = ec
         if bc.is_linked:
             nt.links.new(bc.links[0].from_socket, em.inputs['Color'])
         else:
