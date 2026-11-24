@@ -108,7 +108,7 @@ GLOW_HUE = {'plasma_rifle': (0.22, 0.48), 'rail_rifle': (0.02, 0.13)}
 # stray geometry that sits in the wrong place in the source (a lens ring floating under the sniper's receiver)
 DROP_GLASS = {'sniper_ph'}
 # models whose pebble stipple on polymer is turned down (muzzle shrouds and grips read as noise at that scale)
-STIP_AMT = {'grenade_launcher': 0.12, 'drum_shotgun': 0.12}
+STIP_AMT = {'grenade_launcher': 0.12, 'drum_shotgun': 0.12, 'carbine': 0.1, 'machine_pistol': 0.1, 'marksman': 0.1, 'lmg': 0.1, 'minigun': 0.1, 'rocket_launcher_alt': 0.1}
 # models whose metal is capped (a mirror-like blade reflects nothing in a room and reads black): max metallic, min roughness, forced finish
 BLADE = {'knife': (0.40, 0.36, 2), 'knife_ph': (0.40, 0.36, 2)}
 # models whose painted (coat) colour is replaced by one flat paint colour (linear): the source's coat texels are a photo-like green smear
@@ -121,6 +121,7 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # the metal and polymer texels as paint too (the ammo can's dark green sides read as bare steel or black plastic).
 # The grenades and ammo can are painted kit: at full wear their paint chipped to bare steel all over at 1024 px.
 # Their meshes are triangle soup: bake them with AW_WELD=1 AW_MODE=smart (addons/gs_weapon/tools/texbake/tex_pipeline.sh), or every triangle is its own island.
+# 'relief' scales the whole height map before it becomes a normal map (0.4 reads as machined metal and moulded polymer, not stone).
 # 'poly' (polymer_detail below): authored polymer albedo for a polymer-bodied gun: a colour per part ('tints', indices into POLY_TINTS),
 # mould parting seams, stencilled decals, edge wear that shows the lighter core, and a matte roughness floor ('rough_min').
 # 'coat_as_poly' reads the painted (coat) texels as polymer: a dark navy source's warm-tinged shadows classify as paint and bake brown.
@@ -128,10 +129,15 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
-        'lmg': {'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'lmg': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
         'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
+        'marksman': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'minigun': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'carbine': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.8, 'wear': 0.5},
+        'machine_pistol': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'rocket_launcher_alt': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
@@ -451,7 +457,7 @@ def main():
     rng = np.random.default_rng(sum(map(ord, os.path.basename(src))))
     alb, rough, metal, occl, h, cover, W, emis, glowmax = build(os.path.basename(src), size, rng)
     # normal: strength in "pixels of height" so the look is independent of the texture size
-    n = height_to_normal(h * (size / 1024.0) * float(KW.get('nstr', 1.0)), 1.0)
+    n = height_to_normal(h * (size / 1024.0) * float(KW.get('nstr', 1.0)) * LOOK.get(os.path.basename(src).replace('.glb', ''), {}).get('relief', 1.0), 1.0)
     nrm = ((n * 0.5 + 0.5) * 255 + 0.5).astype(np.uint8)
     albu = (np.clip(alb, 0, 1) ** (1 / 2.2) * 255 + 0.5).astype(np.uint8)
     orm = (np.stack([occl, rough, metal], 2) * 255 + 0.5).astype(np.uint8)
