@@ -123,11 +123,15 @@ COAT_FLAT = {'quad_rocket_launcher': (0.060, 0.072, 0.040)}
 # Their meshes are triangle soup: bake them with AW_WELD=1 AW_MODE=smart (addons/gs_weapon/tools/texbake/tex_pipeline.sh), or every triangle is its own island.
 # 'poly' (polymer_detail below): authored polymer albedo for a polymer-bodied gun: a colour per part ('tints', indices into POLY_TINTS),
 # mould parting seams, stencilled decals, edge wear that shows the lighter core, and a matte roughness floor ('rough_min').
+# 'coat_as_poly' reads the painted (coat) texels as polymer: a dark navy source's warm-tinged shadows classify as paint and bake brown.
 # 'poly_max' (default 0.19) is the brightest source texel still read as polymer: lower it so the grey texels of a polymer-bodied gun's metal parts
 # (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
-        'lmg': {'poly_max': 0.095, 'finish': 1, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'lmg': {'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
+        'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
+        'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
@@ -138,7 +142,7 @@ WOOD_MODELS = {'derringer', 'rifle', 'pump_shotgun', 'battle_rifle', 'revolver',
 
 
 # polymer colours (linear): graphite, olive drab, dull coyote; the part's pick comes from the model's LOOK entry
-POLY_TINTS = np.array([[0.038, 0.039, 0.043], [0.042, 0.050, 0.032], [0.082, 0.066, 0.044]], np.float32)
+POLY_TINTS = np.array([[0.011, 0.012, 0.014], [0.013, 0.016, 0.010], [0.028, 0.022, 0.015]], np.float32)
 
 
 def polymer_detail(size, k, part, cover, edgew, ao_small, seed, spec):
@@ -255,6 +259,9 @@ def build(name, size, rng):
     L = lum(a)
     if look.get('as_poly'):
         W = np.stack([wm * 0, wp + wc + wm, ww, wb, wc * 0], 0)
+        wm, wp, ww, wb, wc = W
+    if look.get('coat_as_poly'):
+        W = np.stack([wm, wp + wc, ww, wb, wc * 0], 0)
         wm, wp, ww, wb, wc = W
     if look.get('as_coat'):
         W = np.stack([wm * 0, wp * 0, ww, wb, wc + wm + wp], 0)
