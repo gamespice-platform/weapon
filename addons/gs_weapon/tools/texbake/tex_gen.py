@@ -1,7 +1,7 @@
 """Numpy half of the weapon texture pipeline: classifies every texel (blued steel, brass, polymer, wood) from the painted colour, builds
 albedo with wear / dirt / scratches, a packed ORM (occlusion, roughness, metal) and a tangent-space normal map from baked edge / AO / seeded
 noise, then rewrites the GLB (new UV layout from tex_bake.py, three new images). Deterministic: a rerun gives the same bytes.
-Run: python3 -P tex_gen.py <model.glb> <bake dir> <out.glb> [--size N]"""
+Run: python3 -P tex_gen.py <model.glb> <bake dir> <out.glb> [--size N] [--nrm=jpeg] (the shipped sets store the normal map as JPEG q92)"""
 import sys, os, json, struct, io
 import numpy as np
 from PIL import Image, ImageDraw
@@ -121,7 +121,11 @@ COAT_FLAT = {'quad_rocket_launcher': (0.060, 0.072, 0.040)}
 # the metal and polymer texels as paint too (the ammo can's dark green sides read as bare steel or black plastic).
 # The grenades and ammo can are painted kit: at full wear their paint chipped to bare steel all over at 1024 px.
 # Their meshes are triangle soup: bake them with AW_WELD=1 AW_MODE=smart (addons/gs_weapon/tools/texbake/tex_pipeline.sh), or every triangle is its own island.
-LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.3, 'metal': 0.6},
+# 'poly' (polymer_detail below): authored polymer albedo for a polymer-bodied gun: a colour per part ('tints', indices into POLY_TINTS),
+# mould parting seams, stencilled decals, edge wear that shows the lighter core, and a matte roughness floor ('rough_min').
+LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
+                    'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
+        'lmg': {'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
@@ -129,6 +133,59 @@ LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, '
         'incendiary_grenade': {'wear': 0.3},
         'ammo_box': {'paint_blue': True, 'as_coat': True, 'wear': 0.3}}
 WOOD_MODELS = {'derringer', 'rifle', 'pump_shotgun', 'battle_rifle', 'revolver', 'pistol_ph', 'sniper_ph', 'knife', 'knife_ph', 'rocket_launcher', 'rocket_launcher_alt', 'carbine', 'smg'}
+
+
+# polymer colours (linear): graphite, olive drab, dull coyote; the part's pick comes from the model's LOOK entry
+POLY_TINTS = np.array([[0.060, 0.062, 0.068], [0.070, 0.082, 0.050], [0.150, 0.120, 0.078]], np.float32)
+
+
+def polymer_detail(size, k, part, cover, edgew, ao_small, seed, spec):
+    """Authored polymer albedo detail: (colour multiplier map, extra albedo lift where worn, seam/decal height, decal mask).
+    Own rng, so models without a 'poly' look keep their bytes."""
+    rng = np.random.default_rng(seed + 977)
+    tints = spec.get('tints', [0])
+    tint = np.zeros((size, size, 3), np.float32)
+    for i in range(40):
+        tint[part == i] = POLY_TINTS[tints[i % len(tints)] if i else tints[0]]
+    tint[part >= 40] = POLY_TINTS[tints[0]]
+    # panel-to-panel mottling inside a part: moulded plastic is never one value
+    mott = fbm(size, rng, 9, octaves=3)
+    tint = tint * (0.78 + 0.5 * mott[..., None])
+    # mould parting seams: thin wandering contours of a smooth field, a pale ridge with a dark line beside it
+    f = blur(fbm(size, rng, 6, octaves=2), 3 * k)
+    seam = np.zeros_like(f)
+    for lv in (0.38, 0.62):
+        seam = np.maximum(seam, 1 - sstep(np.abs(f - lv), 0.0, 0.012 * (0.5 + k * 0.5)))
+    seam *= cover
+    # decals: stencilled text, pale paint, a rotated or upright patch in a spot that is wholly on the model
+    from PIL import ImageFont
+    dec = Image.new('L', (size, size), 0)
+    dd = ImageDraw.Draw(dec)
+    fnt = ImageFont.load_default(size=max(7, int(13 * k)))
+    texts = spec.get('decals', [])
+    placed = 0
+    for t in texts * 8:
+        if placed >= len(texts) * 2:
+            break
+        tile = Image.new('L', (int(110 * k), int(18 * k)), 0)
+        ImageDraw.Draw(tile).text((2, 2), t, fill=255, font=fnt)
+        bb = tile.getbbox()
+        if not bb:
+            continue
+        tile = tile.crop(bb)
+        if rng.random() < 0.4:
+            tile = tile.rotate(90, expand=True)
+        w, h = tile.size
+        if w >= size - 4 or h >= size - 4:
+            continue
+        x, y = int(rng.integers(0, size - w)), int(rng.integers(0, size - h))
+        if cover[y:y + h, x:x + w].mean() < 0.97:
+            continue
+        dec.paste(tile, (x, y), tile)
+        placed += 1
+    decal = blur(np.asarray(dec, np.float32) / 255, 0.5 * k)
+    decal = np.clip(decal * (0.55 + 0.45 * mott), 0, 1) * cover
+    return tint, seam, decal
 
 
 def classify(a, allow_wood=True, paint_blue=False):
@@ -282,6 +339,17 @@ def build(name, size, rng):
     p_alb = p_alb * (1 - 0.4 * dirt[..., None]) * (1 - 0.4 * groove[..., None])
     p_rough = np.clip(0.62 + 0.16 * (fine - 0.5) + 0.15 * (low - 0.5) - p_wear * 0.2 - stip * 0.08, 0, 1)
     p_h = stip * 0.30 + (fine - 0.5) * 0.06 + (low - 0.5) * 0.08 * bump + det * 0.3 - scr * 0.15 - edgew * 0.15
+    if 'poly' in look:
+        pt, pseam, pdecal = polymer_detail(size, k, part, cover, edgew, ao_small, seed, look['poly'])
+        pw = np.clip(edgew * 0.85 + scr * 0.5 + handling * 0.5, 0, 1) * look.get('wear', 1.0)
+        base_p = pt * (0.75 + 0.5 * low[..., None]) * (0.88 + 0.24 * stip[..., None])
+        core = np.clip(pt * 2.6 + 0.04, 0, 1)      # worn through the skin: the lighter core shows at edges and handled spots
+        p_alb = lerp(base_p, core, pw[..., None] * 0.8)
+        p_alb = p_alb * (1 - 0.45 * dirt[..., None]) * (1 - 0.4 * groove[..., None])
+        p_alb = p_alb * (1 - 0.55 * pseam[..., None])
+        p_alb = lerp(p_alb, np.array([0.40, 0.40, 0.38], np.float32)[None, None, :] * (1 - 0.35 * pw[..., None]), pdecal[..., None] * 0.85)
+        p_rough = np.maximum(np.clip(0.80 + 0.14 * (fine - 0.5) + 0.12 * (low - 0.5) - pw * 0.12, 0, 1), look['poly']['rough_min'])
+        p_h = p_h - pseam * 0.22 + pdecal * 0.05
     # ---- wood: warm figured grain (rings along V, pores, mid-tone from the old paint), satin lacquer, worn raw at edges
     # grain: long irregular streaks (not a regular sine, that read as stripes), wavy cathedral rings of changing pitch, low contrast;
     # a palette per part (walnut / dark walnut / beech) so the stock and the handguard are not one colour
@@ -437,7 +505,7 @@ def main():
     j.setdefault('images', [])  # a source with flat colours only (tools/build_own_ak.py) has no image list yet
     j.setdefault('textures', [])
     emu = (np.clip(emis, 0, 1) * 255 + 0.5).astype(np.uint8)
-    pics = [(enc(albu, 'JPEG', quality=ALB_Q, subsampling=0), 'image/jpeg'), (enc(orm, 'JPEG', quality=ORM_Q, subsampling=0), 'image/jpeg'), (enc(nrm, 'PNG', optimize=True), 'image/png')]
+    pics = [(enc(albu, 'JPEG', quality=ALB_Q, subsampling=0), 'image/jpeg'), (enc(orm, 'JPEG', quality=ORM_Q, subsampling=0), 'image/jpeg'), ((enc(nrm, 'JPEG', quality=92, subsampling=0), 'image/jpeg') if KW.get('nrm') == 'jpeg' else (enc(nrm, 'PNG', optimize=True), 'image/png'))]
     if glowmax > 0.05:
         pics.append((enc(emu, 'JPEG', quality=88, subsampling=0), 'image/jpeg'))
     for data, mime in pics:
