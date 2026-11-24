@@ -2,7 +2,7 @@ extends "selftest/sections_native.gd"
 
 ## GameSpice Weapon's self-test. Headless, no network, no scene but this one.
 
-const CHECKS := 833
+const CHECKS := 838
 
 
 func _ready() -> void:
@@ -40,6 +40,7 @@ func _run() -> void:
 ## Every section, in order.
 func _run_sections() -> void:
 	_test_no_nul_in_sources()
+	_test_scope_zoom_levels()
 	_test_definition()
 	_test_catalogue()
 	_test_id_order()
@@ -749,4 +750,17 @@ func _test_charge_and_bow() -> void:
 	_drop(a)
 	_drop(b)
 	_drop(c)
+	_done()
+
+
+## The scope view's zoom levels: degrees to multipliers, the cycle and the lookup.
+func _test_scope_zoom_levels() -> void:
+	_section("scope zoom levels")
+	var V := preload("res://addons/gs_weapon/view/gs_weapon_scope_view.gd")
+	var awp := V.level_scales([40.0, 10.0])
+	_check(awp.size() == 2 and is_equal_approx(awp[0], 40.0 / 90.0) and is_equal_approx(awp[1], 10.0 / 90.0), "an AWP's 40 and 10 degrees become 0.444 and 0.111")
+	_check(V.level_scales([0.0, 15.0]).size() == 1, "a zero level is dropped")
+	_check(V.next_level(0, 2) == 1 and V.next_level(1, 2) == 0 and V.next_level(0, 0) == 0, "the cycle wraps and a single or empty list stays at 0")
+	_check(V.scale_at(awp, 9, 0.7) == awp[1] and V.scale_at(PackedFloat32Array(), 1, 0.7) == 0.7, "a level clamps into the list, an empty list gives the fallback")
+	_check(is_equal_approx(V.level_scales([40.0], 120.0)[0], 40.0 / 120.0), "a wider hip field of view gives a stronger zoom")
 	_done()
