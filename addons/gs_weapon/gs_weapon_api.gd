@@ -101,5 +101,6 @@ extends RefCounted
 ## 47: [method GSWeaponBehaviour.idle_row_framed] and [method GSWeaponBehaviour.tick_needs_context_posed]: [method GSWeaponArsenal.idle_tick_row] hands the behaviour its rules, crosshair and rate, and [method GSWeaponArsenal.is_idle_for] says a posture is provided, so a hitscan whose cached native rows provably still hold skips re-reading and re-checking them. [member GSWeaponBehaviour.idle_gate] (1 default; 0 the plain calls for A/B; 2 verify, counting [member GSWeaponBehaviour.idle_gate_misses]). Bit-exact. Additive. OLDEST stays 1.
 ## 48: [method GSWeaponSound.warm] and [method GSWeaponSound.warm_sounds]: load every variant of the given sound classes' fire, reload, dry, equip and far sounds and returns the streams.
 ## 49: `view/gs_weapon_scope_view.gd` zoom levels (by path): `level_scales` (field-of-view degrees to camera multipliers against the 90 degree hip), `next_level` (cycle, wrapping), `scale_at`; a view model keeps a scope's two-level zoom (Counter-Strike AWP 40 then 10, scout 40 then 15) on top of them. Additive. OLDEST stays 1.
-const LEVEL := 49
+## 50: `view/gs_weapon_inspect.gd` (by path, no class_name): the first-person look-over's progress, cancel fade and default keys, shared by view-model poses. Additive. OLDEST stays 1.
+const LEVEL := 50
 const OLDEST := 1
