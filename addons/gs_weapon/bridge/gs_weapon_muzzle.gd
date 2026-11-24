@@ -7,6 +7,8 @@ extends RefCounted
 
 const SCRIPT_PATH := "res://addons/gs_fx/runtime/gs_muzzle_flash.gd"
 const KEY := "muzzle_flash"
+## The warm Binbun flash variants; 2 and 3 are pink-white.
+const WARM_VARIANTS: Array[int] = [1, 4, 5, 6]
 const CHANNEL := "weapon.muzzle"
 
 ## How long [method warm_done] waits for a flash pool before giving up, so a loading gate held on it always opens.
@@ -58,6 +60,7 @@ static func attach(
 		flash = script.new()
 		flash.set("size", size)
 		flash.set("first_person", first_person)
+		flash.set("variant", WARM_VARIANTS[hash(key) % WARM_VARIANTS.size()])
 	parent.add_child(flash)
 	return flash
 
@@ -83,7 +86,8 @@ static func warm(
 	var flash: Node3D = script.new()
 	flash.set("size", size)
 	flash.set("first_person", first_person)
-	flash.set("variant", 1 + (hash(key) % 6))
+	# Variants 2 and 3 of the Binbun flashes are pink-white and read as a pink star on a gun; pick among the warm ones.
+	flash.set("variant", WARM_VARIANTS[hash(key) % WARM_VARIANTS.size()])
 	# The host may be a node a load gate froze (disabled): an inheriting flash would never build its pool.
 	flash.process_mode = Node.PROCESS_MODE_ALWAYS
 	host.add_child(flash)
