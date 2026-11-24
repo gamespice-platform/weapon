@@ -202,13 +202,14 @@ func _draw_lens() -> void:
 
 ## Dark falloff just inside the rim: stacked thin arcs, darkest at the edge.
 func _draw_edge_shadow(centre: Vector2, radius: float, strength: float) -> void:
-	var steps := 16
+	# About one step per two pixels, so no ring of the shadow shows as a band at a large lens.
+	var steps := clampi(int(radius * vignette / 2.0), 16, 120)
 	var band := radius * vignette / float(steps)
 	for i in range(steps):
 		var t := float(i) / float(steps)
 		var inner := radius * (1.0 - vignette) + band * (float(i) + 0.5)
 		var alpha := 0.55 * t * t * strength
-		draw_arc(centre, inner, 0.0, TAU, 96, Color(0.0, 0.0, 0.0, alpha), band + 1.0, true)
+		draw_arc(centre, inner, 0.0, TAU, 128, Color(0.0, 0.0, 0.0, alpha), band + 0.5, true)
 
 
 ## The metal ring, a thin lit line inside it and a red and blue fringe either side of the edge.
