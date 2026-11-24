@@ -123,9 +123,11 @@ COAT_FLAT = {'quad_rocket_launcher': (0.060, 0.072, 0.040)}
 # Their meshes are triangle soup: bake them with AW_WELD=1 AW_MODE=smart (addons/gs_weapon/tools/texbake/tex_pipeline.sh), or every triangle is its own island.
 # 'poly' (polymer_detail below): authored polymer albedo for a polymer-bodied gun: a colour per part ('tints', indices into POLY_TINTS),
 # mould parting seams, stencilled decals, edge wear that shows the lighter core, and a matte roughness floor ('rough_min').
+# 'poly_max' (default 0.19) is the brightest source texel still read as polymer: lower it so the grey texels of a polymer-bodied gun's metal parts
+# (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
-        'lmg': {'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'lmg': {'poly_max': 0.095, 'finish': 1, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
@@ -188,7 +190,7 @@ def polymer_detail(size, k, part, cover, edgew, ao_small, seed, spec):
     return tint, seam, decal
 
 
-def classify(a, allow_wood=True, paint_blue=False):
+def classify(a, allow_wood=True, paint_blue=False, poly_max=0.19):
     s0 = a.shape[0]
     af = np.stack([blur(a[..., i], 1.5 * s0 / 1024) for i in range(3)], 2)
     mx, mn = af.max(2), af.min(2)
@@ -201,7 +203,7 @@ def classify(a, allow_wood=True, paint_blue=False):
     brass = (hue >= 0.09) & (hue < 0.2) & (sat > 0.42) & (mx > 0.4) & ~wood & allow_wood
     bluish = (hue > 0.5) & (hue < 0.72)
     coat = (sat > 0.17) & (mx > 0.12) & ~wood & ~brass & (paint_blue | ~bluish)
-    poly = (mx < 0.19) & ~wood & ~coat
+    poly = (mx < poly_max) & ~wood & ~coat
     metal = ~(wood | brass | poly | coat)
     oh = np.stack([metal, poly, wood, brass, coat], 0).astype(np.float32)
     sm = np.stack([blur(o, 2.5 * s0 / 1024) for o in oh], 0)
@@ -248,7 +250,7 @@ def build(name, size, rng):
     k = size / 1024.0
     mname = os.path.basename(name).replace('.glb', '')
     look = LOOK.get(mname, {})
-    W = classify(a, mname in WOOD_MODELS, look.get('paint_blue', False))
+    W = classify(a, mname in WOOD_MODELS, look.get('paint_blue', False), look.get('poly_max', 0.19))
     wm, wp, ww, wb, wc = W
     L = lum(a)
     if look.get('as_poly'):
