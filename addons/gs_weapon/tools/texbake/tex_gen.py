@@ -121,6 +121,7 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # the metal and polymer texels as paint too (the ammo can's dark green sides read as bare steel or black plastic).
 # The grenades and ammo can are painted kit: at full wear their paint chipped to bare steel all over at 1024 px.
 # Their meshes are triangle soup: bake them with AW_WELD=1 AW_MODE=smart (addons/gs_weapon/tools/texbake/tex_pipeline.sh), or every triangle is its own island.
+# 'dark' multiplies the metal albedo (a washed pale grey gun reads as plastic toy: 0.6 gives gunmetal with contrast against the polymer).
 # 'relief' scales the whole height map before it becomes a normal map (0.4 reads as machined metal and moulded polymer, not stone).
 # 'poly' (polymer_detail below): authored polymer albedo for a polymer-bodied gun: a colour per part ('tints', indices into POLY_TINTS),
 # mould parting seams, stencilled decals, edge wear that shows the lighter core, and a matte roughness floor ('rough_min').
@@ -129,15 +130,15 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
-        'lmg': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'lmg': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
         'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
-        'marksman': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'minigun': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'carbine': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.8, 'wear': 0.5},
-        'machine_pistol': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'rocket_launcher_alt': {'relief': 0.4, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'marksman': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'minigun': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'carbine': {'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
+        'machine_pistol': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'rocket_launcher_alt': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
@@ -340,7 +341,7 @@ def build(name, size, rng):
     bare = np.clip((edgew * 0.95 + handling * 0.5 + scr * 0.45 * (0.5 + low) + ridge * 0.25 + pits * 0.1) * wear_amt, 0, 1) * look.get('wear', 1.0)
     steel = np.array([0.50, 0.485, 0.465], np.float32)[None, None, :] * (0.7 + 0.4 * mid[..., None])
     m_alb = lerp(m_alb, steel, bare[..., None])
-    m_alb = m_alb * (1 - 0.55 * dirt[..., None]) * (1 - 0.35 * groove[..., None])
+    m_alb = m_alb * (1 - 0.55 * dirt[..., None]) * (1 - 0.35 * groove[..., None]) * look.get('dark', 1.0)
     m_rough = FIN_ROU[fin] + (mid - 0.5) * 0.22 + (fine - 0.5) * 0.08 + (low - 0.5) * 0.1
     m_rough = lerp(m_rough, 0.26 + 0.14 * mid, bare) + dirt * 0.18 + groove * 0.1
     # not a perfect mirror: oil / grime patches are dielectric, so some diffuse albedo always shows and the sky does not own the colour
