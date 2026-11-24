@@ -44,9 +44,6 @@ extends Control
 ## Fine mil-style tick marks along the thin part of the crosshair.
 @export var mil_ticks: bool = true
 
-## How far the reticle drifts with the breath, as a fraction of the radius. 0 holds it still.
-@export_range(0.0, 0.05, 0.001) var breath_sway: float = 0.012
-
 ## Colour fringing at the lens edge, in pixels at 1080 tall. 0 for none.
 @export_range(0.0, 6.0, 0.25) var fringe: float = 1.5
 
@@ -76,7 +73,6 @@ extends Control
 ## Mode 1: how much the lens's field of view is of the camera's: 0.25 is a 4x zoom.
 var lens_zoom: float = 1.0
 
-var _breath: float = 0.0
 var _source: Camera3D = null
 var _hide_mask: int = 0
 var _port: SubViewport = null
@@ -103,12 +99,11 @@ func lens_active() -> bool:
 		and DisplayServer.get_name() != "headless"
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	_sync_lens()
-	if fraction <= 0.0:
-		return
-	_breath += delta
-	if breath_sway > 0.0:
+	# Redrawn each frame while up (the aim-in, the clear and the follow all change it). No breath is drawn here: the sway the player sees is the view itself
+	# (the game turns the camera by the weapon's breath), so the ring and reticle stay one fixed picture over a drifting world.
+	if fraction > 0.0:
 		queue_redraw()
 
 
@@ -232,8 +227,7 @@ func _draw_rim(centre: Vector2, radius: float, unit: float) -> void:
 ## A duplex reticle: thin lines through the centre, heavy posts on the outer half left, right and
 ## below, a mil scale on the thin part. Override to draw another.
 func _draw_reticle(centre: Vector2, radius: float, unit: float) -> void:
-	var sway := Vector2(sin(_breath * 1.3), sin(_breath * 0.8 + 1.0) * 0.8 + sin(_breath * 2.9) * 0.15)
-	var c := centre + sway * radius * breath_sway
+	var c := centre
 	var reach := radius - maxf(2.0, radius * rim_width)
 	var thin := maxf(1.0, reticle_width * unit)
 	var line := Color(reticle_colour, reticle_colour.a * _shown())
@@ -243,7 +237,7 @@ func _draw_reticle(centre: Vector2, radius: float, unit: float) -> void:
 		var stop: float = reach * 0.38 if direction != Vector2.UP else reach
 		draw_line(c + direction * 2.0 * unit, c + direction * stop, line, thin, true)
 	for direction in [Vector2.LEFT, Vector2.RIGHT, Vector2.DOWN]:
-		draw_line(c + direction * post_from, c + direction * reach, line, thin * 4.0)
+		draw_line(c + direction * post_from, c + direction * reach, line, thin * 4.0, true)
 
 	if mil_ticks:
 		var step := reach * 0.045
@@ -256,7 +250,7 @@ func _draw_reticle(centre: Vector2, radius: float, unit: float) -> void:
 			var down: float = step * float(i)
 			draw_line(c + Vector2(-half, down), c + Vector2(half, down), line, thin, true)
 			draw_line(c + Vector2(-half, -down), c + Vector2(half, -down), line, thin, true)
-	draw_circle(c, maxf(1.0, thin * 0.8), line)
+	draw_circle(c, maxf(1.0, thin * 0.8), line, true, -1.0, true)
 
 
 ## The black between the circle and its bounding square, as a fan per corner.
