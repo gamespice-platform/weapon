@@ -128,6 +128,10 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # 'coat_as_poly' reads the painted (coat) texels as polymer: a dark navy source's warm-tinged shadows classify as paint and bake brown.
 # 'poly_max' (default 0.19) is the brightest source texel still read as polymer: lower it so the grey texels of a polymer-bodied gun's metal parts
 # (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
+# 'clean' (0..1) stops the AI source paint from showing through at all: each UV island takes one class (its majority) instead of a class
+# per texel (the source's voronoi-like cells baked as metal/polymer polygon patches), painted (coat) islands take one flat colour, the
+# source high-pass bumps and wood tint are dropped, and the broad fbm tone patches are scaled by the value (0.3 keeps a faint variation).
+# Crisp wear still follows the baked edge / AO maps. gs-game tools/rsi_asset_audit.py flags the blotched result as TEXTURE_QUALITY.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
         'lmg': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
@@ -135,7 +139,7 @@ LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, '
         'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
         'marksman': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'minigun': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'minigun': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'carbine': {'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
         'machine_pistol': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'rocket_launcher_alt': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
@@ -226,6 +230,23 @@ def classify(a, allow_wood=True, paint_blue=False, poly_max=0.19):
     return w
 
 
+def island_classes(W, cover, a, k):
+    """One class per UV island (connected cover component): its summed class weight wins. Also returns each texel's
+    island-mean linear colour (for flat painted islands)."""
+    from scipy.ndimage import label
+    lab, n = label(cover)
+    flat = lab.ravel()
+    cnt = np.maximum(np.bincount(flat, minlength=n + 1), 1)
+    sums = np.stack([np.bincount(flat, weights=w.ravel(), minlength=n + 1) for w in W], 0)
+    cls = np.where(lab > 0, sums.argmax(0)[lab], W.argmax(0))
+    oh = np.stack([(cls == c) for c in range(W.shape[0])], 0).astype(np.float32)
+    w = np.stack([blur(o, 0.8 * k) for o in oh], 0)
+    w /= np.maximum(w.sum(0, keepdims=True), 1e-4)
+    la = np.clip(a, 0, 1) ** 2.2
+    mean = np.stack([np.bincount(flat, weights=la[..., i].ravel(), minlength=n + 1) / cnt for i in range(3)], 1)
+    return w, mean[lab].astype(np.float32)
+
+
 def voronoi_cells(size, rng, spacing):
     """Distance (px) to the nearest of randomly jittered points: pebble / stipple height."""
     from scipy.ndimage import distance_transform_edt
@@ -274,6 +295,10 @@ def build(name, size, rng):
     if look.get('as_coat'):
         W = np.stack([wm * 0, wp * 0, ww, wb, wc + wm + wp], 0)
         wm, wp, ww, wb, wc = W
+    clean = look.get('clean')
+    if clean is not None:
+        W, isl_col = island_classes(W, cover, a, k)
+        wm, wp, ww, wb, wc = W
     part = part_map(size)
     seed = sum(map(ord, name))
     cloth = np.zeros((size, size), np.float32)
@@ -296,7 +321,7 @@ def build(name, size, rng):
         glow = np.clip(glow * 1.15, 0, 1)
         ecol = np.clip(af2 / np.maximum(mx2, 1e-3)[..., None], 0, 1)
     # fine detail the old painted albedo carried (magazine ribs, panel lines, grip checkering): high-pass -> height + cavity
-    hp = (blur(L, 0.9 * k) - blur(L, 4.5 * k)) * look.get('detail', 1.0)
+    hp = (blur(L, 0.9 * k) - blur(L, 4.5 * k)) * (0.0 if clean is not None else look.get('detail', 1.0))
     det = np.clip(hp / 0.12, -1, 1)
     bump = look.get('bump', 1.0)
     groove = sstep(-hp, 0.02, 0.11)
@@ -306,6 +331,8 @@ def build(name, size, rng):
     mid = fbm(size, rng, 22, octaves=4)
     fine = fbm(size, rng, size // 3, octaves=1)
     wn = fbm(size, rng, 14, octaves=5)
+    if clean is not None:
+        low, mid = 0.5 + (low - 0.5) * clean, 0.5 + (mid - 0.5) * clean
     pits = blur((rng.random((size, size)) > 0.9985).astype(np.float32), 1.1) * 18
     scr = np.clip(scratches(size, rng, int(320 * k * k), 6 * k, 46 * k) * 0.7, 0, 1)
     dirt = np.clip((1 - ao_small) * 1.5 + (1 - ao_big) * 0.6, 0, 1) * (0.5 + 0.5 * low)
@@ -384,7 +411,7 @@ def build(name, size, rng):
         wsel[part == i] = (i * 5 + seed) % 3
     dk = pal[:, 0, :][wsel]
     lt = pal[:, 1, :][wsel]
-    tint = np.clip(blur(L, 6 * k) / 0.45, 0.65, 1.4)[..., None]
+    tint = np.clip(blur(L, 6 * k) / 0.45, 0.65, 1.4)[..., None] if clean is None else 1.0
     w_alb = lerp(dk, lt, g[..., None]) * (0.78 + 0.45 * low[..., None]) * tint ** 0.6
     w_alb = w_alb * (1 - 0.30 * pore[..., None] * (g[..., None] < 0.5))
     wraw = np.clip(edgew * 0.9 + scr * 0.5, 0, 1)
@@ -398,6 +425,8 @@ def build(name, size, rng):
     b_h = (fine - 0.5) * 0.06 - scr * 0.2 - edgew * 0.15 + det * 0.3
     # ---- coat (paint / cerakote): the artist's colour, matte, chipped to bare steel on edges and handled spots
     ca = np.clip(a, 0, 1) ** 2.2
+    if clean is not None:
+        ca = isl_col
     cl = lum(ca)[..., None]
     if mname in COAT_FLAT:
         ca = np.array(COAT_FLAT[mname], np.float32)[None, None, :] * (0.62 + 0.55 * low[..., None]) * np.ones_like(ca)
