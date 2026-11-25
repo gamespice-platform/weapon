@@ -32,3 +32,7 @@ Thumbs.db
 /addons/gs_bot_record
 /addons/gs_net
 /addons/gs_sql
+
+# Python bytecode
+__pycache__/
+*.pyc

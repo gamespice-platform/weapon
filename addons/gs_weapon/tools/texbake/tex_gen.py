@@ -134,17 +134,21 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # per texel (the source's voronoi-like cells baked as metal/polymer polygon patches), painted (coat) islands take one flat colour, the
 # painted accents of one hue (a band) take one vivid colour at full saturation, the source high-pass bumps and wood tint are dropped, and the broad fbm tone patches are scaled by the value (0.3 keeps a faint variation).
 # Crisp wear still follows the baked edge / AO maps. gs-game tools/rsi_asset_audit.py flags the blotched result as TEXTURE_QUALITY.
+# 'panels' (tex_detail.py) groups the UV islands into 'parts' (default 7) by where they sit on the mesh and gives each group one finish:
+# a value step of the baked colour ('value'), or with 'paint' one of the listed linear colours (a two- or three-tone gun). Per-island
+# tones on AI-unwrapped meshes (hundreds of fragment islands) read as black/white speckle and blotches. 'poly' 'mottle' (default 0.5)
+# scales the polymer's in-part mottling, which reads as concrete once the parts carry their own tones.
 # rifle: bake it with AW_MODE=smart AW_WELD=1 (its source is triangle soup: the orig and the unwelded smart bakes cover almost nothing and come out black); battle_rifle bakes from its own maps.
-LOOK = {'bullpup': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
-                    'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
+LOOK = {'bullpup': {'clean': 0.3, 'panels': {'paint': [[0.021, 0.023, 0.026], [0.15, 0.105, 0.058], [0.021, 0.023, 0.026]], 'wear': 0.5}, 'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
+                    'poly': {'tints': [0, 1, 0, 2], 'mottle': 0.12, 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
         'lmg': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
-        'drum_shotgun': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
+        'drum_shotgun': {'clean': 0.3, 'panels': {'paint': [[0.021, 0.023, 0.026], [0.05, 0.052, 0.056], [0.06, 0.07, 0.032]], 'wear': 0.5}, 'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'mottle': 0.12, 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
         'plasma_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
-        'marksman': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'marksman': {'clean': 0.3, 'panels': {'paint': [[0.035, 0.036, 0.039], [0.075, 0.077, 0.08], [0.11, 0.085, 0.055]], 'wear': 0.5}, 'relief': 0.4, 'dark': 0.9, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.3, 'wear': 0.4},
         'minigun': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0, 'brush': 0.12}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'carbine': {'clean': 0.3, 'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
-        'machine_pistol': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'machine_pistol': {'clean': 0.3, 'panels': {'paint': [[0.02, 0.021, 0.023], [0.06, 0.062, 0.066], [0.10, 0.10, 0.10]], 'wear': 0.5}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'rocket_launcher_alt': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'sniper_rifle': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
         'pistol': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
@@ -152,9 +156,9 @@ LOOK = {'bullpup': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'finish
         'rocket_launcher': {'clean': 0.3, 'panels': {}},
         'grenade_launcher': {'clean': 0.3, 'panels': {}},
         'frag_grenade': {'clean': 0.3, 'panels': {}},
-        'quad_rocket_launcher': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'as_coat': True, 'wear': 0.05},
-        'rifle': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}},
-        'battle_rifle': {'clean': 0.3, 'panels': {}},
+        'quad_rocket_launcher': {'clean': 0.3, 'panels': {'paint': [[0.034, 0.047, 0.024], [0.013, 0.014, 0.016], [0.10, 0.10, 0.07]], 'wear': 0.5}, 'as_coat': True, 'wear': 0.05},
+        'rifle': {'clean': 0.3, 'panels': {'value': 0.5, 'wear': 0.5}, 'dark': 0.55},
+        'battle_rifle': {'clean': 0.3, 'panels': {}, 'dark': 0.6},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
@@ -179,7 +183,10 @@ def polymer_detail(size, k, part, cover, edgew, ao_small, seed, spec):
     tint[part >= 40] = POLY_TINTS[tints[0]]
     # panel-to-panel mottling inside a part: moulded plastic is never one value
     mott = fbm(size, rng, 9, octaves=3)
-    tint = tint * (0.78 + 0.5 * mott[..., None])
+    if 'mottle' in spec:  # how strongly (0.5 the default), lower for a gun whose parts carry their own tones
+        tint = tint * (1.03 - 0.5 * spec['mottle'] + spec['mottle'] * mott[..., None])
+    else:
+        tint = tint * (0.78 + 0.5 * mott[..., None])
     # mould parting seams: thin wandering contours of a smooth field, a pale ridge with a dark line beside it
     f = blur(fbm(size, rng, 6, octaves=2), 3 * k)
     seam = np.zeros_like(f)
@@ -521,7 +528,12 @@ def build(name, size, rng):
     h = h - edge * 1.4 - groove * 0.25
     occl = np.clip(0.2 + 0.8 * (ao_small * 0.6 + ao_big * 0.4), 0, 1) * (1 - 0.35 * groove)
     if 'panels' in look:
-        alb, rough, h, occl = tex_detail.apply(alb, rough, h, occl, cover, edge, size, seed, look['panels'])
+        npz = np.load(os.path.join(bake, 'mesh.npz'))
+        nms = sorted({f.split('__')[0] for f in npz.files})
+        # triangle centres (inside their island, unlike vertices on its border) with their place on the model
+        tri = [(npz[m + '__uv'][npz[m + '__idx'].reshape(-1, 3)].mean(1), npz[m + '__pos'][npz[m + '__idx'].reshape(-1, 3)].mean(1)) for m in nms]
+        pts = (np.concatenate([t[0] for t in tri]), np.concatenate([t[1] for t in tri]))
+        alb, rough, h, occl = tex_detail.apply(alb, rough, h, occl, cover, edge, size, seed, look['panels'], pts)
     return alb, rough, metal, occl, h, cover, W, emis, float(glow.max())
 
 
