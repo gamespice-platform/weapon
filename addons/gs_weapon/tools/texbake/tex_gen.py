@@ -130,19 +130,25 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # (barrel, receiver, bolt) take the metal finish ('finish' picks it, 'metal' caps the metallic) instead of reading as flat grey plastic.
 # 'clean' (0..1) stops the AI source paint from showing through at all: each UV island takes one class (its majority) instead of a class
 # per texel (the source's voronoi-like cells baked as metal/polymer polygon patches), painted (coat) islands take one flat colour, the
-# source high-pass bumps and wood tint are dropped, and the broad fbm tone patches are scaled by the value (0.3 keeps a faint variation).
+# painted accents of one hue (a band) take one vivid colour at full saturation, the source high-pass bumps and wood tint are dropped, and the broad fbm tone patches are scaled by the value (0.3 keeps a faint variation).
 # Crisp wear still follows the baked edge / AO maps. gs-game tools/rsi_asset_audit.py flags the blotched result as TEXTURE_QUALITY.
 LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
-        'lmg': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
+        'lmg': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
-        'plasma_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
-        'rail_rifle': {'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
+        'plasma_rifle': {'clean': 0.3, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
+        'rail_rifle': {'clean': 0.3, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
         'marksman': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'minigun': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'carbine': {'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
+        'carbine': {'clean': 0.3, 'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
         'machine_pistol': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'rocket_launcher_alt': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'rocket_launcher_alt': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'sniper_rifle': {'clean': 0.3},
+        'pistol': {'clean': 0.3},
+        'revolver': {'clean': 0.3},
+        'rocket_launcher': {'clean': 0.3},
+        'grenade_launcher': {'clean': 0.3},
+        'frag_grenade': {'clean': 0.3},
         'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
@@ -232,7 +238,7 @@ def classify(a, allow_wood=True, paint_blue=False, poly_max=0.19):
 
 def island_classes(W, cover, a, k):
     """One class per UV island (connected cover component): its summed class weight wins. Also returns each texel's
-    island-mean linear colour (for flat painted islands)."""
+    island-mean linear colour (for flat painted islands) and the painted-accent mask (an accent keeps its full colour)."""
     from scipy.ndimage import label, binary_opening
     # painted accents (a hazard band, a coloured stripe) inside an island keep their own region and colour:
     # saturated source texels, smoothed and opened so the AI paint's specks do not count
@@ -252,7 +258,35 @@ def island_classes(W, cover, a, k):
     w /= np.maximum(w.sum(0, keepdims=True), 1e-4)
     la = la ** 2.2
     mean = np.stack([np.bincount(flat, weights=la[..., i].ravel(), minlength=n + 1) / cnt for i in range(3)], 1)
-    return w, mean[lab].astype(np.float32)
+    accent_paint(mean, lab, n - n2, n2, sa, la)
+    return w, mean[lab].astype(np.float32), acc
+
+
+def accent_paint(mean, lab, first, count, sa, lin):
+    """Accent regions of one paint (the same hue) take one colour: the AI paint blended some faces of a band toward the
+    grey body (the minigun's band baked with a pale top half). The colour is the mean of the group's more saturated half
+    of texels, so the blended edges do not wash it out. Edits mean (linear, per label) in place."""
+    if count == 0:
+        return
+    ids = np.arange(first + 1, first + count + 1)
+    area = np.bincount(lab.ravel(), minlength=first + count + 1)[ids]
+    c = mean[ids] ** (1 / 2.2)
+    mx, mn = c.max(1), c.min(1)
+    d = np.maximum(mx - mn, 1e-4)
+    r, g, b = c[:, 0], c[:, 1], c[:, 2]
+    hue = np.where(mx == r, ((g - b) / d) % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4)) / 6.0
+    group = -np.ones(count, np.int64)
+    for i in np.argsort(-area):
+        if group[i] >= 0:
+            continue
+        dh = np.abs(hue - hue[i])
+        group[(np.minimum(dh, 1 - dh) < 0.04) & (group < 0)] = i
+    for gi in np.unique(group):
+        members = ids[group == gi]
+        m = np.isin(lab, members)
+        s = sa[m]
+        vivid = s >= np.median(s)
+        mean[members] = lin[m][vivid].mean(0)
 
 
 def voronoi_cells(size, rng, spacing):
@@ -305,7 +339,7 @@ def build(name, size, rng):
         wm, wp, ww, wb, wc = W
     clean = look.get('clean')
     if clean is not None:
-        W, isl_col = island_classes(W, cover, a, k)
+        W, isl_col, isl_acc = island_classes(W, cover, a, k)
         wm, wp, ww, wb, wc = W
     part = part_map(size)
     seed = sum(map(ord, name))
@@ -439,7 +473,12 @@ def build(name, size, rng):
     if mname in COAT_FLAT:
         ca = np.array(COAT_FLAT[mname], np.float32)[None, None, :] * (0.62 + 0.55 * low[..., None]) * np.ones_like(ca)
         cl = lum(ca)[..., None]
-    c_alb = lerp(cl, ca, 0.8) * np.clip(blur(ca, 3 * k) / np.maximum(cl, 1e-3), 0, 2) ** 0 * (0.75 + 0.5 * low[..., None]) * (0.92 + 0.16 * fine[..., None])
+    # the coat keeps 80% of its colour; a clean accent (a hazard band) is pushed past it (1.3) and darkened, or its lit top
+    # faces wash to cream under the key light (the source paint had them shaded darker, which hid it)
+    sat = np.where(isl_acc, 1.3, 0.8)[..., None] if clean is not None else 0.8
+    c_alb = lerp(cl, ca, sat) * np.clip(blur(ca, 3 * k) / np.maximum(cl, 1e-3), 0, 2) ** 0 * (0.75 + 0.5 * low[..., None]) * (0.92 + 0.16 * fine[..., None])
+    if clean is not None:
+        c_alb = c_alb * np.where(isl_acc, 0.8, 1.0)[..., None]
     c_alb = np.clip(c_alb * 0.9, 0, 1) * (1 - 0.45 * dirt[..., None]) * (1 - 0.35 * groove[..., None])
     chip = np.clip(edgew * 0.9 + scr * 0.4 + handling * 0.4, 0, 1) * look.get('wear', 1.0)
     c_alb = lerp(c_alb, steel * 0.9, chip[..., None])
