@@ -559,11 +559,11 @@ func _advance_use(
 				return _try_use(slot, ctx)
 			if was_down:
 				return slot.behaviour.release(ctx)
-			return GSWeaponOutcome.nothing("")
+			return _idle_nothing()
 		_:
 			if down and not was_down:
 				if ctx.tick < _next_use_tick and _arm_buffer(def, ctx.tick):
-					return GSWeaponOutcome.nothing("")
+					return _idle_nothing()
 				_buffer_until = -1
 				return _try_use(slot, ctx)
 			if _buffer_until >= ctx.tick and ctx.tick >= _next_use_tick:
@@ -571,7 +571,7 @@ func _advance_use(
 				return _try_use(slot, ctx)
 			if was_down and not down:
 				return slot.behaviour.release(ctx)
-			return GSWeaponOutcome.nothing("")
+			return _idle_nothing()
 
 
 ## Remembers a press made inside the cooldown so it fires when the cooldown ends, if that is inside the window.
@@ -595,7 +595,7 @@ func _advance_charge(
 			return GSWeaponOutcome.nothing("Nothing to spend.")
 		_charge_started = ctx.tick
 		_charge_announced = false
-		return GSWeaponOutcome.nothing("")
+		return _idle_nothing()
 
 	if down:
 		if (
@@ -605,10 +605,10 @@ func _advance_charge(
 		):
 			_charge_announced = true
 			charge_full.emit(_current)
-		return GSWeaponOutcome.nothing("")
+		return _idle_nothing()
 
 	if not was_down or _charge_started < 0:
-		return GSWeaponOutcome.nothing("")
+		return _idle_nothing()
 
 	# Released.
 	var charge := charge_for(def, ctx.tick - _charge_started)
@@ -629,7 +629,7 @@ func _advance_burst(
 		_burst_left = slot.def.burst_count
 
 	if _burst_left <= 0:
-		return GSWeaponOutcome.nothing("")
+		return _idle_nothing()
 
 	var out := _try_use(slot, ctx)
 	if out.used:
@@ -660,7 +660,7 @@ func _try_use(slot: GSWeaponSlot, ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var def := slot.def
 
 	if ctx.tick < _next_use_tick:
-		return GSWeaponOutcome.nothing("")
+		return _idle_nothing()
 
 	if not _can_pay(slot):
 		dry_used.emit(_current)

@@ -15,33 +15,50 @@ var drag: float = 1.0
 ## Share (0..1) of the victim's armour this round ignores.
 var armour_pierce: float = 0.0
 ## Metres of resistance-1 material a hitscan round crosses at full strength; 0 passes nothing.
-var penetration: float = 0.0
+var penetration: float = 0.0:
+	set(v): penetration = v; _shared_pen = null
 ## Farthest the round looks for the far side of a wall, in metres.
-var max_depth: float = 1.0
+var max_depth: float = 1.0:
+	set(v): max_depth = v; _shared_pen = null
 ## Resistance per surface material (power spent per metre).
-var materials: Dictionary = {}
+var materials: Dictionary = {}:
+	set(v): materials = v; _shared_pen = null
 ## Resistance of a material `materials` does not list.
-var default_resistance: float = 1.0
+var default_resistance: float = 1.0:
+	set(v): default_resistance = v; _shared_pen = null
 ## Power spent crossing a body, and a per-hit-group multiplier on it.
-var body_cost: float = 0.1
-var body_zones: Dictionary = {}
+var body_cost: float = 0.1:
+	set(v): body_cost = v; _shared_pen = null
+var body_zones: Dictionary = {}:
+	set(v): body_zones = v; _shared_pen = null
 ## Damage never falls below this share after a pass while power remains.
-var min_damage: float = 0.0
-var max_passes: int = 4
+var min_damage: float = 0.0:
+	set(v): min_damage = v; _shared_pen = null
+var max_passes: int = 4:
+	set(v): max_passes = v; _shared_pen = null
 ## Materials a shallow hit bounces off (comma list); needs `penetration` above 0 and the server's `sv_ricochet`.
-var ricochet_materials: PackedStringArray = PackedStringArray()
+var ricochet_materials: PackedStringArray = PackedStringArray():
+	set(v): ricochet_materials = v; _shared_pen = null
 ## Largest angle from the surface, in degrees, that still bounces; 0 turns ricochet off for this round.
-var ricochet_angle: float = 0.0
+var ricochet_angle: float = 0.0:
+	set(v): ricochet_angle = v; _shared_pen = null
 ## Share of power a bounce keeps.
-var ricochet_keep: float = 0.6
+var ricochet_keep: float = 0.6:
+	set(v): ricochet_keep = v; _shared_pen = null
 ## Muzzle speed in m/s for the penetration velocity pass (gs-combat `GSPenetration.speed`); 0 leaves the pass off.
-var speed: float = 0.0
+var speed: float = 0.0:
+	set(v): speed = v; _shared_pen = null
 ## Speed at which wall and body costs are the plain ones (`GSPenetration.reference_speed`); 0 leaves the pass off.
-var reference_speed: float = 0.0
+var reference_speed: float = 0.0:
+	set(v): reference_speed = v; _shared_pen = null
 ## Weapon ids this round is the default for (a profile can serve several guns).
 var guns: PackedStringArray = PackedStringArray()
 ## The round every weapon that no profile lists uses.
 var is_default: bool = false
+
+## [method shared_penetration]'s build; a write to any field it reads drops it (an edit inside [member materials] or
+## [member body_zones] in place does not: assign the dictionary again).
+var _shared_pen: GSPenetration = null
 
 
 ## "wood:0.5,metal:4" to a dictionary of floats.
@@ -96,6 +113,15 @@ static func from_flat(p_id: StringName, c: Dictionary) -> GSWeaponAmmoType:
 
 
 ## What a hitscan round of this type can pass through, for GameSpice Combat's [code]GSShot.penetration[/code]. Null when it passes nothing.
+## [method make_penetration] built once and handed to every shot: read-only, since gs-combat scales a copy
+## ([method GSPenetration.duplicate_scaled]) and never writes the shot's own. A new one each shot was a resource
+## and three dictionary copies.
+func shared_penetration() -> GSPenetration:
+	if _shared_pen == null and penetration > 0.0:
+		_shared_pen = make_penetration()
+	return _shared_pen
+
+
 func make_penetration() -> GSPenetration:
 	if penetration <= 0.0:
 		return null

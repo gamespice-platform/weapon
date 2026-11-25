@@ -717,10 +717,15 @@ func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 		if round_id != &"":
 			shot.set_meta(&"ammo", round_id)
 
-	if arsenal != null and arsenal.has_method("round_for") and not shot.deferred:
-		var ammo := arsenal.call("round_for", def.id) as GSWeaponAmmoType
+	if not shot.deferred and arsenal != null:
+		# An arsenal answers directly; another host is asked by name, as before.
+		var ammo: GSWeaponAmmoType = null
+		if arsenal is GSWeaponArsenal:
+			ammo = (arsenal as GSWeaponArsenal).round_for(def.id)
+		elif arsenal.has_method(&"round_for"):
+			ammo = arsenal.call(&"round_for", def.id) as GSWeaponAmmoType
 		if ammo != null:
-			shot.penetration = ammo.make_penetration()
+			shot.penetration = ammo.shared_penetration()
 			shot.set_meta(&"ammo", ammo.id)
 
 	shot.scatter()

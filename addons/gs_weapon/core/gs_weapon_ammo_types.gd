@@ -7,6 +7,8 @@ extends RefCounted
 const KIND := "ammo"
 
 var _types: Dictionary = {}
+## [method type_for_weapon] answers by weapon id; [method add] clears it. Asked once per shot, the scan sorted every id each time.
+var _for_weapon: Dictionary = {}
 
 
 static func schema() -> Array:
@@ -60,6 +62,7 @@ func load_set(profiles: GSProfileSet) -> int:
 
 func add(t: GSWeaponAmmoType) -> void:
 	_types[t.id] = t
+	_for_weapon.clear()
 
 
 ## The type for [param id], or null (no change to the bullet).
@@ -69,6 +72,14 @@ func get_type(id: StringName) -> GSWeaponAmmoType:
 
 ## The type [param weapon_id] fires when no round is loaded: one whose `guns` lists it, else the `default` one, else null.
 func type_for_weapon(weapon_id: StringName) -> GSWeaponAmmoType:
+	if _for_weapon.has(weapon_id):
+		return _for_weapon[weapon_id]
+	var t := _scan_for_weapon(weapon_id)
+	_for_weapon[weapon_id] = t
+	return t
+
+
+func _scan_for_weapon(weapon_id: StringName) -> GSWeaponAmmoType:
 	var fallback: GSWeaponAmmoType = null
 	for id in ids():
 		var t := _types[id] as GSWeaponAmmoType
