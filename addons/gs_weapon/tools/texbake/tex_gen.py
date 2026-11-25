@@ -233,8 +233,16 @@ def classify(a, allow_wood=True, paint_blue=False, poly_max=0.19):
 def island_classes(W, cover, a, k):
     """One class per UV island (connected cover component): its summed class weight wins. Also returns each texel's
     island-mean linear colour (for flat painted islands)."""
-    from scipy.ndimage import label
-    lab, n = label(cover)
+    from scipy.ndimage import label, binary_opening
+    # painted accents (a hazard band, a coloured stripe) inside an island keep their own region and colour:
+    # saturated source texels, smoothed and opened so the AI paint's specks do not count
+    la = np.clip(a, 0, 1)
+    sa = blur(la.max(-1) - la.min(-1), 2 * k) / np.maximum(blur(la.max(-1), 2 * k), 0.05)
+    acc = binary_opening((sa > 0.3) & cover, iterations=max(int(2 * k), 1))
+    lab, n = label(cover & ~acc)
+    lab2, n2 = label(acc)
+    lab = np.where(acc, lab2 + n, lab)
+    n += n2
     flat = lab.ravel()
     cnt = np.maximum(np.bincount(flat, minlength=n + 1), 1)
     sums = np.stack([np.bincount(flat, weights=w.ravel(), minlength=n + 1) for w in W], 0)
@@ -242,7 +250,7 @@ def island_classes(W, cover, a, k):
     oh = np.stack([(cls == c) for c in range(W.shape[0])], 0).astype(np.float32)
     w = np.stack([blur(o, 0.8 * k) for o in oh], 0)
     w /= np.maximum(w.sum(0, keepdims=True), 1e-4)
-    la = np.clip(a, 0, 1) ** 2.2
+    la = la ** 2.2
     mean = np.stack([np.bincount(flat, weights=la[..., i].ravel(), minlength=n + 1) / cnt for i in range(3)], 1)
     return w, mean[lab].astype(np.float32)
 
