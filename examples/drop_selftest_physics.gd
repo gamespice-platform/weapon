@@ -146,6 +146,14 @@ func _test_settle_rules() -> void:
 	server._entries[c]["refalls"] = 9
 	crate.free()
 	_check(server.check_support() == 0 and server._entries[c].has("ground_in"), "past refall_max the drop is grounded, not woken")
+	var hung: Vector3 = (server._entries[c]["body"] as Node3D).global_position
+	server.tick(0.001)
+	_check(server._entries[c].has("floorless") and not server._entries[c].has("ground_in"), "no floor within the rescue depth: it is marked floorless")
+	_check((server._entries[c]["body"] as Node3D).global_position.distance_to(hung) < 0.001, "a floorless drop stays where it rested")
+	var refalls: int = int(server._entries[c]["refalls"])
+	_check(server.check_support() == 0 and not server._entries[c].has("ground_in") and int(server._entries[c]["refalls"]) == refalls, "a floorless drop is not swept for a floor again")
+	server._wake(c)
+	_check(not server._entries[c].has("floorless"), "waking a drop clears floorless")
 	server._entries.erase(c)
 	var d := server.spawn({"id": &"rifle", "magazine": 1, "reserve": 0}, Vector3(430, 1.6, 0), Vector3.ZERO, 1)
 	var crate2 := _static_box(Vector3(2, 1, 2), Vector3(430, 0.5, 0))

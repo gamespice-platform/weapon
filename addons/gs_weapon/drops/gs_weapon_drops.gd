@@ -480,7 +480,8 @@ func check_support() -> int:
 	var woke := 0
 	for id: int in _entries.keys():
 		var e: Dictionary = _entries[id]
-		if not bool(e["rest"]) or e.has("ground_in"):
+		# A floorless drop already swept 40 m down for a floor and found none: sweeping again each pass cost 300 ms.
+		if not bool(e["rest"]) or e.has("ground_in") or e.has("floorless"):
 			continue
 		var body: RigidBody3D = e["body"]
 		if not body.is_inside_tree():
@@ -502,7 +503,8 @@ func check_support() -> int:
 
 
 ## The deferred half of [method _rest_grounded]: a rested drop with no floor right under it goes down onto it, and a
-## drop frozen inside the floor (a stair tread, a crate edge) comes up out of it.
+## drop frozen inside the floor (a stair tread, a crate edge) comes up out of it. Finding no floor within
+## [constant RESCUE_DEPTH] it stays put and is marked floorless, so [method check_support] skips it until it is woken.
 func _ground(id: int, e: Dictionary, body: RigidBody3D) -> void:
 	if not is_inside_tree():
 		return
@@ -512,6 +514,7 @@ func _ground(id: int, e: Dictionary, body: RigidBody3D) -> void:
 	var at := _lift_clear(body, from)
 	var down := _sweep_down(body, at, RESCUE_DEPTH)
 	if down.length() >= RESCUE_DEPTH - 0.01:
+		e["floorless"] = true
 		return
 	if from.origin.distance_to(at.origin) < 0.001 and down.length() <= SUPPORT_GAP * 0.5:
 		return # clear and on the floor already (close enough that check_support leaves it be)

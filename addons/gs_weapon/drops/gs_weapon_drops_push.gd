@@ -128,6 +128,7 @@ func _wake(id: int) -> void:
 		e["rest"] = false
 		body.freeze = false
 	e.erase("ground_in")
+	e.erase("floorless")
 	e["still"] = 0.0
 	e["moving"] = 0.0
 	e["origin"] = body.global_position
