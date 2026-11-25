@@ -85,6 +85,21 @@ func _test_attach_compat() -> void:
 	gun.add_child(box)
 	_check(sight.faces_of(gun, gun).size() >= 36, "a primitive mesh (BoxMesh) gives its faces to the sight line, with no script error", str(sight.faces_of(gun, gun).size()))
 	_check(sight.triangles_of(gun, gun).size() > 0, "and its triangles")
+	var sphere := SphereMesh.new()
+	sphere.radial_segments = 64
+	sphere.rings = 32
+	var ball := MeshInstance3D.new()
+	ball.mesh = sphere
+	gun.add_child(ball)
+	var faces: PackedVector3Array = sight.faces_of(gun, gun)
+	var fractions: Array = [0.1, 0.3]
+	var whole: Array = sight.spans(faces, Vector3.FORWARD, fractions)
+	var job: RefCounted = sight.spans_job(faces, Vector3.FORWARD, fractions)
+	var steps := 0
+	while not job.step(1):
+		steps += 1
+	_check(steps > 3, "a span job given a 1 us budget stops part way many times", str(steps))
+	_check(str(job.result) == str(whole), "and its resumed answer is the one-call answer", "%s vs %s" % [job.result, whole])
 	gun.free()
 	_done()
 

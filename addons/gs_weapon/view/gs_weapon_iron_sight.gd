@@ -263,98 +263,21 @@ static func faces_of(node: Node, space: Node3D) -> PackedVector3Array:
 ## How much wider than a triangle's own footprint a ray's x and z may sit and still be tried.
 const FOOTPRINT_SLACK := 0.0001
 
+const SpanJob := preload("gs_weapon_span_job.gd")
+
+
 ## [method span] for several [param fractions] of one mesh at once, from [method faces_of], the same answers
 ## (`{low, high, length}` or `{}` each) without a Dictionary per triangle and without a ray test per triangle:
 ## each ray is tried on the triangles whose footprint holds it.
 static func spans(faces: PackedVector3Array, forward: Vector3, fractions: Array) -> Array:
-	var out: Array = []
-	var f := forward.normalized()
-	var none := f == Vector3.ZERO or absf(f.dot(Vector3.UP)) > 0.5 or faces.is_empty()
-	for _i in fractions:
-		out.append({})
-	if none:
-		return out
-	var side := Vector3.UP.cross(f).normalized()
-	var t_min := INF
-	var t_max := -INF
-	var s_min := INF
-	var s_max := -INF
-	var y_min := INF
-	var y_max := -INF
-	for p: Vector3 in faces:
-		var t := p.dot(f)
-		var sd := p.dot(side)
-		t_min = minf(t_min, t)
-		t_max = maxf(t_max, t)
-		s_min = minf(s_min, sd)
-		s_max = maxf(s_max, sd)
-		y_min = minf(y_min, p.y)
-		y_max = maxf(y_max, p.y)
-	var length := t_max - t_min
-	if length <= 0.0:
-		return out
-	# A vertical ray can only meet a triangle whose x-z footprint (a hair wider) holds it, so one pass keeps per fraction the
-	# triangles under its 15 rays' box and the rays walk only those: the same Geometry3D test as [method span], same answers
-	# (each ray walking every triangle was ~35 ms a weapon of hand reach).
-	var centre := (s_min + s_max) * 0.5
-	var width := s_max - s_min
-	var rays: Array = []
-	var boxes: Array[Rect2] = []
-	var near: Array[PackedInt32Array] = []
-	var feet: Array[PackedFloat32Array] = []
-	for k in fractions.size():
-		var at_k: Array[Vector3] = []
-		var box := Rect2()
-		for shift: float in [0.0, -0.02, 0.02, -0.04, 0.04]:
-			for lateral: float in [0.0, -0.15, 0.15]:
-				var at := f * (lerpf(t_min, t_max, float(fractions[k])) + shift * length) + side * (centre + lateral * width)
-				box = Rect2(at.x, at.z, 0.0, 0.0) if at_k.is_empty() else box.expand(Vector2(at.x, at.z))
-				at_k.append(at)
-		rays.append(at_k)
-		# Grown a hair so float rounding cannot drop a triangle the ray's own test below would keep.
-		boxes.append(box.grow(0.00001))
-		near.append(PackedInt32Array())
-		feet.append(PackedFloat32Array())
-	_bin_faces(faces, boxes, near, feet)
-	for k in fractions.size():
-		var low := INF
-		var high := -INF
-		var list := near[k]
-		var foot := feet[k]
-		for at: Vector3 in rays[k]:
-			var from_below := at + Vector3.DOWN * (at.y - y_min + 1.0)
-			var from_above := at + Vector3.UP * (y_max - at.y + 1.0)
-			for i in list.size():
-				if at.x < foot[i * 4] or at.x > foot[i * 4 + 1] or at.z < foot[i * 4 + 2] or at.z > foot[i * 4 + 3]:
-					continue
-				var t := list[i] * 3
-				var up: Variant = Geometry3D.ray_intersects_triangle(from_below, Vector3.UP, faces[t], faces[t + 1], faces[t + 2])
-				if up != null:
-					low = minf(low, (up as Vector3).y)
-				var down: Variant = Geometry3D.ray_intersects_triangle(from_above, Vector3.DOWN, faces[t], faces[t + 1], faces[t + 2])
-				if down != null:
-					high = maxf(high, (down as Vector3).y)
-		if low != INF and high != -INF:
-			out[k] = {"low": low, "high": high, "length": length}
-	return out
+	var job := SpanJob.new(faces, forward, fractions)
+	job.run()
+	return job.result
 
-## Fills [param near] and [param feet] for [method spans]: per box, the triangles whose footprint
-## (x and z extent, [constant FOOTPRINT_SLACK] wider) overlaps it, and that footprint.
-static func _bin_faces(faces: PackedVector3Array, boxes: Array[Rect2], near: Array[PackedInt32Array], feet: Array[PackedFloat32Array]) -> void:
-	for t in faces.size() / 3:
-		var a := faces[t * 3]
-		var b := faces[t * 3 + 1]
-		var c := faces[t * 3 + 2]
-		var lo_x := minf(a.x, minf(b.x, c.x)) - FOOTPRINT_SLACK
-		var hi_x := maxf(a.x, maxf(b.x, c.x)) + FOOTPRINT_SLACK
-		var lo_z := minf(a.z, minf(b.z, c.z)) - FOOTPRINT_SLACK
-		var hi_z := maxf(a.z, maxf(b.z, c.z)) + FOOTPRINT_SLACK
-		for k in boxes.size():
-			var box := boxes[k]
-			if box.end.x < lo_x or box.position.x > hi_x or box.end.y < lo_z or box.position.y > hi_z:
-				continue
-			near[k].append(t)
-			feet[k].append_array([lo_x, hi_x, lo_z, hi_z])
+
+## [method spans] as a job a prewarm can work a few milliseconds a frame (`job.step(usec)`, true when done, then `job.result`).
+static func spans_job(faces: PackedVector3Array, forward: Vector3, fractions: Array) -> RefCounted:
+	return SpanJob.new(faces, forward, fractions)
 
 
 ## Whether surface [param s] of [param mesh] is a triangle list. Only [ArrayMesh] says (a [PrimitiveMesh] such as an
