@@ -134,16 +134,17 @@ COAT_FLAT = {'quad_rocket_launcher': (0.034, 0.047, 0.024)}
 # per texel (the source's voronoi-like cells baked as metal/polymer polygon patches), painted (coat) islands take one flat colour, the
 # painted accents of one hue (a band) take one vivid colour at full saturation, the source high-pass bumps and wood tint are dropped, and the broad fbm tone patches are scaled by the value (0.3 keeps a faint variation).
 # Crisp wear still follows the baked edge / AO maps. gs-game tools/rsi_asset_audit.py flags the blotched result as TEXTURE_QUALITY.
-LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
+# rifle: bake it with AW_MODE=smart AW_WELD=1 (its source is triangle soup: the orig and the unwelded smart bakes cover almost nothing and come out black); battle_rifle bakes from its own maps.
+LOOK = {'bullpup': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, 'wear': 0.6, 'metal': 0.6,
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
         'lmg': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
-        'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
+        'drum_shotgun': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
         'plasma_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
         'rail_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
-        'marksman': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'marksman': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'minigun': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0, 'brush': 0.12}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'carbine': {'clean': 0.3, 'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
-        'machine_pistol': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'machine_pistol': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'rocket_launcher_alt': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'sniper_rifle': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
         'pistol': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
@@ -151,7 +152,9 @@ LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, '
         'rocket_launcher': {'clean': 0.3, 'panels': {}},
         'grenade_launcher': {'clean': 0.3, 'panels': {}},
         'frag_grenade': {'clean': 0.3, 'panels': {}},
-        'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
+        'quad_rocket_launcher': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}, 'as_coat': True, 'wear': 0.05},
+        'rifle': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0}},
+        'battle_rifle': {'clean': 0.3, 'panels': {}},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
         'frag_grenade_alt': {'wear': 0.3},
