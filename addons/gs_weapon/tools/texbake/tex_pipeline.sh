@@ -8,8 +8,8 @@
 # triangle-soup sources, AW_ANGLE, AW_WELD_DIST; AW_DEBUG=1 keeps the debug maps, AW_NRM=jpeg stores the normal map as JPEG q92 (the shipped form). Normal maps should otherwise be re-encoded
 # (JPEG q92 / WebP) by the caller to keep the web download down.
 # A pack whose .glb.import sets gltf/embedded_image_handling=1 (extract) renders the <name>_<i>.jpg|png files beside the
-# GLB, not the GLB's own images, and Godot never rewrites an existing one: when installing a rebaked GLB, overwrite each
-# <name>_<i>.<ext> with the raw bytes of GLB image i (ext from its mimeType), or the game keeps the old textures.
+# GLB, not the GLB's own images, and Godot never rewrites an existing one: after installing rebaked GLBs run
+# addons/gs_weapon/tools/gs_weapon_glb_extracted.gd -- --fix res://<pack>, and gate the pack with its stale().
 # blender needs numpy: add a site-packages dir with --python-expr "import sys; sys.path.append(...)" if its python lacks it.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
