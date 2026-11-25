@@ -628,6 +628,7 @@ func _make(id: int, state: Dictionary, at: Transform3D, velocity: Vector3, owner
 	body.linear_velocity = velocity
 	body.angular_velocity = Vector3(rng.randf_range(-2.0, 2.0), rng.randf_range(-1.0, 1.0), rng.randf_range(-2.0, 2.0)) if is_authority else Vector3.ZERO
 	_order += 1
+	_rids_dirty = true
 	_entries[id] = {"body": body, "state": state, "age": 0.0, "life": life, "delay": delay,
 		"still": 0.0, "rest": false, "size": size, "owner": owner_id, "order": _order, "team": team, "touched": _clock,
 		"origin": at.origin, "last": at.origin}
@@ -691,6 +692,7 @@ func _remove(id: int, taker_id: int, tell: bool = true) -> void:
 	if e.is_empty():
 		return
 	_entries.erase(id)
+	_rids_dirty = true
 	var body: RigidBody3D = e["body"]
 	if is_instance_valid(body):
 		_park(body, body.get_meta(&"weapon", &""), e["size"])

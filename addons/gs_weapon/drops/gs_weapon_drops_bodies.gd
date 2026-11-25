@@ -24,7 +24,18 @@ var _fits: Dictionary = {}   ## StringName -> [size, centre] of a weapon's model
 ## StringName -> Array of [body, size]: bodies out of the tree, reused by the next drop of that weapon (no model rebuilt).
 var _parked: Dictionary = {}
 var _material: PhysicsMaterial = null
+## Every drop's body RID, the set a motion test ignores (a body is always ignored by its own test, so including it is
+## the same set); rebuilt only when [member _rids_dirty] says a drop came or went (it was rebuilt per test, O(n^2) a pass).
 var _rids: Array[RID] = []
+var _rids_dirty: bool = true
+## The two motion queries, reused: their exclusion set is copied in only when the drop set changed ([member _rids_gen]).
+var _sweep_q: PhysicsTestMotionParameters3D = null
+var _overlap_q: PhysicsTestMotionParameters3D = null
+var _sweep_r: PhysicsTestMotionResult3D = null
+var _overlap_r: PhysicsTestMotionResult3D = null
+var _rids_gen: int = 0
+var _sweep_gen: int = -1
+var _overlap_gen: int = -1
 
 
 ## The first floor (an upward face of a static body) the ray [param from]->[param to] passes down through, as [code]{position,
@@ -103,36 +114,50 @@ func _sweep_down(body: RigidBody3D, from: Transform3D, depth: float) -> Vector3:
 
 ## How far [param body] at [param from] moves along [param motion] before it touches the world (other drops ignored).
 func _sweep(body: RigidBody3D, from: Transform3D, motion: Vector3) -> Vector3:
-	var q := PhysicsTestMotionParameters3D.new()
+	if _sweep_q == null:
+		_sweep_q = PhysicsTestMotionParameters3D.new()
+		_sweep_q.margin = 0.001
+		_sweep_r = PhysicsTestMotionResult3D.new()
+	var q := _sweep_q
 	q.from = from
 	q.motion = motion
-	q.margin = 0.001
-	q.exclude_bodies = _drop_rids(body)
-	var r := PhysicsTestMotionResult3D.new()
-	if not PhysicsServer3D.body_test_motion(body.get_rid(), q, r):
+	var gen := _drop_rids_gen()
+	if _sweep_gen != gen:
+		q.exclude_bodies = _rids
+		_sweep_gen = gen
+	if not PhysicsServer3D.body_test_motion(body.get_rid(), q, _sweep_r):
 		return motion
-	return r.get_travel()
+	return _sweep_r.get_travel()
 
 
 ## True when [param body] at [param at] is inside the world (other drops ignored).
 func _overlaps(body: RigidBody3D, at: Transform3D) -> bool:
-	var q := PhysicsTestMotionParameters3D.new()
+	if _overlap_q == null:
+		_overlap_q = PhysicsTestMotionParameters3D.new()
+		_overlap_q.motion = Vector3.ZERO
+		_overlap_q.margin = 0.001
+		_overlap_q.recovery_as_collision = true
+		_overlap_r = PhysicsTestMotionResult3D.new()
+	var q := _overlap_q
 	q.from = at
-	q.motion = Vector3.ZERO
-	q.margin = 0.001
-	q.recovery_as_collision = true
-	q.exclude_bodies = _drop_rids(body)
-	return PhysicsServer3D.body_test_motion(body.get_rid(), q, PhysicsTestMotionResult3D.new())
+	var gen := _drop_rids_gen()
+	if _overlap_gen != gen:
+		q.exclude_bodies = _rids
+		_overlap_gen = gen
+	return PhysicsServer3D.body_test_motion(body.get_rid(), q, _overlap_r)
 
 
-## The other drops' bodies, for a motion test to ignore; one array reused (the test copies it).
-func _drop_rids(body: RigidBody3D) -> Array[RID]:
-	_rids.clear()
-	for other: int in _entries:
-		var b: RigidBody3D = _entries[other]["body"]
-		if b != body and is_instance_valid(b):
-			_rids.append(b.get_rid())
-	return _rids
+## Every drop's body RID ([member _rids]), rebuilt when the drop set changed; returns its generation.
+func _drop_rids_gen() -> int:
+	if _rids_dirty:
+		_rids_dirty = false
+		_rids_gen += 1
+		_rids.clear()
+		for other: int in _entries:
+			var b: RigidBody3D = _entries[other]["body"]
+			if is_instance_valid(b):
+				_rids.append(b.get_rid())
+	return _rids_gen
 
 
 ## [param b] turned the least way that brings the drop's long axis level.
