@@ -6,6 +6,8 @@ import sys, os, json, struct, io
 import numpy as np
 from PIL import Image, ImageDraw
 from scipy.ndimage import gaussian_filter
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tex_detail  # noqa: E402  (beside this file; -P drops the script dir from sys.path)
 
 src, bake, dst = sys.argv[1:4]
 KW = dict(a.lstrip('-').split('=') if '=' in a else (a.lstrip('-'), '1') for a in sys.argv[4:])
@@ -136,19 +138,19 @@ LOOK = {'bullpup': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'as_poly': True, '
                     'poly': {'tints': [0, 1, 0, 2], 'rough_min': 0.74, 'decals': ['BP-5 5.56', 'SAFE', 'FIRE', 'MOD 3', 'S/N 40117']}},
         'lmg': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'poly_max': 0.095, 'finish': 3, 'metal': 0.6, 'wear': 0.7, 'poly': {'tints': [1, 0, 2, 0], 'rough_min': 0.72, 'decals': ['LMG-7', 'SAFE', 'FIRE', 'BELT 200', 'S/N 9023']}},
         'drum_shotgun': {'poly_max': 0.10, 'coat_as_poly': True, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0], 'rough_min': 0.72, 'decals': ['DS-12', 'SAFE', 'DRUM 20', 'S/N 5521']}},
-        'plasma_rifle': {'clean': 0.3, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
-        'rail_rifle': {'clean': 0.3, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
+        'plasma_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 1, 0], 'rough_min': 0.72, 'decals': ['PR-9', 'CELL', 'ARC', 'S/N 7710']}},
+        'rail_rifle': {'clean': 0.3, 'panels': {}, 'poly_max': 0.10, 'finish': 3, 'metal': 0.6, 'wear': 0.5, 'poly': {'tints': [0, 0, 0, 1], 'rough_min': 0.72, 'decals': ['RR-4', 'CAP', 'HOT', 'S/N 3306']}},
         'marksman': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'minigun': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
+        'minigun': {'clean': 0.3, 'panels': {'value': 0.8, 'wear': 1.0, 'brush': 0.12}, 'relief': 0.4, 'dark': 0.7, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'carbine': {'clean': 0.3, 'relief': 0.4, 'dark': 0.35, 'detail': 0.3, 'bump': 0.4, 'finish': 4, 'metal': 0.6, 'wear': 0.5},
         'machine_pistol': {'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
         'rocket_launcher_alt': {'clean': 0.3, 'relief': 0.4, 'dark': 0.55, 'detail': 0.3, 'bump': 0.4, 'finish': 3, 'metal': 0.6, 'wear': 0.4},
-        'sniper_rifle': {'clean': 0.3},
-        'pistol': {'clean': 0.3},
-        'revolver': {'clean': 0.3},
-        'rocket_launcher': {'clean': 0.3},
-        'grenade_launcher': {'clean': 0.3},
-        'frag_grenade': {'clean': 0.3},
+        'sniper_rifle': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
+        'pistol': {'clean': 0.3, 'panels': {'lines': 4, 'screws': 1.0, 'brush': 0.25}},
+        'revolver': {'clean': 0.3, 'panels': {}},
+        'rocket_launcher': {'clean': 0.3, 'panels': {}},
+        'grenade_launcher': {'clean': 0.3, 'panels': {}},
+        'frag_grenade': {'clean': 0.3, 'panels': {}},
         'quad_rocket_launcher': {'as_coat': True, 'wear': 0.05},
         'burst_rifle': {'finish': 3, 'detail': 0.15, 'bump': 0.3, 'wear': 0.3, 'metal': 0.6},
         'flash_grenade': {'paint_blue': True, 'wear': 0.3},
@@ -515,6 +517,8 @@ def build(name, size, rng):
     emis = np.clip(emis + 0.30 * sstep(blur(glow, 2.5 * k), 0.6, 1.0)[..., None] * glow[..., None], 0, 1)
     h = h - edge * 1.4 - groove * 0.25
     occl = np.clip(0.2 + 0.8 * (ao_small * 0.6 + ao_big * 0.4), 0, 1) * (1 - 0.35 * groove)
+    if 'panels' in look:
+        alb, rough, h, occl = tex_detail.apply(alb, rough, h, occl, cover, edge, size, seed, look['panels'])
     return alb, rough, metal, occl, h, cover, W, emis, float(glow.max())
 
 
