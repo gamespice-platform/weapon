@@ -162,6 +162,13 @@ func idle_row_framed(row: PackedFloat64Array, rest: bool, _rules: GSWeaponSpread
 	return idle_row(row, rest)
 
 
+## [method tick] with a context, handed what the arsenal already holds (as [method idle_row_framed] is): its
+## [param rules], [param crosshair] and [param rate]. The arsenal calls it while [member idle_gate] is not 0. Must do
+## exactly what [method tick] does; the base has nothing to save, so it is [method tick].
+func tick_framed(ctx: GSWeaponContext, _rules: GSWeaponSpreadRules, _crosshair: bool, _rate: int) -> void:
+	tick(ctx)
+
+
 ## [method tick_needs_context] when the arsenal has an [member GSWeaponArsenal.idle_posture]; must answer the same.
 ## The base reads no posture, so it is [method tick_needs_context].
 func tick_needs_context_posed() -> bool:

@@ -519,7 +519,10 @@ func _apply_slot_request(command: GSWeaponCommand, tick: int) -> void:
 func _run_behaviour_tick(slot: GSWeaponSlot, ctx: GSWeaponContext) -> void:
 	ctx.charge = _charge_value(slot, ctx.tick)
 	ctx.held_ticks = _held_ticks
-	slot.behaviour.tick(ctx)
+	if GSWeaponBehaviour.idle_gate != 0:
+		slot.behaviour.tick_framed(ctx, spread_rules, crosshair_cone, tick_rate)
+	else:
+		slot.behaviour.tick(ctx)
 
 
 func _charge_value(slot: GSWeaponSlot, tick: int) -> float:

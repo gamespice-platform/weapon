@@ -37,6 +37,9 @@ var _pre_flinch: float = 0.0
 var _pre_crouch: float = 1.0
 var _pre_aim: float = 1.0
 var _pre_settle: float = 0.0
+var _pre_recoil_aim: float = 1.0
+var _pre_recoil_crouch: float = 1.0
+var _pre_recoil_move: float = 1.0
 ## The cone the last context tick or use computed, for display; -1 before any.
 var _shown: float = -1.0
 ## Set by [method rest_tick]: the skipped ticks did not compute the cone, [method spread_now] does it when asked.
@@ -490,8 +493,46 @@ func idle_row_framed(row: PackedFloat64Array, rest: bool, rules: GSWeaponSpreadR
 
 
 func _idle_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool:
+	return _native_idle == 1 and _tick_gate_holds(rules, cone, rate)
+
+
+## [method tick] handed the arsenal's rules, crosshair and rate: while [member GSWeaponBehaviour.idle_gate] is on and the
+## cached native rows provably hold ([method _tick_gate_holds]), gs-sim's tick runs straight away, with no arsenal reads
+## and no row checks; the state, the shown cone and the steady flag end as [method _tick]'s native path leaves them.
+## Otherwise, and on a subclass (which may tick its own way), [method tick].
+func tick_framed(ctx: GSWeaponContext, rules: GSWeaponSpreadRules, crosshair: bool, rate: int) -> void:
+	if ctx == null or not _plain_hitscan():
+		tick(ctx)
+		return
+	var cone := crosshair and rules != null
+	var held := _tick_gate_holds(rules, cone, rate)
+	if idle_gate == 2:
+		_idle_gate_verify(held, rules, cone, rate)
+	if not held:
+		tick(ctx)
+		return
+	_shown_stale = false
+	_steady = false
+	_shown = _native.call(&"tick", state, _native_posture(ctx))
+
+
+var _plain := -1
+
+
+## Whether this behaviour is the stock hitscan itself, not a subclass: only then is [method tick] the one gated above.
+func _plain_hitscan() -> bool:
+	if _plain < 0:
+		var script := get_script() as Script
+		_plain = 1 if script != null and script.resource_path.get_file() == "gs_weapon_hitscan.gd" else 0
+	return _plain == 1
+
+
+## The native rows hold for the arsenal's [param rules], [param cone] and [param rate] (the idle gate's test without its
+## idle check): same def, ballistics and revision, tick fields, class key, rules and revision, crosshair and rate, so
+## [method _native_ready] would send nothing.
+func _tick_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool:
 	var b := _native_b
-	if not native_tick or _native_idle != 1 or not _native_framed or b == null or def != _native_def:
+	if not native_tick or not _native_framed or b == null or def != _native_def:
 		return false
 	if def.tuning != b or b.accuracy_revision[0] != _native_b_rev or rate != _native_rate or rate != _native_frame_rate:
 		return false
@@ -592,6 +633,9 @@ func _class_of(b: GSWeaponBallistics) -> String:
 	_pre_crouch = GSWeaponAccuracyClass.preset(_class, "bloom_crouch")
 	_pre_aim = GSWeaponAccuracyClass.preset(_class, "spread_aim")
 	_pre_settle = GSWeaponAccuracyClass.preset(_class, "settle")
+	_pre_recoil_aim = GSWeaponAccuracyClass.preset(_class, "recoil_aim")
+	_pre_recoil_crouch = GSWeaponAccuracyClass.preset(_class, "recoil_crouch")
+	_pre_recoil_move = GSWeaponAccuracyClass.preset(_class, "recoil_move")
 	return _class
 
 
@@ -699,15 +743,31 @@ func _spread_at(
 
 ## The weapon's own recoil multiplier for this posture (aim, crouch, moving or airborne).
 func recoil_posture(b: GSWeaponBallistics, ctx: GSWeaponContext) -> float:
-	var klass := accuracy_class()
+	# b.accuracy(key, class) without its by-name lookups, as _spread_at reads its terms: the field when 0 or more, else
+	# the class preset _class_of keeps (every shot asks this). The class is accuracy_class()'s, of the weapon's own ballistics.
+	_class_of(_ballistics())
 	var f := 1.0
 	if ctx.aiming:
-		f *= b.accuracy("recoil_aim", klass)
+		f *= b.recoil_aim if b.recoil_aim >= 0.0 else _pre_recoil_aim
 	if ctx.crouched:
-		f *= b.accuracy("recoil_crouch", klass)
+		f *= b.recoil_crouch if b.recoil_crouch >= 0.0 else _pre_recoil_crouch
 	if ctx.airborne or ctx.speed >= 0.5:
-		f *= b.accuracy("recoil_move", klass)
+		f *= b.recoil_move if b.recoil_move >= 0.0 else _pre_recoil_move
 	return f
+
+
+## Whether this use may ask gs-sim for its cones: [member native_tick] and the native rows up to date for the arsenal's
+## rules, crosshair and rate (the gate's cached proof when it holds, else [method _native_ready], which sends what moved).
+func _native_spread_ready(b: GSWeaponBallistics) -> bool:
+	if not native_tick or not _plain_hitscan():
+		return false
+	if arsenal is GSWeaponArsenal:
+		var a := arsenal as GSWeaponArsenal
+		var cone := a.crosshair_cone and a.spread_rules != null
+		if idle_gate != 0 and b == _native_b and _tick_gate_holds(a.spread_rules, cone, a.tick_rate):
+			return true
+	var rules_object := _rules_object()
+	return _native_ready(b, rules_object, rules_object != null and bool(arsenal.get(&"crosshair_cone")))
 
 
 func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
@@ -718,8 +778,11 @@ func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	var pellets := b.pellets if b != null else tune_int(&"pellets", 1)
 
 	var spread := 0.0
+	# The cones of a use from gs-sim (its spread, the _spread_for twin) when its rows hold: bit-exact, same state read.
+	var native_spread := false
 	if b != null:
-		spread = _spread_for(b, ctx)
+		native_spread = _native_spread_ready(b)
+		spread = float(_native.call(&"spread", state, _native_posture(ctx))) if native_spread else _spread_for(b, ctx)
 	else:
 		spread = tune_float(&"spread", 0.0)
 
@@ -782,8 +845,8 @@ func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 				float(state.get(_BLOOM, 0.0)) + b.bloom, b.bloom_max
 			)
 		state[_SINCE] = 0
-		state[_NOW] = _spread_for(b, ctx)
-		_shown = float(state[_NOW])
+		_shown = float(_native.call(&"spread", state, _native_posture(ctx))) if native_spread else _spread_for(b, ctx)
+		state[_NOW] = _shown
 
 	return out
 

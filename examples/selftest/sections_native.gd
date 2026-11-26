@@ -14,6 +14,7 @@ class NativeArsenal:
 	var spread_rules: Variant = null
 	var crosshair_cone: bool = false
 	var tick_rate: Variant = 0
+	var recoil_rules: Variant = null
 
 
 func _test_native_tick() -> void:
@@ -23,8 +24,8 @@ func _test_native_tick() -> void:
 	if not present:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
-		# Then the idle gate's four.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4):
+		# Then the idle gate's four, the framed tick's two, the seeded uses' two and the recoil posture's one.
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -89,6 +90,9 @@ func _test_native_tick() -> void:
 	_check_native_row_streams(native_was)
 	_check_native_missing_class(native_was)
 	_check_idle_gate(native_was)
+	_check_tick_framed(native_was)
+	_check_native_use(native_was)
+	_check_recoil_posture()
 	_done()
 
 
@@ -270,6 +274,183 @@ func _check_idle_gate(native_was: bool) -> void:
 			differ += "%s " % id
 	_drop(a)
 	_check(differ == "", "with a posture, tick_needs_context_posed answers as tick_needs_context for every weapon in the catalogue", differ)
+
+
+## The arsenal's context tick under the gate: tick_framed (gates 1 and 2) leaves what the plain tick (gate 0) leaves on
+## random weapons, edits, script ticks and uses between, and the gate holds on most ticks with nothing found by verify.
+func _check_tick_framed(native_was: bool) -> void:
+	var gate_was := GSWeaponBehaviour.idle_gate
+	var misses_was := GSWeaponBehaviour.idle_gate_misses
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261126
+	var ticks := 0
+	var held := 0
+	var first_miss := ""
+	GSWeaponHitscan.native_tick = true
+	for i in range(_NATIVE_CASES):
+		var w := _native_case(rng)
+		var hs: Array[GSWeaponHitscan] = [w[0], w[1], GSWeaponHitscan.new()]
+		hs[2].setup(w[3], w[4])
+		var arsenal: NativeArsenal = w[4]
+		var ctx := GSWeaponContext.new()
+		var hold := 0
+		for t in range(_NATIVE_TICKS):
+			if hold <= 0:
+				_native_posture_roll(rng, ctx, hs[0])
+				hold = rng.randi_range(1, 24)
+			hold -= 1
+			ctx.tick = t
+			if rng.randf() < 0.04:
+				_native_edit(rng, w)
+			if rng.randf() < 0.05:
+				var bloom := float(hs[0].state.get(&"bloom", 0.0)) + rng.randf_range(0.0, 1.5)
+				for h in hs:
+					h.state[&"since_use"] = 0
+					h.state[&"bloom"] = bloom
+			if rng.randf() < 0.05:
+				GSWeaponHitscan.native_tick = false
+				for h in hs:
+					h._tick(ctx)
+				GSWeaponHitscan.native_tick = true
+			var rules: GSWeaponSpreadRules = arsenal.spread_rules
+			var rate: int = arsenal.tick_rate
+			for g in range(3):
+				GSWeaponBehaviour.idle_gate = g
+				if g == 0:
+					hs[0].tick(ctx)
+				else:
+					if g == 1 and hs[1]._tick_gate_holds(rules, arsenal.crosshair_cone and rules != null, rate):
+						held += 1
+					hs[g].tick_framed(ctx, rules, arsenal.crosshair_cone, rate)
+			ticks += 1
+			for g in [1, 2]:
+				var miss := _native_state_diff(hs[0].state, hs[g].state)
+				if miss == "" and (hs[g]._shown != hs[0]._shown or hs[g]._shown_stale != hs[0]._shown_stale or hs[g]._steady != hs[0]._steady):
+					miss = "shown %s/%s stale %s/%s steady %s/%s" % [hs[0]._shown, hs[g]._shown, hs[0]._shown_stale, hs[g]._shown_stale, hs[0]._steady, hs[g]._steady]
+				if miss != "" and first_miss == "":
+					first_miss = "gate %d case %d tick %d: %s" % [g, i, t, miss]
+	GSWeaponBehaviour.idle_gate = gate_was
+	GSWeaponHitscan.native_tick = native_was
+	var misses := GSWeaponBehaviour.idle_gate_misses - misses_was
+	_check(first_miss == "", "%d context ticks of %d random weapons: tick_framed and its verify mode leave what the plain tick leaves, bit for bit" % [ticks, _NATIVE_CASES], first_miss)
+	_check(held > ticks / 2 and misses == 0, "the framed gate held on most ticks (%d of %d) and its verify mode found nothing" % [held, ticks], "held %d misses %d" % [held, misses])
+
+
+## The same seeded shots through use() with the native cones and with the GDScript ones: twins on shared tuning, rules
+## and recoil rules, ticked each way between, fire at random postures; every outcome (cone, directions, pellets, recoil)
+## and the state and shown cone after must match bit for bit, with gates 0 and 1.
+func _check_native_use(native_was: bool) -> void:
+	var gate_was := GSWeaponBehaviour.idle_gate
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261127
+	var uses := 0
+	var native_uses := 0
+	var first_miss := ""
+	for i in range(_NATIVE_CASES):
+		var w := _native_case(rng)
+		var hn: GSWeaponHitscan = w[0]
+		var hs: GSWeaponHitscan = w[1]
+		var b: GSWeaponBallistics = w[2]
+		var arsenal: NativeArsenal = w[4]
+		b.pellets = 1 if rng.randf() < 0.7 else rng.randi_range(2, 9)
+		b.recoil_pitch = rng.randf_range(0.0, 3.0)
+		b.recoil_yaw = rng.randf_range(-1.0, 1.0)
+		for f: StringName in [&"recoil_aim", &"recoil_crouch", &"recoil_move"]:
+			b.set(f, -1.0 if rng.randf() < 0.5 else rng.randf_range(0.3, 1.5))
+		if rng.randf() < 0.5:
+			var rr := GSWeaponRecoilRules.new()
+			rr.enabled = rng.randf() < 0.8
+			rr.scale = rng.randf_range(0.5, 2.0)
+			arsenal.recoil_rules = rr
+		GSWeaponBehaviour.idle_gate = rng.randi_range(0, 1)
+		var ctx := GSWeaponContext.new()
+		ctx.entity = rng.randi_range(1, 64)
+		for t in range(_NATIVE_TICKS):
+			if rng.randf() < 0.2:
+				_native_posture_roll(rng, ctx, hs)
+			ctx.tick = t
+			if rng.randf() < 0.03:
+				_native_edit(rng, w)
+			GSWeaponHitscan.native_tick = true
+			hn._tick(ctx)
+			GSWeaponHitscan.native_tick = false
+			hs._tick(ctx)
+			if rng.randf() < 0.25:
+				ctx.origin = Vector3(rng.randf_range(-50.0, 50.0), rng.randf_range(0.0, 5.0), rng.randf_range(-50.0, 50.0))
+				ctx.direction = Vector3(rng.randf_range(-1.0, 1.0), rng.randf_range(-0.5, 0.5), rng.randf_range(-1.0, 1.0)).normalized()
+				ctx.index = t
+				GSWeaponHitscan.native_tick = true
+				var on := hn.use(ctx)
+				GSWeaponHitscan.native_tick = false
+				var off := hs.use(ctx)
+				uses += 1
+				if hn._native != null:
+					native_uses += 1
+				var miss := _native_outcome_diff(off, on)
+				if miss == "":
+					miss = _native_state_diff(hs.state, hn.state)
+				if miss == "" and hn._shown != hs._shown:
+					miss = "shown script %s native %s" % [hs._shown, hn._shown]
+				if miss != "" and first_miss == "":
+					first_miss = "case %d tick %d: %s" % [i, t, miss]
+	GSWeaponBehaviour.idle_gate = gate_was
+	GSWeaponHitscan.native_tick = native_was
+	_check(first_miss == "", "%d seeded shots of %d random weapons: use() with the native cones matches the GDScript use bit for bit" % [uses, _NATIVE_CASES], first_miss)
+	_check(native_uses == uses and uses > 1000, "every native-side shot ran with the native twin built (%d of %d)" % [native_uses, uses])
+
+
+## "" when two use outcomes fired the same shots and recoil, else the first difference.
+func _native_outcome_diff(want: GSWeaponOutcome, got: GSWeaponOutcome) -> String:
+	if want.shots.size() != got.shots.size():
+		return "shots script %d native %d" % [want.shots.size(), got.shots.size()]
+	if want.recoil != got.recoil:
+		return "recoil script %s native %s" % [want.recoil, got.recoil]
+	for k in range(want.shots.size()):
+		var a := want.shots[k]
+		var c := got.shots[k]
+		if a.spread != c.spread:
+			return "spread script %s native %s" % [a.spread, c.spread]
+		if a.direction != c.direction or a.pellets != c.pellets:
+			return "direction script %s %s native %s %s" % [a.direction, a.pellets, c.direction, c.pellets]
+	return ""
+
+
+## recoil_posture reads the field or the class preset as the ballistics' accuracy() does, for every class and posture.
+func _check_recoil_posture() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261128
+	var first_miss := ""
+	for i in range(400):
+		var b := GSWeaponBallistics.new()
+		b.accuracy_class = _native_class_roll(rng)
+		for f: StringName in [&"recoil_aim", &"recoil_crouch", &"recoil_move"]:
+			b.set(f, -1.0 if rng.randf() < 0.5 else rng.randf_range(0.3, 1.5))
+		var def := GSWeaponDef.new()
+		def.id = StringName(["ak", "mp5", "awp", "deagle", "m3", "x"][rng.randi_range(0, 5)])
+		def.tuning = b
+		var h := GSWeaponHitscan.new()
+		h.setup(def, null)
+		var ctx := GSWeaponContext.new()
+		ctx.aiming = rng.randf() < 0.5
+		ctx.crouched = rng.randf() < 0.5
+		ctx.airborne = rng.randf() < 0.3
+		ctx.speed = rng.randf_range(0.0, 1.0)
+		h.recoil_posture(b, ctx)
+		if rng.randf() < 0.3:
+			# A class edit after the presets were cached must reach them.
+			b.accuracy_class = _native_class_roll(rng)
+		var klass := GSWeaponAccuracyClass.resolve(b.accuracy_class, def.tags, def.id)
+		var want := 1.0
+		if ctx.aiming:
+			want *= b.accuracy("recoil_aim", klass)
+		if ctx.crouched:
+			want *= b.accuracy("recoil_crouch", klass)
+		if ctx.airborne or ctx.speed >= 0.5:
+			want *= b.accuracy("recoil_move", klass)
+		var got := h.recoil_posture(b, ctx)
+		if got != want and first_miss == "":
+			first_miss = "case %d class %s: accuracy %s posture %s" % [i, b.accuracy_class, want, got]
+	_check(first_miss == "", "recoil_posture equals the ballistics' accuracy() product for every class, field and posture", first_miss)
 
 
 ## A missing native class leaves the GDScript tick.
