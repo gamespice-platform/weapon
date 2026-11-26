@@ -342,6 +342,8 @@ func _test_revision() -> void:
 	a.give(&"rifle")
 	var r1 := a.revision()
 	_check(r1 != r0, "giving a weapon moves the revision")
+	var w1 := a.weapons_revision()
+	_check(w1 != 0, "giving a weapon moves weapons_revision (API 59)")
 
 	_drive(a, 0, 30, false)
 	_check(a.revision() == r1, "idle ticks leave it alone", "%d -> %d" % [r1, a.revision()])
@@ -349,6 +351,7 @@ func _test_revision() -> void:
 	_drive(a, 30, 6 * 3, true)
 	var r2 := a.revision()
 	_check(r2 != r1, "a shot (a magazine count) moves it")
+	_check(a.weapons_revision() == w1, "a shot leaves weapons_revision", "%d -> %d" % [w1, a.weapons_revision()])
 
 	_check(a.begin_reload(100), "a reload starts")
 	_drive(a, 100, 121, false)
@@ -357,6 +360,7 @@ func _test_revision() -> void:
 	var r3 := a.revision()
 	a.ammo().add(&"rifle_rounds", 5)
 	_check(a.revision() != r3, "reserve ammunition added moves it")
+	_check(a.weapons_revision() == w1, "a reload and reserve ammunition leave weapons_revision")
 	var r4 := a.revision()
 	a.ammo().take(&"rifle_rounds", 0)
 	a.ammo().set_count(&"rifle_rounds", a.ammo().count(&"rifle_rounds"))
@@ -366,12 +370,17 @@ func _test_revision() -> void:
 	a.give(&"pistol")
 	var r5 := a.revision()
 	_check(r5 != r4, "a second weapon moves it")
+	var w5 := a.weapons_revision()
+	_check(w5 != w1, "a second weapon moves weapons_revision")
 	a.take(2)
 	var r6 := a.revision()
 	_check(r6 != r5, "taking it moves it")
+	var w6 := a.weapons_revision()
+	_check(w6 != w5, "taking it moves weapons_revision")
 
 	a.restore(snap)
 	_check(a.revision() != r6, "a restore moves it")
+	_check(a.weapons_revision() != w6, "a restore moves weapons_revision")
 
 	# A restore rebuilds slots: the rebuilt ones must still report their magazine changes.
 	var b := _arsenal()
@@ -379,6 +388,11 @@ func _test_revision() -> void:
 	var r7 := b.revision()
 	_drive(b, 400, 6 * 3, true)
 	_check(b.revision() != r7, "a slot rebuilt by restore still reports its shots")
+	var w7 := b.weapons_revision()
+	var held := b.current()
+	if held != null:
+		held.def = held.def.duplicate()
+	_check(b.weapons_revision() != w7, "a refit (a new def on a slot) moves weapons_revision")
 
 	_done()
 

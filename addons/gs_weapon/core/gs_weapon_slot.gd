@@ -14,6 +14,7 @@ var def: GSWeaponDef = null:
 		def = value
 		if not revision_box.is_empty():
 			revision_box[0] += 1
+			revision_box[1] += 1
 
 ## The behaviour instance, private to this carrier.
 ##
@@ -30,8 +31,9 @@ var magazine: int = 0:
 			if not revision_box.is_empty():
 				revision_box[0] += 1
 
-## The owning arsenal's change counter, a one-item Array shared with it (empty: not held by one). Bumped when
-## [member def] or [member magazine] changes, so [method GSWeaponArsenal.revision] moves without a scan (API 51).
+## The owning arsenal's change counters, a two-item Array shared with it (empty: not held by one): item 0 moves when
+## [member def] or [member magazine] changes ([method GSWeaponArsenal.revision], API 51), item 1 only when [member def]
+## does ([method GSWeaponArsenal.weapons_revision], API 59), so a shot never looks like a new weapon.
 var revision_box: Array = []
 
 ## Ticks of reloading already done, for a reload that survives a holster.

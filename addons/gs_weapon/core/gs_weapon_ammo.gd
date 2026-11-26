@@ -16,8 +16,9 @@ extends RefCounted
 var _pools: Dictionary = {}
 var _caps: Dictionary = {}
 
-## The owning arsenal's change counter, a one-item Array shared with it (empty: none). Bumped by every call that
-## may change a count or a cap, so [method GSWeaponArsenal.revision] moves without a scan (API 51).
+## The owning arsenal's change counters (see [member GSWeaponSlot.revision_box]; empty: none). Item 0 is bumped by every
+## call that may change a count or a cap, so [method GSWeaponArsenal.revision] moves without a scan (API 51); a count is
+## never a weapon-set change, so item 1 ([method GSWeaponArsenal.weapons_revision]) stays.
 var revision_box: Array = []
 
 
