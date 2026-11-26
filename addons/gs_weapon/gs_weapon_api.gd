@@ -102,5 +102,6 @@ extends RefCounted
 ## 48: [method GSWeaponSound.warm] and [method GSWeaponSound.warm_sounds]: load every variant of the given sound classes' fire, reload, dry, equip and far sounds and returns the streams.
 ## 49: `view/gs_weapon_scope_view.gd` zoom levels (by path): `level_scales` (field-of-view degrees to camera multipliers against the 90 degree hip), `next_level` (cycle, wrapping), `scale_at`; a view model keeps a scope's two-level zoom (Counter-Strike AWP 40 then 10, scout 40 then 15) on top of them. Additive. OLDEST stays 1.
 ## 50: `view/gs_weapon_inspect.gd` (by path, no class_name): the first-person look-over's progress, cancel fade and default keys, shared by view-model poses. Additive. OLDEST stays 1.
-const LEVEL := 50
+## 51: `GSWeaponArsenal.revision()`: a counter that moves when the held weapons, a magazine or the reserve may have changed (`GSWeaponSlot.revision_box` / `GSWeaponAmmo.revision_box` share it), so a bot loadout or HUD rebuilds only on a change. Additive. OLDEST stays 1.
+const LEVEL := 51
 const OLDEST := 1

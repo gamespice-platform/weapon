@@ -302,3 +302,54 @@ func _test_reload_shots() -> void:
 	_check(sheet != null and sheet.get_size() == Vector2i(128, 36), "five tiles at four across make two rows", str(sheet.get_size()) if sheet != null else "null")
 	_check(shots.sheet([] as Array[Image]) == null, "no tiles, no sheet")
 	_done()
+
+
+## API 51: revision() moves on every change a loadout reader cares about and holds still otherwise, so a bot's
+## loadout may be cached on it (FC br_contacts).
+func _test_revision() -> void:
+	_section("revision")
+
+	var a := _arsenal()
+	var r0 := a.revision()
+	a.give(&"rifle")
+	var r1 := a.revision()
+	_check(r1 != r0, "giving a weapon moves the revision")
+
+	_drive(a, 0, 30, false)
+	_check(a.revision() == r1, "idle ticks leave it alone", "%d -> %d" % [r1, a.revision()])
+
+	_drive(a, 30, 6 * 3, true)
+	var r2 := a.revision()
+	_check(r2 != r1, "a shot (a magazine count) moves it")
+
+	_check(a.begin_reload(100), "a reload starts")
+	_drive(a, 100, 121, false)
+	_check(not a.is_reloading() and a.revision() != r2, "a finished reload moves it")
+
+	var r3 := a.revision()
+	a.ammo().add(&"rifle_rounds", 5)
+	_check(a.revision() != r3, "reserve ammunition added moves it")
+	var r4 := a.revision()
+	a.ammo().take(&"rifle_rounds", 0)
+	a.ammo().set_count(&"rifle_rounds", a.ammo().count(&"rifle_rounds"))
+	_check(a.revision() == r4, "an ammunition call that changes nothing leaves it")
+
+	var snap := a.snapshot()
+	a.give(&"pistol")
+	var r5 := a.revision()
+	_check(r5 != r4, "a second weapon moves it")
+	a.take(2)
+	var r6 := a.revision()
+	_check(r6 != r5, "taking it moves it")
+
+	a.restore(snap)
+	_check(a.revision() != r6, "a restore moves it")
+
+	# A restore rebuilds slots: the rebuilt ones must still report their magazine changes.
+	var b := _arsenal()
+	b.restore(snap)
+	var r7 := b.revision()
+	_drive(b, 400, 6 * 3, true)
+	_check(b.revision() != r7, "a slot rebuilt by restore still reports its shots")
+
+	_done()

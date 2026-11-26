@@ -16,6 +16,15 @@ extends RefCounted
 var _pools: Dictionary = {}
 var _caps: Dictionary = {}
 
+## The owning arsenal's change counter, a one-item Array shared with it (empty: none). Bumped by every call that
+## may change a count or a cap, so [method GSWeaponArsenal.revision] moves without a scan (API 51).
+var revision_box: Array = []
+
+
+func _bump() -> void:
+	if not revision_box.is_empty():
+		revision_box[0] += 1
+
 
 ## Rounds in a pool. An unknown pool is empty rather than an error, because a weapon
 ## whose ammunition nobody ever granted is a weapon with none.
@@ -29,9 +38,13 @@ func cap(pool: StringName) -> int:
 
 ## Sets the ceiling. Zero means no ceiling. Lowering it clamps what is already there.
 func set_cap(pool: StringName, value: int) -> void:
-	_caps[pool] = maxi(0, value)
+	var clamped := maxi(0, value)
+	if cap(pool) != clamped or not _caps.has(pool):
+		_bump()
+	_caps[pool] = clamped
 	if value > 0 and count(pool) > value:
 		_pools[pool] = value
+		_bump()
 
 
 ## Adds rounds, clamped to the cap. Returns how many were actually taken.
@@ -50,6 +63,7 @@ func add(pool: StringName, amount: int) -> int:
 		return 0
 
 	_pools[pool] = have + room
+	_bump()
 	return room
 
 
@@ -60,6 +74,8 @@ func take(pool: StringName, amount: int) -> int:
 	var have := count(pool)
 	var got := mini(amount, have)
 	_pools[pool] = have - got
+	if got != 0:
+		_bump()
 	return got
 
 
@@ -68,7 +84,10 @@ func has(pool: StringName, amount: int) -> bool:
 
 
 func set_count(pool: StringName, value: int) -> void:
-	_pools[pool] = maxi(0, value)
+	var clamped := maxi(0, value)
+	if count(pool) != clamped or not _pools.has(pool):
+		_bump()
+	_pools[pool] = clamped
 
 
 ## Every pool, in text order.
@@ -83,6 +102,7 @@ func pools() -> Array[StringName]:
 
 func clear() -> void:
 	_pools.clear()
+	_bump()
 
 
 func snapshot() -> Dictionary:
@@ -93,6 +113,7 @@ func snapshot() -> Dictionary:
 
 
 func restore(d: Dictionary) -> void:
+	_bump()
 	_pools.clear()
 	for key: Variant in d.keys():
 		_pools[StringName(str(key))] = int(d[key])

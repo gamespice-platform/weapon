@@ -121,6 +121,8 @@ var ammo_types: GSWeaponAmmoTypes = null
 var _slots: Dictionary = {}          ## int -> GSWeaponSlot (the one in hand of that slot)
 var _shelf: Dictionary = {}          ## int -> Array[GSWeaponSlot], stowed behind the active one
 var _ammo := GSWeaponAmmo.new()
+## The change counter behind [method revision]: one int in an Array the slots and the reserve share by reference.
+var _revision_box: Array = [0]
 var _current: int = 0
 var _previous: int = 0
 
@@ -211,6 +213,23 @@ func slots() -> Array[int]:
 
 func ammo() -> GSWeaponAmmo:
 	return _ammo
+
+
+func _init() -> void:
+	_ammo.revision_box = _revision_box
+	carried_changed.connect(_bump_revision)
+
+
+## A number that moves whenever what this carrier holds may have changed: a weapon given, taken, dropped, cycled or
+## refitted, a magazine count, a reserve count or cap, a restore. Equal numbers mean the same holdings, so a reader
+## (a bot's loadout, a HUD) rebuilds only on a change. It does not follow the selected slot, cooldowns or reload
+## timers. API 51.
+func revision() -> int:
+	return int(_revision_box[0])
+
+
+func _bump_revision() -> void:
+	_revision_box[0] += 1
 
 
 ## Weapons one slot may hold.

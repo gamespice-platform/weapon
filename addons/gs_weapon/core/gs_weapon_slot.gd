@@ -9,7 +9,11 @@ extends RefCounted
 ## reloads everybody's.
 
 ## The row this was built from. Never null.
-var def: GSWeaponDef = null
+var def: GSWeaponDef = null:
+	set(value):
+		def = value
+		if not revision_box.is_empty():
+			revision_box[0] += 1
 
 ## The behaviour instance, private to this carrier.
 ##
@@ -19,7 +23,16 @@ var def: GSWeaponDef = null
 var behaviour: GSWeaponBehaviour = null
 
 ## Rounds in the magazine. Meaningless when the weapon feeds from the reserve.
-var magazine: int = 0
+var magazine: int = 0:
+	set(value):
+		if value != magazine:
+			magazine = value
+			if not revision_box.is_empty():
+				revision_box[0] += 1
+
+## The owning arsenal's change counter, a one-item Array shared with it (empty: not held by one). Bumped when
+## [member def] or [member magazine] changes, so [method GSWeaponArsenal.revision] moves without a scan (API 51).
+var revision_box: Array = []
 
 ## Ticks of reloading already done, for a reload that survives a holster.
 var reload_progress: int = 0

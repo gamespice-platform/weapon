@@ -60,6 +60,7 @@ static func restore(a: Node, d: Dictionary) -> GSResult:
 				return made
 			var def: GSWeaponDef = a.catalogue.get_def(id)
 			existing = GSWeaponSlot.make(def, made.value)
+			existing.revision_box = a._revision_box
 			a._slots[index] = existing
 
 		var wanted_fit: Variant = row.get("fit", null)
@@ -114,6 +115,7 @@ static func _restore_shelf(a: Node, d: Dictionary) -> GSResult:
 				if not made2.ok:
 					return made2
 				piece = GSWeaponSlot.make(a.catalogue.get_def(sid), made2.value)
+				piece.revision_box = a._revision_box
 			piece.restore(row)
 			list.append(piece)
 		rebuilt[int(key)] = list

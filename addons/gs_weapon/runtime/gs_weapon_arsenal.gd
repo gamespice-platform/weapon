@@ -89,6 +89,7 @@ func give(id: StringName, full: bool = true) -> GSResult:
 		)
 
 	var slot := GSWeaponSlot.make(def, made.value)
+	slot.revision_box = _revision_box
 	slot.magazine = def.magazine if full else 0
 
 	var held: GSWeaponSlot = _slots.get(def.slot, null)
@@ -779,6 +780,7 @@ func snapshot() -> Dictionary:
 
 ## Restores a snapshot, rebuilding any weapon this carrier is not currently holding.
 func restore(d: Dictionary) -> GSResult:
+	_bump_revision()
 	return _Io.restore(self, d)
 
 
