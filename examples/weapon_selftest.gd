@@ -1,8 +1,8 @@
-extends "selftest/sections_native.gd"
+extends "selftest/sections_anim.gd"
 
 ## GameSpice Weapon's self-test. Headless, no network, no scene but this one.
 
-const CHECKS := 877
+const CHECKS := 888
 
 
 func _ready() -> void:
@@ -41,6 +41,7 @@ func _run() -> void:
 func _run_sections() -> void:
 	_test_no_nul_in_sources()
 	_test_scope_zoom_levels()
+	_test_anim_sidecar()
 	_test_definition()
 	_test_catalogue()
 	_test_id_order()
