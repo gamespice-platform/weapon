@@ -293,3 +293,49 @@ func _cancel_transient() -> void:
 	_charge_announced = false
 	_held_ticks = 0
 	_buffer_until = -1
+
+
+## Fits [param fitting] to the weapon in [param slot], replacing what was there. The slot's
+## definition becomes a copy with the attachments applied (the catalogue's is untouched), a
+## magazine above the new capacity is clamped, and an empty fitting restores the base.
+func fit(slot: int, fitting: GSWeaponFitting) -> GSResult:
+	if attachments == null:
+		return GSResult.fail(GSError.CODE_STATE, "This arsenal has no attachment catalogue.")
+	var s: GSWeaponSlot = _slots.get(slot, null)
+	if s == null:
+		return GSResult.fail(GSError.CODE_INVALID, "Nothing in slot %d." % slot)
+	return _apply_fitting(s, fitting)
+
+
+func _apply_fitting(s: GSWeaponSlot, fitting: GSWeaponFitting) -> GSResult:
+	var base := catalogue.get_def(s.id())
+	if base == null:
+		return GSResult.fail(GSError.CODE_INVALID, "%s is not in the catalogue." % String(s.id()))
+	var res := attachments.apply(base, fitting)
+	if not res.ok:
+		return res
+	s.def = res.value
+	if s.behaviour != null:
+		s.behaviour.def = s.def  ## The behaviour fires with the fitted numbers, not the ones it was set up with.
+	s.fitting = null if fitting.is_empty() else fitting.duplicate_fitting()
+	if s.def.uses_magazine():
+		s.magazine = mini(s.magazine, s.def.magazine)
+	carried_changed.emit()
+	return GSResult.success(s)
+
+
+## What is fitted to [param slot]. Never null; empty when nothing is.
+func fitting_at(slot: int) -> GSWeaponFitting:
+	var s: GSWeaponSlot = _slots.get(slot, null)
+	if s == null:
+		return GSWeaponFitting.make(&"")
+	if s.fitting == null:
+		return GSWeaponFitting.make(s.id())
+	return s.fitting.duplicate_fitting()
+
+
+## [method fitting_at] without the copy, for a reader comparing every snapshot: the slot's own
+## fitting, or null when nothing is fitted. Read only; change a fitting through [method fit].
+func fitting_ref(slot: int) -> GSWeaponFitting:
+	var s: GSWeaponSlot = _slots.get(slot, null)
+	return null if s == null else s.fitting

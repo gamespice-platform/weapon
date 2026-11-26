@@ -461,6 +461,27 @@ func idle_tick_row(row: PackedFloat64Array, still: bool) -> GSWeaponOutcome:
 	return _idle_nothing()
 
 
+## [method idle_tick_row] joined to a native batch (API 57): appends this arsenal's entry
+## [code][twin, state, behaviour, k, rest_ok][/code] to [param entries] for gs-sim's [code]GSSimWeaponIdleBatch.run[/code]
+## (posture row [param k] of the rows it is handed, the still flag at the row's [code][9][/code]) and returns the idle
+## outcome, or null (nothing appended) when the behaviour has no twin that provably holds, phase timers are on or no
+## [member idle_posture] is set: then call [method idle_tick_row]. An entry the batch declines must run [method idle_tick].
+func idle_batch_add(entries: Array, k: int) -> GSWeaponOutcome:
+	if phase_timers or not idle_posture.is_valid():
+		return null
+	var slot := current()
+	if slot == null:
+		return null
+	var behaviour := slot.behaviour
+	var twin := behaviour.idle_native(spread_rules, crosshair_cone, tick_rate)
+	if twin == null:
+		return null
+	var cone := crosshair_cone and spread_rules != null
+	entries.append_array([twin, behaviour.state, behaviour, k, idle_rest_skip and idle_still.is_valid() and not cone])
+	_held_ticks = 0
+	return _idle_nothing()
+
+
 ## [method idle_tick]'s empty outcome: one per arsenal, read before the next tick. A new one each idle player each tick
 ## was an object and three typed arrays; one a caller wrote to is replaced, never handed out again.
 func _idle_nothing() -> GSWeaponOutcome:
@@ -728,52 +749,6 @@ func _switch_off_empty(tick: int) -> void:
 		if _can_pay(other):
 			select(s, tick)
 			return
-
-
-## Fits [param fitting] to the weapon in [param slot], replacing what was there. The slot's
-## definition becomes a copy with the attachments applied (the catalogue's is untouched), a
-## magazine above the new capacity is clamped, and an empty fitting restores the base.
-func fit(slot: int, fitting: GSWeaponFitting) -> GSResult:
-	if attachments == null:
-		return GSResult.fail(GSError.CODE_STATE, "This arsenal has no attachment catalogue.")
-	var s: GSWeaponSlot = _slots.get(slot, null)
-	if s == null:
-		return GSResult.fail(GSError.CODE_INVALID, "Nothing in slot %d." % slot)
-	return _apply_fitting(s, fitting)
-
-
-func _apply_fitting(s: GSWeaponSlot, fitting: GSWeaponFitting) -> GSResult:
-	var base := catalogue.get_def(s.id())
-	if base == null:
-		return GSResult.fail(GSError.CODE_INVALID, "%s is not in the catalogue." % String(s.id()))
-	var res := attachments.apply(base, fitting)
-	if not res.ok:
-		return res
-	s.def = res.value
-	if s.behaviour != null:
-		s.behaviour.def = s.def  ## The behaviour fires with the fitted numbers, not the ones it was set up with.
-	s.fitting = null if fitting.is_empty() else fitting.duplicate_fitting()
-	if s.def.uses_magazine():
-		s.magazine = mini(s.magazine, s.def.magazine)
-	carried_changed.emit()
-	return GSResult.success(s)
-
-
-## What is fitted to [param slot]. Never null; empty when nothing is.
-func fitting_at(slot: int) -> GSWeaponFitting:
-	var s: GSWeaponSlot = _slots.get(slot, null)
-	if s == null:
-		return GSWeaponFitting.make(&"")
-	if s.fitting == null:
-		return GSWeaponFitting.make(s.id())
-	return s.fitting.duplicate_fitting()
-
-
-## [method fitting_at] without the copy, for a reader comparing every snapshot: the slot's own
-## fitting, or null when nothing is fitted. Read only; change a fitting through [method fit].
-func fitting_ref(slot: int) -> GSWeaponFitting:
-	var s: GSWeaponSlot = _slots.get(slot, null)
-	return null if s == null else s.fitting
 
 
 ## Everything that has to travel and everything a rollback has to restore, behaviours' own state included.

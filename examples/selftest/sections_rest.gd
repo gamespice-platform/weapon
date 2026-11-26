@@ -12,6 +12,10 @@ const _CONE_MODES := ["rules", "rules_hurt", "rules_tuning", "rules_restore"]
 var _rest_native := false
 ## With [member _rest_native]: the first arsenal's idle ticks go through [method GSWeaponArsenal.idle_tick_row].
 var _rest_row := false
+## The rest streams' arsenal 0 joins its idle ticks to gs-sim's GSSimWeaponIdleBatch (API 57) when this holds one.
+var _rest_batch: Object = null
+## Idle ticks the batch took for arsenal 0 (an entry it ran, declined or not).
+var _rest_batched := 0
 
 
 ## Eight postures a carrier moves through; index 0 is the settled one.
@@ -185,7 +189,8 @@ func _rest_stream(mode: String) -> Dictionary:
 	if _rest_native and mode in _CONE_MODES:
 		_check(int(res["skipped"]) == 0, "%s native: a kept cone takes every tick, no rest skip" % mode, str(res["skipped"]))
 		_check(int(res["steady"]) == 0, "%s native: and no steady skip" % mode, str(res["steady"]))
-	else:
+	elif _rest_batch == null:
+		# A batched rest is one native call with no phase clock to count it; the batch section counts its own entries.
 		_check(int(res["skipped"]) > 300, "%s: the skip ran for much of the stream" % mode, str(res["skipped"]))
 		if mode in _CONE_MODES:
 			_check(int(res["steady"]) > 300, "%s: the steady skip ran for much of the stream" % mode, str(res["steady"]))
@@ -266,7 +271,9 @@ func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, 
 		hit.hurt_tick = st["hurt"][0]
 		if a.is_idle_for(cmd, previous):
 			var rests := GSWeaponArsenal.phase_calls[2]
-			if _rest_row and i == 0:
+			if _rest_batch != null and i == 0:
+				out = _rest_batch_tick(a)
+			elif _rest_row and i == 0:
 				out = a.idle_tick_row(_idle_row_of(a), a.idle_still.is_valid() and bool(a.idle_still.call()))
 			else:
 				out = a.idle_tick()
@@ -280,6 +287,27 @@ func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, 
 		states.append(var_to_str(a.snapshot()) + var_to_str(a.current().behaviour.state))
 		spreads.append(a.spread_now())
 	return [results, states, spreads]
+
+
+## One idle tick as a server batches it: [method GSWeaponArsenal.idle_batch_add] then one native run over the row (with
+## the still flag at [9]); a declined entry runs [method GSWeaponArsenal.idle_tick], no entry [method GSWeaponArsenal.idle_tick_row].
+func _rest_batch_tick(a: GSWeaponArsenal) -> GSWeaponOutcome:
+	var still := a.idle_still.is_valid() and bool(a.idle_still.call())
+	var row := _idle_row_of(a)
+	var entries: Array = []
+	# A batch never runs under phase timers (they count per call); the stream keeps them on for its rest-skip count.
+	var timers := GSWeaponArsenal.phase_timers
+	GSWeaponArsenal.phase_timers = false
+	var out := a.idle_batch_add(entries, 0)
+	GSWeaponArsenal.phase_timers = timers
+	if out == null:
+		return a.idle_tick_row(row, still)
+	_rest_batched += 1
+	row.append(1.0 if still else 0.0)
+	var declined: PackedInt32Array = _rest_batch.call(&"run", entries, row, 10)
+	if not declined.is_empty():
+		return a.idle_tick()
+	return out
 
 
 ## The arsenal's [member GSWeaponArsenal.idle_posture] context as the row [method GSWeaponArsenal.idle_tick_row] takes.

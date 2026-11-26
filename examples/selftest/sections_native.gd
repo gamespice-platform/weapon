@@ -24,8 +24,8 @@ func _test_native_tick() -> void:
 	if not present:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
-		# Then the idle gate's four, the framed tick's two, the seeded uses' three and the recoil posture's one.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1 + 1):
+		# Then the idle gate's four, the batch streams' two, the framed tick's two, the seeded uses' three and the recoil posture's one.
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1 + 1 + 2):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -90,6 +90,7 @@ func _test_native_tick() -> void:
 	_check_native_row_streams(native_was)
 	_check_native_missing_class(native_was)
 	_check_idle_gate(native_was)
+	_check_native_batch_streams(native_was)
 	_check_tick_framed(native_was)
 	_check_native_use(native_was)
 	_check_recoil_posture()
@@ -197,6 +198,31 @@ func _check_native_row_streams(native_was: bool) -> void:
 
 
 var _gate_row_misses := 0
+
+
+## The rest streams again, arsenal 0's idle ticks joined to gs-sim's GSSimWeaponIdleBatch (API 57: idle_batch_add, one
+## native run, idle_tick for a declined entry): the same outcomes, snapshots, state and cone as the script arsenal.
+func _check_native_batch_streams(native_was: bool) -> void:
+	if not ClassDB.class_exists(&"GSSimWeaponIdleBatch"):
+		_check(true, "skip: GSSimWeaponIdleBatch not loaded")
+		_check(true, "skip: GSSimWeaponIdleBatch not loaded")
+		return
+	_rest_native = true
+	_rest_batch = ClassDB.instantiate(&"GSSimWeaponIdleBatch")
+	_rest_batched = 0
+	var all_same := true
+	var detail := ""
+	for mode: String in _MODES:
+		var res := _rest_stream(mode)
+		if not res["same"] or not res["spread_same"]:
+			all_same = false
+			detail = res["detail"]
+	_rest_batch = null
+	_rest_native = false
+	GSWeaponHitscan.native_tick = native_was
+	GSWeaponHitscan.steady_skip = true
+	_check(all_same, "the rest streams agree with one native idle batch per tick on one arsenal: outcomes, snapshots, state and cone", detail)
+	_check(_rest_batched > 100, "the batch took most idle ticks (%d)" % _rest_batched)
 
 
 ## GSWeaponBehaviour.idle_gate: the gated idle row (1) and its verify mode (2) leave what the plain one (0) leaves, bit

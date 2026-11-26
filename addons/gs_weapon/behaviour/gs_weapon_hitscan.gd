@@ -225,7 +225,7 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 		# aimed tick) writes the same numbers again and again. The twin already holds a row that compares equal, so it
 		# keeps it: the native call and its row parse are skipped. Equal under ==, so at most the sign of a zero term
 		# differs, which no sum of spread terms can show.
-		_native_tuning_into(b, _native_check)
+		_Rows.tuning_into(self, b, _native_check)
 		if _native_check == _native_sent:
 			_native_b_rev = b.accuracy_revision[0]
 			_native_kept += 1
@@ -240,7 +240,7 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 		or def.use_interval_ticks != _native_interval or def.authored_tick_rate != _native_authored or klass != _native_class
 	):
 		if not built:
-			_native_tuning_into(b, _native_sent)
+			_Rows.tuning_into(self, b, _native_sent)
 		if not _native.call(&"set_tuning", _native_sent):
 			_native_b = null
 			return false
@@ -264,29 +264,6 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 		_native_cone = cone
 		_native_frame_rate = rate
 	return true
-
-
-## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
-## tick-count terms at the running rate, and each accuracy term already the field when 0 or more, else the class preset.
-## Written into [param row] (16 long), one of the two rows the behaviour keeps, so a re-send allocates nothing.
-func _native_tuning_into(b: GSWeaponBallistics, row: PackedFloat64Array) -> void:
-	_class_of(b)
-	row[0] = b.spread
-	row[1] = b.spread_moving
-	row[2] = b.spread_speed_ref
-	row[3] = b.spread_airborne
-	row[4] = b.spread_crouched
-	row[5] = b.bloom
-	row[6] = b.bloom_max
-	row[7] = scaled_per_tick(b.bloom_recovery)
-	row[8] = _bloom_delay_of(b)
-	row[9] = _settle_ticks_of(b)
-	row[10] = b.spread_hip if b.spread_hip >= 0.0 else _pre_hip
-	row[11] = b.spread_slide if b.spread_slide >= 0.0 else _pre_slide
-	row[12] = b.spread_sprint if b.spread_sprint >= 0.0 else _pre_sprint
-	row[13] = b.spread_flinch if b.spread_flinch >= 0.0 else _pre_flinch
-	row[14] = b.bloom_crouch if b.bloom_crouch >= 0.0 else _pre_crouch
-	row[15] = b.spread_aim if b.spread_aim >= 0.0 else _pre_aim
 
 
 ## This context as the native posture row, written into the one row the behaviour keeps.
@@ -519,15 +496,30 @@ func _tick_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool
 func _native_idle_call(row: PackedFloat64Array, rest: bool, cone: bool) -> int:
 	# A cone kept for a crosshair rests only through the steady fixed point, which the native path never keeps.
 	var shown: float = _native.call(&"idle", state, row, rest and not cone)
+	if shown == -1.0:
+		return IDLE_ROW_DECLINED
+	idle_native_took(shown)
+	return IDLE_ROW_RESTED if shown == -2.0 else IDLE_ROW_TICKED
+
+
+## The twin [method idle_row_framed] would call straight away (gate 1 holding, no steady crosshair cone), else null.
+## A subclass may override the tick, so only the stock hitscan joins a batch.
+func idle_native(rules: GSWeaponSpreadRules, crosshair: bool, rate: int) -> Object:
+	if idle_gate != 1 or not _plain_hitscan():
+		return null
+	var cone := crosshair and rules != null
+	if (cone and _steady) or not _idle_gate_holds(rules, cone, rate):
+		return null
+	return _native
+
+
+func idle_native_took(shown: float) -> void:
 	if shown == -2.0:
 		_shown_stale = true
-		return IDLE_ROW_RESTED
-	if shown < 0.0:
-		return IDLE_ROW_DECLINED
+		return
 	_shown_stale = false
 	_steady = false
 	_shown = shown
-	return IDLE_ROW_TICKED
 
 
 ## Needs a context while enabled spread rules follow the carrier, a crosshair follows an idle player

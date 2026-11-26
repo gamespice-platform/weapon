@@ -3,6 +3,30 @@
 extends RefCounted
 
 
+## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
+## tick-count terms at the running rate, and each accuracy term already the field when 0 or more, else the class preset.
+## Written into [param row] (16 long), one of the two rows the behaviour keeps, so a re-send allocates nothing.
+## [param h] is the [GSWeaponHitscan] whose class presets fill the terms left at -1.
+static func tuning_into(h: Object, b: GSWeaponBallistics, row: PackedFloat64Array) -> void:
+	h._class_of(b)
+	row[0] = b.spread
+	row[1] = b.spread_moving
+	row[2] = b.spread_speed_ref
+	row[3] = b.spread_airborne
+	row[4] = b.spread_crouched
+	row[5] = b.bloom
+	row[6] = b.bloom_max
+	row[7] = h.scaled_per_tick(b.bloom_recovery)
+	row[8] = h._bloom_delay_of(b)
+	row[9] = h._settle_ticks_of(b)
+	row[10] = b.spread_hip if b.spread_hip >= 0.0 else h._pre_hip
+	row[11] = b.spread_slide if b.spread_slide >= 0.0 else h._pre_slide
+	row[12] = b.spread_sprint if b.spread_sprint >= 0.0 else h._pre_sprint
+	row[13] = b.spread_flinch if b.spread_flinch >= 0.0 else h._pre_flinch
+	row[14] = b.bloom_crouch if b.bloom_crouch >= 0.0 else h._pre_crouch
+	row[15] = b.spread_aim if b.spread_aim >= 0.0 else h._pre_aim
+
+
 ## Whether the GameSpice Sim extension is loaded at all (to tell a stale build from no gs-sim).
 static func gs_sim_loaded() -> bool:
 	for path in GDExtensionManager.get_loaded_extensions():

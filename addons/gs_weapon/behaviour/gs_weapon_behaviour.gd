@@ -198,6 +198,20 @@ func tick_framed(ctx: GSWeaponContext, _rules: GSWeaponSpreadRules, _crosshair: 
 	tick(ctx)
 
 
+## The native twin an idle tick may join a batch with (API 57): gs-sim's [code]GSSimWeaponIdleBatch[/code] runs, for
+## each joined weapon, exactly the call [method idle_row_framed] would make now, then hands the answer to
+## [method idle_native_took]. Non-null only when that call is provably what [method idle_row_framed] would do this tick
+## (the stock hitscan with its gate holding); null keeps the plain path. The base has no twin.
+func idle_native(_rules: GSWeaponSpreadRules, _crosshair: bool, _rate: int) -> Object:
+	return null
+
+
+## What a batched native idle call answered for this weapon (never -1, a decline, which changes nothing): applied as
+## [method idle_row_framed] would apply it. The base never joins a batch.
+func idle_native_took(_shown: float) -> void:
+	pass
+
+
 ## [method tick_needs_context] when the arsenal has an [member GSWeaponArsenal.idle_posture]; must answer the same.
 ## The base reads no posture, so it is [method tick_needs_context].
 func tick_needs_context_posed() -> bool:
