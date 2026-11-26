@@ -53,8 +53,11 @@ static var steady_skip: bool = true
 ## bit for bit this script's [method _tick], state written in place); off, or without GameSpice Sim, the script below runs.
 ## Results agree to the bit, so it is only an A/B switch. Named through [ClassDB] only, so this parses without GameSpice Sim.
 static var native_tick: bool = true
+## The same for a use's recoil and pellets (gs-sim's recoil and scatter, [code]gs_weapon_hitscan_native_shot.gd[/code]).
+static var native_shot: bool = true
 const _NATIVE_CLASS := &"GSSimWeaponSpread"
 const _Rows := preload("gs_weapon_hitscan_native_rows.gd")
+const _Shot := preload("gs_weapon_hitscan_native_shot.gd")
 # -1 unknown, 0 absent, 1 present: whether GameSpice Sim registered the class, asked once a process.
 static var _native_present: int = -1
 
@@ -746,10 +749,11 @@ func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 		shot.splash_hurts_owner = b.splash_hurts_owner
 
 	var rr := GSWeaponRecoilRules.of(arsenal)
-	var bullet_offset := Vector2.ZERO
-	if b != null and rr != null:
-		bullet_offset = rr.apply(out, b, state, ctx, def.id, running_tick_rate(), recoil_posture(b, ctx))
-		shot.direction = GSWeaponRecoilRules.offset_direction(shot.direction, bullet_offset)
+	if not (native_spread and native_shot and _Shot.aim(self, out, shot, b, rr)):
+		if b != null and rr != null:
+			var bullet_offset := rr.apply(out, b, state, ctx, def.id, running_tick_rate(), recoil_posture(b, ctx))
+			shot.direction = GSWeaponRecoilRules.offset_direction(shot.direction, bullet_offset)
+		shot.scatter()
 
 	# A simulated bullet is flown by GSWeaponBulletBridge; the shot is deferred so GameSpice Combat only
 	# records its endpoint. Off (the default) this line never runs and the shot is unchanged.
@@ -770,7 +774,6 @@ func _use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 			shot.penetration = ammo.shared_penetration()
 			shot.set_meta(&"ammo", ammo.id)
 
-	shot.scatter()
 	out.add_shot(shot)
 
 	if b != null:

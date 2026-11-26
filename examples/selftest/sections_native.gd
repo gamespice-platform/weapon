@@ -24,8 +24,8 @@ func _test_native_tick() -> void:
 	if not present:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
-		# Then the idle gate's four, the framed tick's two, the seeded uses' two and the recoil posture's one.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1):
+		# Then the idle gate's four, the framed tick's two, the seeded uses' three and the recoil posture's one.
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1 + 1):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -339,12 +339,16 @@ func _check_tick_framed(native_was: bool) -> void:
 ## The same seeded shots through use() with the native cones and with the GDScript ones: twins on shared tuning, rules
 ## and recoil rules, ticked each way between, fire at random postures; every outcome (cone, directions, pellets, recoil)
 ## and the state and shown cone after must match bit for bit, with gates 0 and 1.
+const _NativeShot := preload("res://addons/gs_weapon/behaviour/gs_weapon_hitscan_native_shot.gd")
+
+
 func _check_native_use(native_was: bool) -> void:
 	var gate_was := GSWeaponBehaviour.idle_gate
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261127
 	var uses := 0
 	var native_uses := 0
+	var kicked := 0
 	var first_miss := ""
 	for i in range(_NATIVE_CASES):
 		var w := _native_case(rng)
@@ -357,10 +361,20 @@ func _check_native_use(native_was: bool) -> void:
 		b.recoil_yaw = rng.randf_range(-1.0, 1.0)
 		for f: StringName in [&"recoil_aim", &"recoil_crouch", &"recoil_move"]:
 			b.set(f, -1.0 if rng.randf() < 0.5 else rng.randf_range(0.3, 1.5))
-		if rng.randf() < 0.5:
-			var rr := GSWeaponRecoilRules.new()
-			rr.enabled = rng.randf() < 0.8
-			rr.scale = rng.randf_range(0.5, 2.0)
+		b.fixed_pattern = rng.randf() < 0.2
+		b.recoil_seed = 0 if rng.randf() < 0.5 else rng.randi_range(1, 0x7fffffff)
+		b.recoil_build = rng.randf_range(0.0, 0.3)
+		b.recoil_build_max = rng.randf_range(0.0, 1.0)
+		b.recoil_recovery = rng.randf_range(0.0, 12.0)
+		b.recoil_camera = -1.0 if rng.randf() < 0.5 else rng.randf_range(0.0, 1.0)
+		var rr: GSWeaponRecoilRules = null
+		if rng.randf() < 0.6:
+			rr = GSWeaponRecoilRules.new()
+			rr.enabled = rng.randf() < 0.85
+			for f: StringName in [&"scale", &"vertical", &"horizontal", &"recovery", &"punch", &"follow", &"build",
+					&"mult_aim", &"mult_crouch", &"mult_move", &"mult_air"]:
+				rr.set(f, rng.randf_range(0.0, 2.0))
+			rr.reset = rng.randf_range(0.05, 1.0)
 			arsenal.recoil_rules = rr
 		GSWeaponBehaviour.idle_gate = rng.randi_range(0, 1)
 		var ctx := GSWeaponContext.new()
@@ -384,6 +398,8 @@ func _check_native_use(native_was: bool) -> void:
 				GSWeaponHitscan.native_tick = false
 				var off := hs.use(ctx)
 				uses += 1
+				if rr != null and rr.enabled:
+					kicked += 1
 				if hn._native != null:
 					native_uses += 1
 				var miss := _native_outcome_diff(off, on)
@@ -397,14 +413,15 @@ func _check_native_use(native_was: bool) -> void:
 	GSWeaponHitscan.native_tick = native_was
 	_check(first_miss == "", "%d seeded shots of %d random weapons: use() with the native cones matches the GDScript use bit for bit" % [uses, _NATIVE_CASES], first_miss)
 	_check(native_uses == uses and uses > 1000, "every native-side shot ran with the native twin built (%d of %d)" % [native_uses, uses])
+	_check(kicked > 300 and GSWeaponHitscan.native_shot and _NativeShot._has == 1, "%d of them kicked by random recoil rules: gs-sim's recoil and scatter match apply() and GSShot.scatter() bit for bit (state keys, view kick, bullet direction, pellets)" % kicked)
 
 
 ## "" when two use outcomes fired the same shots and recoil, else the first difference.
 func _native_outcome_diff(want: GSWeaponOutcome, got: GSWeaponOutcome) -> String:
 	if want.shots.size() != got.shots.size():
 		return "shots script %d native %d" % [want.shots.size(), got.shots.size()]
-	if want.recoil != got.recoil:
-		return "recoil script %s native %s" % [want.recoil, got.recoil]
+	if want.recoil != got.recoil or want.recoil_recovery != got.recoil_recovery or want.recoil_signed != got.recoil_signed:
+		return "recoil script %s %s %s native %s %s %s" % [want.recoil, want.recoil_recovery, want.recoil_signed, got.recoil, got.recoil_recovery, got.recoil_signed]
 	for k in range(want.shots.size()):
 		var a := want.shots[k]
 		var c := got.shots[k]
