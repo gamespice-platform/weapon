@@ -24,7 +24,59 @@ func take(slot: int) -> GSResult:
 	return GSResult.success(null)
 
 
+## On: [method clear] keeps each behaviour it drops, renewed ([method GSWeaponBehaviour.renew]), and [method give]
+## binds a kept one of the same weapon instead of building a new one (about 8% of a kit give). A respawn's
+## re-give then ends in the state a fresh give does, key for key (the selftest proves it over random kits and dirty
+## states). A behaviour whose script cannot vouch for its renewal is built new. Off (the default) builds every one,
+## and turning it off forgets what was kept. API 56.
+var reuse_behaviours: bool = false:
+	set(value):
+		reuse_behaviours = value
+		if not value:
+			_kept.clear()
+
+## Weapon id -> a renewed behaviour [method clear] kept for [method give]; at most one per weapon.
+var _kept: Dictionary = {}
+
+## How many behaviours [method give] reused instead of building; for a bench and the selftest.
+var behaviours_reused: int = 0
+
+
+## A behaviour for [param id]: a kept one when [member reuse_behaviours] is on and its script is still the one the
+## catalogue names, else a new one from [method GSWeaponCatalogue.instantiate].
+func _behaviour_for(id: StringName) -> GSResult:
+	if reuse_behaviours and _kept.has(id):
+		var kept: GSWeaponBehaviour = _kept[id]
+		_kept.erase(id)
+		var def := catalogue.get_def(id)
+		if def != null:
+			var script := catalogue._script_for(def)
+			if script.ok and script.value == kept.get_script():
+				kept.setup(def, self)
+				behaviours_reused += 1
+				return GSResult.success(kept)
+	return catalogue.instantiate(id, self)
+
+
+func _keep_behaviours() -> void:
+	for held: GSWeaponSlot in _slots.values():
+		_keep_behaviour(held)
+	for behind: Array in _shelf.values():
+		for w: GSWeaponSlot in behind:
+			_keep_behaviour(w)
+
+
+func _keep_behaviour(w: GSWeaponSlot) -> void:
+	var id := w.id()
+	if w.behaviour == null or id == &"" or _kept.has(id):
+		return
+	if w.behaviour.renew():
+		_kept[id] = w.behaviour
+
+
 func clear() -> void:
+	if reuse_behaviours:
+		_keep_behaviours()
 	_slots.clear()
 	_shelf.clear()
 	_current = 0

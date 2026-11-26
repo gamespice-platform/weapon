@@ -69,6 +69,35 @@ func setup(p_def: GSWeaponDef, p_arsenal: Object = null) -> void:
 	_setup()
 
 
+## Returns this behaviour to what its script's [code]new()[/code] makes, unbound, so [method setup] can bind it
+## again; false when its script cannot vouch for that and a new one must be built. With
+## [member GSWeaponArsenal.reuse_behaviours] a respawn's re-give reuses a renewed behaviour instead of building one.
+## API 56.
+func renew() -> bool:
+	if not _renew():
+		return false
+	def = null
+	arsenal = null
+	state = {}
+	_needs_context = -1
+	return true
+
+
+## Resets every member the script itself declares and returns true. The default vouches only for the stock scripts
+## that declare none; any other script (a subclass with members of its own) is rebuilt unless it overrides this.
+func _renew() -> bool:
+	var script := get_script() as Script
+	return script != null and _MEMBERLESS.has(script.resource_path)
+
+
+const _MEMBERLESS: PackedStringArray = [
+	"res://addons/gs_weapon/behaviour/gs_weapon_beam.gd",
+	"res://addons/gs_weapon/behaviour/gs_weapon_melee.gd",
+	"res://addons/gs_weapon/behaviour/gs_weapon_projectile.gd",
+	"res://addons/gs_weapon/behaviour/gs_weapon_thrown.gd",
+]
+
+
 ## Brought up and now usable.
 func deploy(ctx: GSWeaponContext) -> void:
 	_deploy(ctx)

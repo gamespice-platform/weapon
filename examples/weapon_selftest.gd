@@ -2,7 +2,7 @@ extends "selftest/sections_native.gd"
 
 ## GameSpice Weapon's self-test. Headless, no network, no scene but this one.
 
-const CHECKS := 870
+const CHECKS := 877
 
 
 func _ready() -> void:
@@ -51,6 +51,7 @@ func _run_sections() -> void:
 	_test_cadence()
 	_test_ammunition()
 	_test_revision()
+	_test_regive()
 	_test_reloading()
 	_test_charge_and_bow()
 	_test_melee()

@@ -73,7 +73,7 @@ func give(id: StringName, full: bool = true) -> GSResult:
 	if not _ready_for_use:
 		return GSResult.fail(GSError.CODE_STATE, "setup() has not been called.")
 
-	var made := catalogue.instantiate(id, self)
+	var made := _behaviour_for(id)
 	if not made.ok:
 		return made
 

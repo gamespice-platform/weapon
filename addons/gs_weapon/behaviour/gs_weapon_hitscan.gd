@@ -58,6 +58,7 @@ static var native_shot: bool = true
 const _NATIVE_CLASS := &"GSSimWeaponSpread"
 const _Rows := preload("gs_weapon_hitscan_native_rows.gd")
 const _Shot := preload("gs_weapon_hitscan_native_shot.gd")
+const _Renew := preload("gs_weapon_hitscan_renew.gd")
 # -1 unknown, 0 absent, 1 present: whether GameSpice Sim registered the class, asked once a process.
 static var _native_present: int = -1
 
@@ -85,6 +86,7 @@ var _native_check := _Rows.tuning_row()
 var _native_kept: int = 0
 # -1 unknown, 0 no, 1 yes: whether the twin has `idle` (a GameSpice Sim older than it has only `tick`).
 var _native_idle: int = -1
+var _plain := -1  # 1 stock script, 0 subclass, -1 unknown (see _plain_hitscan)
 
 # The last context tick that was a fixed point: everything it read, and the cone it computed.
 var _steady: bool = false
@@ -469,8 +471,7 @@ func _idle_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool
 
 ## [method tick] handed the arsenal's rules, crosshair and rate: while [member GSWeaponBehaviour.idle_gate] is on and the
 ## cached native rows provably hold ([method _tick_gate_holds]), gs-sim's tick runs straight away, with no arsenal reads
-## and no row checks; the state, the shown cone and the steady flag end as [method _tick]'s native path leaves them.
-## Otherwise, and on a subclass (which may tick its own way), [method tick].
+## and no row checks; state, shown cone and steady flag end as [method _tick]'s native path leaves them. Else [method tick].
 func tick_framed(ctx: GSWeaponContext, rules: GSWeaponSpreadRules, crosshair: bool, rate: int) -> void:
 	if ctx == null or not _plain_hitscan():
 		tick(ctx)
@@ -487,15 +488,14 @@ func tick_framed(ctx: GSWeaponContext, rules: GSWeaponSpreadRules, crosshair: bo
 	_shown = _native.call(&"tick", state, _native_posture(ctx))
 
 
-var _plain := -1
+## Every member back to its initial value, stock script only (API 56, [method GSWeaponBehaviour.renew]; see [code]gs_weapon_hitscan_renew.gd[/code]).
+func _renew() -> bool:
+	return _Renew.renew(self)
 
 
 ## Whether this behaviour is the stock hitscan itself, not a subclass: only then is [method tick] the one gated above.
 func _plain_hitscan() -> bool:
-	if _plain < 0:
-		var script := get_script() as Script
-		_plain = 1 if script != null and script.resource_path.get_file() == "gs_weapon_hitscan.gd" else 0
-	return _plain == 1
+	return _plain == 1 if _plain >= 0 else _Renew.plain(self)
 
 
 ## The native rows hold for the arsenal's [param rules], [param cone] and [param rate] (the idle gate's test without its

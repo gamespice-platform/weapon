@@ -353,3 +353,155 @@ func _test_revision() -> void:
 	_check(b.revision() != r7, "a slot rebuilt by restore still reports its shots")
 
 	_done()
+
+
+## API 55: a re-give with [member GSWeaponArsenal.reuse_behaviours] on ends where the old path (every behaviour new) does,
+## key for key, from random kits and dirty states (mid-reload, cooldown, another slot selected or switching, ammo spent);
+## every behaviour member equals a new instance's, and the two play on identically.
+func _test_regive() -> void:
+	_section("regive (reuse_behaviours)")
+	var cat := _catalogue()
+	cat.get_def(&"rifle").mounts = [&"muzzle", &"magazine"] as Array[StringName]
+	cat.get_def(&"pistol").mounts = [&"optic"] as Array[StringName]
+	var att := _attachment_catalogue()
+	var old := _arsenal(cat)
+	var kept := _arsenal(cat)
+	old.attachments = att
+	kept.attachments = att
+	kept.reuse_behaviours = true
+	var ids: Array[StringName] = [&"rifle", &"pistol", &"bow", &"knife", &"flamer", &"grenade", &"rod"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 55
+	var tick := 0
+	var bad_snap := ""
+	var bad_member := ""
+	var bad_after := ""
+	var bad_rev := ""
+	var rod_reused := false
+	for trial in 40:
+		var plan := _regive_plan(rng, ids)
+		var rod_before: GSWeaponBehaviour = null
+		if kept.carries(&"rod"):
+			rod_before = kept.slot_at(cat.get_def(&"rod").slot).behaviour
+		for a: GSWeaponArsenal in [old, kept]:
+			_regive_life(a, plan)
+		if rod_before != null and kept.carries(&"rod") and kept.slot_at(cat.get_def(&"rod").slot).behaviour == rod_before:
+			rod_reused = true
+		if bad_snap == "" and var_to_str(old.snapshot()) != var_to_str(kept.snapshot()):
+			bad_snap = "trial %d: %s vs %s" % [trial, var_to_str(old.snapshot()), var_to_str(kept.snapshot())]
+		if bad_rev == "" and old.revision() != kept.revision():
+			bad_rev = "trial %d: %d vs %d" % [trial, old.revision(), kept.revision()]
+		if bad_member == "":
+			bad_member = _regive_members(old, kept, trial)
+		# Dirty both the same way: the next trial re-gives from here.
+		for step: Array in plan["dirt"]:
+			for a: GSWeaponArsenal in [old, kept]:
+				_regive_dirt(a, step, tick)
+			tick += int(step[1]) + 1
+		if bad_after == "" and var_to_str(old.snapshot()) != var_to_str(kept.snapshot()):
+			bad_after = "trial %d: %s vs %s" % [trial, var_to_str(old.snapshot()), var_to_str(kept.snapshot())]
+	_check(bad_snap == "", "a re-give's snapshot equals the old path's, key for key", bad_snap)
+	_check(bad_rev == "", "and its revision", bad_rev)
+	_check(bad_member == "", "every reused behaviour's members equal a new instance's", bad_member)
+	_check(bad_after == "", "the two play on identically (fire, reload, switch, spend)", bad_after)
+	_check(kept.behaviours_reused > 0 and old.behaviours_reused == 0, "behaviours were reused only with it on",
+		"%d / %d" % [kept.behaviours_reused, old.behaviours_reused])
+	_check(not rod_reused, "a script that cannot vouch for its renewal (a fixture subclass) is built new")
+	kept.reuse_behaviours = false
+	kept.clear()
+	_check(kept._kept.is_empty(), "turning it off forgets what was kept")
+	_drop(old)
+	_drop(kept)
+	_done()
+
+
+## A kit (2-5 weapons in random order), fittings for some, the slot to hold, and the dirt to run after it.
+func _regive_plan(rng: RandomNumberGenerator, ids: Array[StringName]) -> Dictionary:
+	var pool := ids.duplicate()
+	var kit: Array[StringName] = []
+	for i in rng.randi_range(2, 5):
+		kit.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
+	var fits := {}
+	if rng.randf() < 0.6:
+		var f := GSWeaponFitting.make(&"rifle")
+		f.fit(&"magazine", &"drum" if rng.randf() < 0.5 else &"tiny_mag")
+		if rng.randf() < 0.5:
+			f.fit(&"muzzle", &"suppressor")
+		fits[&"rifle"] = f
+	if rng.randf() < 0.4:
+		var p := GSWeaponFitting.make(&"pistol")
+		p.fit(&"optic", &"dot_sight")
+		fits[&"pistol"] = p
+	var dirt: Array = []
+	for i in rng.randi_range(1, 4):
+		dirt.append([rng.randi_range(0, 4), rng.randi_range(1, 40), rng.randi_range(0, kit.size() - 1)])
+	# End mid-something about half the time: a reload, a switch or a cooldown.
+	if rng.randf() < 0.5:
+		dirt.append([rng.randi_range(1, 2), 2, rng.randi_range(0, kit.size() - 1)])
+	return {"kit": kit, "fits": fits, "hand": kit[rng.randi_range(0, kit.size() - 1)], "dirt": dirt}
+
+
+## The old path FC runs at a spawn: clear, give each, hold the hand, fit.
+func _regive_life(a: GSWeaponArsenal, plan: Dictionary) -> void:
+	a.clear()
+	for id: StringName in plan["kit"]:
+		var _given := a.give(id)
+	var _held := a.equip(a.catalogue.get_def(plan["hand"]).slot)
+	for id: StringName in plan["fits"]:
+		var slot := a.catalogue.get_def(id).slot
+		if a.has_slot(slot) and a.slot_at(slot).id() == id:
+			var _fitted := a.fit(slot, plan["fits"][id])
+
+
+## One dirt step: [kind, ticks, kit index]. 0 fire, 1 reload then tick, 2 select another slot then tick,
+## 3 spend reserve ammunition, 4 idle.
+func _regive_dirt(a: GSWeaponArsenal, step: Array, tick: int) -> void:
+	var ticks := int(step[1])
+	match int(step[0]):
+		0:
+			var _shots := _drive(a, tick, ticks, true)
+		1:
+			var _r := a.begin_reload(tick)
+			var _idle := _drive(a, tick + 1, ticks, false)
+		2:
+			var all := a.slots()
+			if not all.is_empty():
+				var _s := a.select(all[int(step[2]) % all.size()], tick)
+			var _idle := _drive(a, tick + 1, ticks, false)
+		3:
+			var def := a.current_def()
+			if def != null and def.ammo_type != &"":
+				var _taken := a.ammo().take(def.ammo_type, ticks)
+			var _shots := _drive(a, tick, 1, true)
+		_:
+			var _idle := _drive(a, tick, ticks, false)
+
+
+## "" when every behaviour [param kept] holds has the members of [param old]'s (a new instance each), else the first
+## difference. [member GSWeaponBehaviour.arsenal] is each one's own carrier.
+func _regive_members(old: GSWeaponArsenal, kept: GSWeaponArsenal, trial: int) -> String:
+	for slot in old.slots():
+		var ow := old.weapons_in(slot)
+		var kw := kept.weapons_in(slot)
+		if ow.size() != kw.size():
+			return "trial %d slot %d: %d vs %d weapons" % [trial, slot, ow.size(), kw.size()]
+		for i in ow.size():
+			var ob := ow[i].behaviour
+			var kb := kw[i].behaviour
+			if ob.get_script() != kb.get_script():
+				return "trial %d slot %d: scripts differ" % [trial, slot]
+			for p: Dictionary in ob.get_property_list():
+				if not (int(p["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE):
+					continue
+				var name: String = p["name"]
+				var ov: Variant = ob.get(name)
+				var kv: Variant = kb.get(name)
+				if name == "arsenal":
+					if ov != old or kv != kept:
+						return "trial %d slot %d: arsenal not its own" % [trial, slot]
+				elif ov is Object or kv is Object:
+					if not is_same(ov, kv):
+						return "trial %d slot %d %s: %s vs %s" % [trial, slot, name, str(ov), str(kv)]
+				elif var_to_str(ov) != var_to_str(kv):
+					return "trial %d slot %d %s: %s vs %s" % [trial, slot, name, var_to_str(ov), var_to_str(kv)]
+	return ""
