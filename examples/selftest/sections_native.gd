@@ -24,7 +24,7 @@ func _test_native_tick() -> void:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
 		# Then the idle gate's four, the batch streams', the framed tick's two, the seeded uses' three and the recoil posture's one.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + _batch_stream_checks() + 2 + 1 + 1):
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + _batch_stream_checks() + 2 + 3 + 1):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
