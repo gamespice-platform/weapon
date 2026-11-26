@@ -71,6 +71,11 @@ var _native_rules_rev: int = -1
 var _native_cone: bool = false
 var _native_frame_rate: int = 0
 var _native_row := PackedFloat64Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+# The tuning row last sent to the twin, and the one a field write is built into to be compared with it (both 16 long).
+var _native_sent := _tuning_row()
+var _native_check := _tuning_row()
+# How many field writes left the sent row standing (the selftest proves the skip runs).
+var _native_kept: int = 0
 # -1 unknown, 0 no, 1 yes: whether the twin has `idle` (a GameSpice Sim older than it has only `tick`).
 var _native_idle: int = -1
 
@@ -209,11 +214,32 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 			return false
 	var rate := running_tick_rate()
 	var klass := _class_of(b)
+	var built := false
+	if (
+		b == _native_b and b.accuracy_revision[0] != _native_b_rev and def == _native_def and rate == _native_rate
+		and def.use_interval_ticks == _native_interval and def.authored_tick_rate == _native_authored and klass == _native_class
+	):
+		# Only a field write: a caller that scales the ballistics for a tick and puts it back (aim down sights does, every
+		# aimed tick) writes the same numbers again and again. The twin already holds a row that compares equal, so it
+		# keeps it: the native call and its row parse are skipped. Equal under ==, so at most the sign of a zero term
+		# differs, which no sum of spread terms can show.
+		_native_tuning_into(b, _native_check)
+		if _native_check == _native_sent:
+			_native_b_rev = b.accuracy_revision[0]
+			_native_kept += 1
+		else:
+			# Changed: the row just built is the one to send. Swapped, not copied, so neither row is reallocated.
+			var sent := _native_sent
+			_native_sent = _native_check
+			_native_check = sent
+			built = true
 	if (
 		b != _native_b or b.accuracy_revision[0] != _native_b_rev or def != _native_def or rate != _native_rate
 		or def.use_interval_ticks != _native_interval or def.authored_tick_rate != _native_authored or klass != _native_class
 	):
-		if not _native.call(&"set_tuning", _native_tuning(b)):
+		if not built:
+			_native_tuning_into(b, _native_sent)
+		if not _native.call(&"set_tuning", _native_sent):
 			_native_b = null
 			return false
 		_native_b = b
@@ -240,18 +266,31 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 
 ## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
 ## tick-count terms at the running rate, and each accuracy term already the field when 0 or more, else the class preset.
-func _native_tuning(b: GSWeaponBallistics) -> PackedFloat64Array:
+## Written into [param row] (16 long), one of the two rows the behaviour keeps, so a re-send allocates nothing.
+func _native_tuning_into(b: GSWeaponBallistics, row: PackedFloat64Array) -> void:
 	_class_of(b)
-	return PackedFloat64Array([
-		b.spread, b.spread_moving, b.spread_speed_ref, b.spread_airborne, b.spread_crouched, b.bloom, b.bloom_max,
-		scaled_per_tick(b.bloom_recovery), _bloom_delay_of(b), _settle_ticks_of(b),
-		b.spread_hip if b.spread_hip >= 0.0 else _pre_hip,
-		b.spread_slide if b.spread_slide >= 0.0 else _pre_slide,
-		b.spread_sprint if b.spread_sprint >= 0.0 else _pre_sprint,
-		b.spread_flinch if b.spread_flinch >= 0.0 else _pre_flinch,
-		b.bloom_crouch if b.bloom_crouch >= 0.0 else _pre_crouch,
-		b.spread_aim if b.spread_aim >= 0.0 else _pre_aim,
-	])
+	row[0] = b.spread
+	row[1] = b.spread_moving
+	row[2] = b.spread_speed_ref
+	row[3] = b.spread_airborne
+	row[4] = b.spread_crouched
+	row[5] = b.bloom
+	row[6] = b.bloom_max
+	row[7] = scaled_per_tick(b.bloom_recovery)
+	row[8] = _bloom_delay_of(b)
+	row[9] = _settle_ticks_of(b)
+	row[10] = b.spread_hip if b.spread_hip >= 0.0 else _pre_hip
+	row[11] = b.spread_slide if b.spread_slide >= 0.0 else _pre_slide
+	row[12] = b.spread_sprint if b.spread_sprint >= 0.0 else _pre_sprint
+	row[13] = b.spread_flinch if b.spread_flinch >= 0.0 else _pre_flinch
+	row[14] = b.bloom_crouch if b.bloom_crouch >= 0.0 else _pre_crouch
+	row[15] = b.spread_aim if b.spread_aim >= 0.0 else _pre_aim
+
+
+static func _tuning_row() -> PackedFloat64Array:
+	var row := PackedFloat64Array()
+	row.resize(16)
+	return row
 
 
 ## The frame's rules row of [code]GSSimWeaponSpread.set_frame[/code]; empty for no rules object.

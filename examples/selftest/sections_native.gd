@@ -24,7 +24,7 @@ func _test_native_tick() -> void:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
 		# Then the idle gate's four.
-		for i in range(4 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4):
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -84,11 +84,72 @@ func _test_native_tick() -> void:
 	_check(script_clean, "with native_tick off a behaviour never builds the native twin")
 	_check(edits > 200, "the tuning, rules, class, rate and crosshair edits that must refresh the native rows happened", str(edits))
 
+	_check_native_aim_scaling(native_was)
 	_check_native_rest_streams(native_was)
 	_check_native_row_streams(native_was)
 	_check_native_missing_class(native_was)
 	_check_idle_gate(native_was)
 	_done()
+
+
+## Aim down sights as a game does it (FC's rig): the ballistics scaled for one tick and put back after, so every aimed
+## tick bumps the revision with numbers the twin already holds. The twin keeps its row then (no re-send), and still
+## agrees with the script tick bit for bit; a ramp that is still closing, and edits between, must re-send.
+func _check_native_aim_scaling(native_was: bool) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261125
+	var first_miss := ""
+	var kept := 0
+	var aimed_ticks := 0
+	for i in range(40):
+		var w := _native_case(rng)
+		var hn: GSWeaponHitscan = w[0]
+		var hs: GSWeaponHitscan = w[1]
+		var b: GSWeaponBallistics = w[2]
+		var ctx := GSWeaponContext.new()
+		var aim_ticks := 0
+		var ramp_ticks := rng.randi_range(1, 12)
+		var hold := 0
+		for t in range(_NATIVE_TICKS):
+			if hold <= 0:
+				_native_posture_roll(rng, ctx, hs)
+				hold = rng.randi_range(1, 24)
+			hold -= 1
+			ctx.tick = t
+			if rng.randf() < 0.02:
+				_native_edit(rng, w)
+			if rng.randf() < 0.03:
+				aim_ticks = 0 if aim_ticks > 0 else 1
+			if rng.randf() < 0.05:
+				b.spread = b.spread
+			var kept_spread := b.spread
+			var kept_moving := b.spread_moving
+			var kept_airborne := b.spread_airborne
+			var kept_bloom := b.bloom
+			if aim_ticks > 0:
+				var k := lerpf(1.0, 0.35, minf(float(aim_ticks) / float(ramp_ticks), 1.0))
+				b.spread *= k
+				b.spread_moving *= k
+				b.spread_airborne *= k
+				b.bloom *= k
+				aim_ticks += 1
+				aimed_ticks += 1
+			GSWeaponHitscan.native_tick = true
+			hn._tick(ctx)
+			GSWeaponHitscan.native_tick = false
+			hs._tick(ctx)
+			b.spread = kept_spread
+			b.spread_moving = kept_moving
+			b.spread_airborne = kept_airborne
+			b.bloom = kept_bloom
+			var miss := _native_state_diff(hs.state, hn.state)
+			if miss == "" and hn._shown != hs._shown:
+				miss = "shown script %s native %s" % [hs._shown, hn._shown]
+			if miss != "" and first_miss == "":
+				first_miss = "case %d tick %d: %s" % [i, t, miss]
+		kept += hn._native_kept
+	GSWeaponHitscan.native_tick = native_was
+	_check(first_miss == "" and kept > aimed_ticks / 2, "aim scaling put back every tick: the twin kept its tuning row on %d of %d aimed ticks and matched the script tick bit for bit" % [kept, aimed_ticks], first_miss)
 
 
 ## The rest streams: the native tick and the script tick agree on one arsenal.
