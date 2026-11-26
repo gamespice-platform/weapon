@@ -651,3 +651,19 @@ func _test_wheel() -> void:
 	InputMap.erase_action(w.next_action)
 	_drop(a)
 	_done()
+
+
+## The previous-slot history: knife, pistol, back is the knife, back again the pistol; unusable slots skipped.
+func _test_slot_history() -> void:
+	_section("the previous slot")
+
+	var h := GSWeaponSlotHistory.new()
+	h.note(4)
+	h.note(2)
+	_check(h.back(2) == 4, "back from the pistol is the knife")
+	_check(h.back(4) == 2, "back again is the pistol")
+	h.note(6)
+	_check(h.back(6, func(slot: int) -> bool: return slot != 2) == 4, "a slot that cannot be drawn is skipped")
+	h.forget()
+	_check(h.back(1) == 0 and h.last() == 1, "no history gives 0")
+	_done()
