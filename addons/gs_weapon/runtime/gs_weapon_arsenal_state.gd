@@ -86,8 +86,8 @@ func _derive_idle_still() -> void:
 	idle_still = Callable()
 	if not idle_posture.is_valid() or idle_posture.get_method() != &"posture_for":
 		return
-	# By uid, not by name: the bridge names the arsenal, and a script loop stays in memory for good (Godot 4.7).
-	var bridge: Script = load("uid://b1wropruyd5oq")
+	# By path, not by name: the bridge names the arsenal, and a script loop stays in memory for good (Godot 4.7).
+	var bridge: Script = load("res://addons/gs_weapon/bridge/gs_weapon_player.gd")
 	if idle_posture.get_object() == bridge:
 		var bound := idle_posture.get_bound_arguments()
 		if bound.size() == 1 and bound[0] is Node:
