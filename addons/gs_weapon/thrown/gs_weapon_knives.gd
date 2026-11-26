@@ -1,10 +1,8 @@
 class_name GSWeaponKnives
 extends Node3D
-## Thrown knives: aim with the knife in hand throws it. The server flies each on the tick, hurts the first body (rule `damage`), sticks it
-## in a body it kills, bounces it off the world and returns it to whoever walks over it; clients mirror the events ([GSWeaponKnifeWire]).
-## A game owns one as a child: fill the fields, call [method input] before players simulate and [method tick] after, forward [signal changed].
-## Rule `charge` makes the throw a hold-and-release whose power fills over `charge_sec`; a knife whose fitted def has
-## [constant PARAM_BOOMERANG] glides a closed loop back to where it left the hand (or homes on the thrower) and sticks in any enemy it hits.
+## Thrown knives: the server flies each on the tick, hurts the first body, sticks it in a body it kills, bounces it off the
+## world and returns it to whoever walks over it; clients mirror the events ([GSWeaponKnifeWire]). A game owns one as a child:
+## [method input] before players simulate, [method tick] after, forward [signal changed]. Charge and boomerang: docs/knives.md.
 
 # Players are duck-typed: arsenal (GSWeaponArsenal), is_alive(), muzzle_position(), controller.state.position/.velocity.
 
@@ -261,12 +259,9 @@ func _end_bare_hands() -> void:
 			p.arsenal.bring_to_hand(int(carried[0]))
 
 
-## A boomerang reaches `boomerang_distance` metres from the throw point along the throw (its farthest point), going straight
-## out and then circling through a turn of radius `boomerang_radius` and flying the tangent straight back to
-## [member Knife.origin], where it was thrown from. A radius over the distance flies one full circle of that radius.
-## The turn leaves the circle on the line through the origin, so the way back is as long as the way out.
-## The position is a function of the metres flown, so two servers agree bit for bit and it ends on the origin exactly.
-## The thrower's own velocity is not added: it would move the origin the path closes on.
+## A boomerang flies out `boomerang_distance` metres, turns through radius `boomerang_radius` and returns on the tangent to
+## [member Knife.origin]; its position is a function of the metres flown, so servers agree bit for bit. The path and why
+## the thrower's velocity is not added: docs/knives.md#the-boomerang-path.
 func _launch_boomerang(k: Knife) -> void:
 	k.boomerang = true
 	k.glide = true

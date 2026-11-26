@@ -70,9 +70,8 @@ func setup(p_def: GSWeaponDef, p_arsenal: Object = null) -> void:
 
 
 ## Returns this behaviour to what its script's [code]new()[/code] makes, unbound, so [method setup] can bind it
-## again; false when its script cannot vouch for that and a new one must be built. With
+## again; false when its script cannot vouch for that and a new one must be built. API 56: with
 ## [member GSWeaponArsenal.reuse_behaviours] a respawn's re-give reuses a renewed behaviour instead of building one.
-## API 56.
 func renew() -> bool:
 	if not _renew():
 		return false
@@ -103,11 +102,9 @@ func deploy(ctx: GSWeaponContext) -> void:
 	_deploy(ctx)
 
 
-## Put away. Anything being held is let go of here.
-##
-## [b]Always called before a switch completes[/b], including one caused by death, by a
-## correction or by a loadout change, so a behaviour holding something has exactly one
-## place to release it.
+## Put away; anything held is let go of here. [b]Always called before a switch completes[/b],
+## including one caused by death, a correction or a loadout change, so a behaviour holding
+## something has exactly one place to release it.
 func holster(ctx: GSWeaponContext) -> void:
 	_holster(ctx)
 
@@ -127,10 +124,8 @@ func use(ctx: GSWeaponContext) -> GSWeaponOutcome:
 	return out if out != null else GSWeaponOutcome.nothing("The behaviour returned null.")
 
 
-## One simulation tick while this weapon is deployed, used or not.
-##
-## Where a charge builds, a beam heats, a cooldown that is not the arsenal's own runs
-## down, and a held object is dragged along.
+## One simulation tick while this weapon is deployed, used or not: where a charge builds, a beam
+## heats, a cooldown that is not the arsenal's own runs down, and a held object is dragged along.
 func tick(ctx: GSWeaponContext) -> void:
 	_tick(ctx)
 
@@ -281,9 +276,8 @@ func _reloaded(_rounds: int) -> void:
 # --- Helpers for subclasses -------------------------------------------------
 
 ## The tick rate the arsenal runs at, or zero when there is no arsenal to ask (a unit test
-## driving the behaviour directly), which leaves every count as written.
-##
-## Duck-typed: [member arsenal] is an [Object] so a test can hand in anything.
+## driving the behaviour directly), which leaves every count as written. Duck-typed:
+## [member arsenal] is an [Object] so a test can hand in anything.
 func running_tick_rate() -> int:
 	if arsenal == null:
 		return 0
@@ -313,10 +307,8 @@ func scaled_per_tick(amount: float) -> float:
 
 
 ## Reads a tuning field from [member GSWeaponDef.tuning] if it has one, then from
-## [member GSWeaponDef.params], then the fallback.
-##
-## The precedence is the typed resource first because it is the more specific of the
-## two; see [GSWeaponTuning].
+## [member GSWeaponDef.params], then the fallback. The typed resource comes first because
+## it is the more specific of the two; see [GSWeaponTuning].
 func tune(key: StringName, fallback: Variant = null) -> Variant:
 	if def == null:
 		return fallback

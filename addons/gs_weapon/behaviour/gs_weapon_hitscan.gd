@@ -1,14 +1,10 @@
 class_name GSWeaponHitscan
 extends GSWeaponBehaviour
 
-## A weapon whose damage arrives the instant it is used: a rifle, a pistol, a shotgun,
-## a railgun.
-##
-## Produces [GSShot]s for GameSpice Combat to resolve against a world rewound to the tick
-## the trigger was pulled on. It applies nothing itself.
-##
-## Reads a [GSWeaponBallistics], from [member GSWeaponDef.tuning] or from
-## [member GSWeaponDef.params] under the same key names.
+## A weapon whose damage arrives the instant it is used: a rifle, a pistol, a shotgun, a railgun.
+## Produces [GSShot]s for GameSpice Combat to resolve against a world rewound to the tick the
+## trigger was pulled on; applies nothing itself. Reads a [GSWeaponBallistics] from
+## [member GSWeaponDef.tuning], or from [member GSWeaponDef.params] under the same key names.
 
 ## Degrees of bloom currently piled up. Kept in [member state] so it survives the wire
 ## and a rollback; a bloom held in a plain member desynchronises on the first correction
@@ -199,16 +195,14 @@ func _tick(ctx: GSWeaponContext) -> void:
 
 
 ## Whether the native twin can run this context tick, its rows brought up to date first: GameSpice Sim loaded, and the
-## tuning and frame rows accepted. Re-sends the tuning row when the ballistics (object or a field), the definition's
-## tick fields, the accuracy class or the running rate changed, and the frame row when the rules (object or a field),
-## the crosshair setting or the rate did.
+## tuning and frame rows accepted. When each row is re-sent: docs/native-tick.md#when-the-rows-are-re-sent.
 func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, cone: bool) -> bool:
 	if _native == null:
 		if _native_present < 0:
 			_native_present = 1 if ClassDB.class_exists(_NATIVE_CLASS) else 0
 			if _native_present == 0 and _Rows.gs_sim_loaded():
 				# GameSpice Sim is there but predates its weapon module (a stale build): every tick falls back to script.
-				push_warning("gs-weapon: gs-sim is loaded without %s, so the hitscan tick runs in GDScript; rebuild or update gs-sim" % _NATIVE_CLASS)
+				GSLog.warn("weapon.hitscan", "gs-sim is loaded without its weapon module, so the hitscan tick runs in GDScript; rebuild or update gs-sim", {"class": _NATIVE_CLASS})
 		if _native_present == 0:
 			return false
 		_native = ClassDB.instantiate(_NATIVE_CLASS)
@@ -221,10 +215,8 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 		b == _native_b and b.accuracy_revision[0] != _native_b_rev and def == _native_def and rate == _native_rate
 		and def.use_interval_ticks == _native_interval and def.authored_tick_rate == _native_authored and klass == _native_class
 	):
-		# Only a field write: a caller that scales the ballistics for a tick and puts it back (aim down sights does, every
-		# aimed tick) writes the same numbers again and again. The twin already holds a row that compares equal, so it
-		# keeps it: the native call and its row parse are skipped. Equal under ==, so at most the sign of a zero term
-		# differs, which no sum of spread terms can show.
+		# Only a field write (aim down sights rescales and restores every aimed tick): the twin keeps its equal row
+		# and the native call is skipped. Why equal under == is safe: docs/native-tick.md#an-equal-row-is-kept.
 		_Rows.tuning_into(self, b, _native_check)
 		if _native_check == _native_sent:
 			_native_b_rev = b.accuracy_revision[0]
@@ -365,10 +357,9 @@ func _settled_ctx() -> GSWeaponContext:
 	return _settled
 
 
-## Nothing to recover (no bloom shedding, no motion settling, no spread factor moving) and a settled carrier: a
-## [method tick] with the settled posture would change only the ticks since the last use, which this counts, so the rest
-## of it is skipped. A cone kept for a crosshair skips too when the steady skip holds its fixed point for the settled
-## posture: that tick would only show the kept cone. Anything else takes the normal tick.
+## Nothing to recover (no bloom shedding, no motion settling, no spread factor moving) and a settled carrier: the
+## tick would change only the ticks since the last use, which this counts, so the rest is skipped. A kept crosshair
+## cone skips too while the steady skip holds its fixed point; see docs/native-tick.md#the-rest-tick.
 func rest_tick(still: Callable) -> bool:
 	var b := _ballistics()
 	if b == null:

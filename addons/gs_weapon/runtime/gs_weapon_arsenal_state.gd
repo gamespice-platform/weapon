@@ -220,10 +220,9 @@ func _init() -> void:
 	carried_changed.connect(_bump_revision)
 
 
-## A number that moves whenever what this carrier holds may have changed: a weapon given, taken, dropped, cycled or
-## refitted, a magazine count, a reserve count or cap, a restore. Equal numbers mean the same holdings, so a reader
-## (a bot's loadout, a HUD) rebuilds only on a change. It does not follow the selected slot, cooldowns or reload
-## timers. API 51.
+## API 51. A number that moves whenever what this carrier holds may have changed (a weapon given, taken, dropped, cycled
+## or refitted, a magazine or reserve count or cap, a restore), so a reader (a bot's loadout, a HUD) rebuilds only on a
+## change. It does not follow the selected slot, cooldowns or reload timers.
 func revision() -> int:
 	return int(_revision_box[0])
 

@@ -20,11 +20,8 @@ extends "gs_weapon_arsenal_carry.gd"
 ## behaviour; it does not touch this.
 
 
-## Validates the catalogue and makes the arsenal usable.
-##
-## [b]Validates rather than trusts.[/b] A catalogue with a duplicate id hands a player
-## the wrong weapon and nothing reports it, so the check happens once, at boot,
-## headless, where somebody is watching.
+## Validates the catalogue and makes the arsenal usable. [b]Validates rather than trusts:[/b] a duplicate id
+## hands a player the wrong weapon silently, so the check happens once, at boot, where somebody is watching.
 func setup() -> GSResult:
 	if catalogue == null:
 		return GSResult.fail(
@@ -65,10 +62,8 @@ func ammo_of(weapon_id: StringName) -> StringName:
 	return loaded_ammo.get(weapon_id, &"")
 
 
-## Gives the carrier a weapon, in the slot its definition names.
-##
-## [param full] fills the magazine and tops the reserve pool up to the definition's
-## [member GSWeaponDef.reserve]; a pickup off the floor usually wants it false.
+## Gives the carrier a weapon, in the slot its definition names. [param full] fills the magazine and
+## tops the reserve pool up to [member GSWeaponDef.reserve]; a pickup off the floor usually wants it false.
 func give(id: StringName, full: bool = true) -> GSResult:
 	if not _ready_for_use:
 		return GSResult.fail(GSError.CODE_STATE, "setup() has not been called.")

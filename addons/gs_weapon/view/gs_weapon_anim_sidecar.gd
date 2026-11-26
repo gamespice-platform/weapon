@@ -2,8 +2,7 @@ extends RefCounted
 
 ## The one writer of Nightly's animation sidecar (`<asset>.anim.json`, version 1) that weapon packs and games share; API 57, preloaded by path (no `class_name`).
 ## A pack drives its own view model and hands this class what it read back: frame by frame through [method put] and [method frame_done], then [method finish] for a clip, [method sidecar] for the file.
-## The format is pinned in docs/anim-sidecar.md. In short, `weapon`, `hand.*` and `prop.*` tracks are in view (camera) space, `magazine` and `bolt` tracks in the weapon's own frame;
-## a `<part>.visible` track is one float a frame; `nodes.bolt` and `nodes.magazine` name the GLB node the track drives, or "".
+## The format (track spaces, visibility tracks, node names) is pinned in docs/anim-sidecar.md.
 
 const VERSION := 1
 const FPS := 60

@@ -1,9 +1,8 @@
 extends SceneTree
 
 ## The command-line shell of a pack's sidecar bake, by path (API 57): a pack's tools/export_anim_tracks.gd extends this and overrides [method _bake_all].
-## Args: `out_dir` (or `-` to print one SIDECAR<TAB>asset<TAB>json line each to stdout, for runs offloaded to a box whose files the caller cannot read) and an optional comma list of ids.
-## Files are named `<asset>.anim.json`, the name Nightly's viewer looks for beside the asset.
-## godot --headless --path . --script res://tools/export_anim_tracks.gd -- out_dir rifle,pistol
+## Args: `out_dir` (or `-` to print SIDECAR<TAB>asset<TAB>json lines, for offloaded runs) and an optional comma list of ids; files are `<asset>.anim.json`.
+## godot --headless --path . --script res://tools/export_anim_tracks.gd -- out_dir rifle,pistol (see docs/anim-sidecar.md)
 
 ## The directory the sidecars go to, or "-" for stdout.
 var out := ""

@@ -1,8 +1,7 @@
 extends "selftest/harness.gd"
 
-## Micro-benchmark of an idle hitscan carrier, the way a server's stand-in is ticked (idle_posture bound to
-## GSWeaponPlayerBridge.posture_for), with spread rules on, off, and on with crosshair_cone as FC runs it: microseconds per
-## call of each piece.
+## Micro-benchmark of an idle hitscan carrier ticked as a server's stand-in is (idle_posture bound to posture_for), with
+## spread rules on, off, and on with crosshair_cone as FC runs it: microseconds per call of each piece.
 ## Run: godot --headless --path . res://examples/idle_bench.tscn -- --rounds=20000
 
 class FakePlayer extends Node3D:

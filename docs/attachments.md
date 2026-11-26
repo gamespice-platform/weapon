@@ -62,6 +62,12 @@ The view reads these from the fitted def's `params`. The simulation never reads 
 | `suppressed` | the game plays the suppressed shot sound |
 | `muzzle_flash` | the flash variant; `"none"` shows none |
 
+## The fitted copy
+
+`GSWeaponAttachments.apply(def, fitting)` returns a separate definition, so the shared one and its tuning are never mutated (thirty players, one rifle). An empty fitting returns `def` itself. Attachments apply in mount text order, so every machine gets the same numbers.
+
+The fitted copy is memoed per (definition, `GSWeaponDef.revision`, fitting), so every holder of the same fitting shares one copy: read it, never edit it, as with the unfitted one. A deep copy plus the attachments cost about 0.3 ms, and a 32-player round start fits every bot. After editing a base definition in place, call `GSWeaponDef.touch()` on it so the memo is not reused.
+
 ## Server flow
 
 1. The menu emits `requested(mount, id)`.

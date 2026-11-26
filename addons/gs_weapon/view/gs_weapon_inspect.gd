@@ -1,9 +1,8 @@
 extends RefCounted
 
-## The look-over a first-person weapon plays when the player inspects it: a progress that runs over
-## `seconds`, and a weight that fades it out when something else (a shot, an aim, a reload, a sprint, a
-## switch) takes the hand. A pose keeps one, asks `start` and `advance` each frame, and samples its own
-## keys at `fraction` scaled by `shown`. Preloaded by path, no `class_name`. Pure arithmetic, no clock.
+## The look-over a first-person weapon plays on inspect: a progress over `seconds` and a weight that fades it out when
+## something else (shot, aim, reload, sprint, switch) takes the hand. A pose keeps one, calls `start` and `advance` each
+## frame, and samples its keys at `fraction` scaled by `shown`. By path, no `class_name`; pure arithmetic, no clock.
 
 ## Lifted and turned so the left side and the top come to the eye (0.16-0.42), across to show the right
 ## side (0.56-0.86), back into the hand. Never toward the eye, so a long gun's stock keeps its distance

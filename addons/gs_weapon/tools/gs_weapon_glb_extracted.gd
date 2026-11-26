@@ -1,7 +1,6 @@
 extends SceneTree
-## The image files Godot extracted beside a GLB (by path, no `class_name`). A GLB imported with
-## gltf/embedded_image_handling=1 renders those files, not its own images, and Godot never rewrites one that exists,
-## so a rebaked GLB keeps its old textures until they are rewritten. A pack suite calls [method stale]; after a bake run
+## The image files Godot extracted beside a GLB (by path, no `class_name`): with gltf/embedded_image_handling=1 a GLB
+## renders those, and Godot never rewrites them, so a rebake keeps old textures. A pack suite calls [method stale]; after a bake run
 ##   godot --headless --path . --script res://addons/gs_weapon/tools/gs_weapon_glb_extracted.gd -- [--fix] res://dir...
 
 const EXTRACT := "gltf/embedded_image_handling=1"

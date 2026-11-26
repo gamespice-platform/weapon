@@ -1,7 +1,6 @@
-## A use's recoil and pellets from gs-sim's [code]GSSimWeaponSpread[/code] (its [code]recoil[/code] and
-## [code]scatter[/code], twins of [method GSWeaponRecoilRules.apply] with
-## [method GSWeaponRecoilRules.offset_direction] and of [method GSShot.scatter]): bit-exact, same state keys.
-## Preloaded by path (no class_name), so a pack that loads gs_weapon by path parses it too.
+## A use's recoil and pellets from gs-sim's [code]GSSimWeaponSpread[/code] [code]recoil[/code] and [code]scatter[/code],
+## bit-exact twins of [method GSWeaponRecoilRules.apply] / [method GSWeaponRecoilRules.offset_direction] and
+## [method GSShot.scatter] with the same state keys. Preloaded by path (no class_name) so path loaders parse it too.
 extends RefCounted
 
 

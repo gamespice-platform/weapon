@@ -1,11 +1,9 @@
 class_name GSWeaponSlotHistory
 extends RefCounted
 
-## The slots a survivor has had out, newest last: what the previous-slot key (Q) returns to.
-##
-## [b]A pure list, no node:[/b] the client feeds it the slot in hand every frame and asks it where
-## Q goes. Knife, pistol, Q is the knife; Q again is the pistol. A slot that cannot be drawn now
-## (a weapon dropped, a kit that ran out) is skipped, and stays in the list for later.
+## The slots a survivor has had out, newest last: where the previous-slot key (Q) goes. A pure list: the client feeds
+## it the slot in hand every frame. Knife, pistol, Q is the knife; Q again is the pistol. A slot that cannot be drawn
+## now (a weapon dropped, a kit that ran out) is skipped and stays in the list for later.
 
 ## The most slots remembered, which is every slot there is.
 const DEPTH := 8

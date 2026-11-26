@@ -227,13 +227,9 @@ static func _numbers(def: GSWeaponDef) -> Dictionary:
 	return out
 
 
-## The definition with [param fitting] applied: a separate definition, so the shared one and
-## its tuning are never mutated (thirty players, one rifle). An empty fitting returns
-## [param def] itself. Attachments apply in mount text order so every machine gets the same
-## numbers. The fitted copy is memoed per (definition, [member GSWeaponDef.revision], fitting),
-## so every holder of the same fitting shares one copy: [b]read it, never edit it[/b] (as with
-## the unfitted one). A deep copy plus the attachments cost about 0.3 ms, and a 32-player round
-## start fits every bot. Edit a base definition in place, then [method GSWeaponDef.touch] it.
+## The definition with [param fitting] applied, as a separate definition so the shared one is never mutated; an empty
+## fitting returns [param def] itself. Memoed per (definition, [member GSWeaponDef.revision], fitting) and shared by every
+## holder: [b]read it, never edit it[/b]; touch a base definition edited in place (docs/attachments.md#the-fitted-copy).
 func apply(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSResult:
 	var res := validate_fitting(def, fitting)
 	if not res.ok:

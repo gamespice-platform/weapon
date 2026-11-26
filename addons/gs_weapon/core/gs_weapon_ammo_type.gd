@@ -113,9 +113,8 @@ static func from_flat(p_id: StringName, c: Dictionary) -> GSWeaponAmmoType:
 
 
 ## What a hitscan round of this type can pass through, for GameSpice Combat's [code]GSShot.penetration[/code]. Null when it passes nothing.
-## [method make_penetration] built once and handed to every shot: read-only, since gs-combat scales a copy
-## ([method GSPenetration.duplicate_scaled]) and never writes the shot's own. A new one each shot was a resource
-## and three dictionary copies.
+## [method make_penetration] built once and handed to every shot (a new one per shot costs a resource and three dictionary
+## copies): read-only, since gs-combat scales a copy ([method GSPenetration.duplicate_scaled]) and never writes it.
 func shared_penetration() -> GSPenetration:
 	if _shared_pen == null and penetration > 0.0:
 		_shared_pen = make_penetration()

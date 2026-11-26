@@ -24,11 +24,9 @@ func take(slot: int) -> GSResult:
 	return GSResult.success(null)
 
 
-## On: [method clear] keeps each behaviour it drops, renewed ([method GSWeaponBehaviour.renew]), and [method give]
-## binds a kept one of the same weapon instead of building a new one (about 8% of a kit give). A respawn's
-## re-give then ends in the state a fresh give does, key for key (the selftest proves it over random kits and dirty
-## states). A behaviour whose script cannot vouch for its renewal is built new. Off (the default) builds every one,
-## and turning it off forgets what was kept. API 56.
+## API 56. On: [method clear] keeps each dropped behaviour renewed ([method GSWeaponBehaviour.renew]) and [method give]
+## binds a kept one of the same weapon (about 8% of a kit give; same state key for key, proven in the selftest); one
+## that cannot vouch for its renewal is built new. Off (the default) builds every one and forgets what was kept.
 var reuse_behaviours: bool = false:
 	set(value):
 		reuse_behaviours = value

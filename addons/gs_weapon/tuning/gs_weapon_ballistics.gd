@@ -35,10 +35,9 @@ extends GSWeaponTuning
 ## Places the pellets on a ring rather than by hash, so the pattern is learnable.
 @export var fixed_pattern: bool = false
 
-## Counts edits to the accuracy fields below (the ones a hitscan cone reads), so a holder of a copy of them (GameSpice Sim's
-## native spread tick, see [GSWeaponHitscan]) refreshes it on a change without comparing every field each tick. Not
-## saved; only a change of it means anything. One element, not an int, so the numeric field walks (stat deltas, the
-## profile overlay) never see it as a tuning number.
+## Counts edits to the accuracy fields below, so a holder of a copy (GameSpice Sim's native spread tick) refreshes it
+## on a change without comparing every field each tick. Not saved. One element, not an int, so the numeric field walks
+## (stat deltas, the profile overlay) never see it as a tuning number.
 var accuracy_revision := PackedInt64Array([0])
 
 @export_group("Accuracy")

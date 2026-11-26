@@ -1,9 +1,8 @@
 extends "sections_knives.gd"
 
-## GSWeaponHitscan.native_tick: a context tick through GameSpice Sim's GSSimWeaponSpread must leave what the GDScript tick
-## leaves, bit for bit. Random weapons tick twice, once each way, on shared tuning, rules and arsenal objects edited
-## mid-run (each edit must reach the cached native rows); then the rest streams run with the native tick on one arsenal.
-## Without GameSpice Sim loaded every check passes as a skip, so the count stays fixed.
+## GSWeaponHitscan.native_tick: a context tick through GameSpice Sim must leave what the GDScript tick leaves, bit for
+## bit, on random weapons with shared objects edited mid-run; then the rest streams run native on one arsenal. Without
+## GameSpice Sim every check passes as a skip, so the count stays fixed.
 
 const _NATIVE_CASES := 200
 const _NATIVE_TICKS := 160
@@ -24,8 +23,8 @@ func _test_native_tick() -> void:
 	if not present:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
-		# Then the idle gate's four, the batch streams' two, the framed tick's two, the seeded uses' three and the recoil posture's one.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + 2 + 2 + 1 + 1 + 2):
+		# Then the idle gate's four, the batch streams', the framed tick's two, the seeded uses' three and the recoil posture's one.
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + _batch_stream_checks() + 2 + 1 + 1):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -204,8 +203,8 @@ var _gate_row_misses := 0
 ## native run, idle_tick for a declined entry): the same outcomes, snapshots, state and cone as the script arsenal.
 func _check_native_batch_streams(native_was: bool) -> void:
 	if not ClassDB.class_exists(&"GSSimWeaponIdleBatch"):
-		_check(true, "skip: GSSimWeaponIdleBatch not loaded")
-		_check(true, "skip: GSSimWeaponIdleBatch not loaded")
+		for i in range(_batch_stream_checks()):
+			_check(true, "skip: GSSimWeaponIdleBatch not loaded")
 		return
 	_rest_native = true
 	_rest_batch = ClassDB.instantiate(&"GSSimWeaponIdleBatch")
@@ -223,6 +222,12 @@ func _check_native_batch_streams(native_was: bool) -> void:
 	GSWeaponHitscan.steady_skip = true
 	_check(all_same, "the rest streams agree with one native idle batch per tick on one arsenal: outcomes, snapshots, state and cone", detail)
 	_check(_rest_batched > 100, "the batch took most idle ticks (%d)" % _rest_batched)
+
+
+## The checks [method _check_native_batch_streams] makes: each stream's bridge check (all but explicit_still) and a
+## native cone mode's two, then its own two. A skip makes as many, so the total holds with or without GameSpice Sim.
+func _batch_stream_checks() -> int:
+	return _MODES.size() - 1 + _CONE_MODES.size() * 2 + 2
 
 
 ## GSWeaponBehaviour.idle_gate: the gated idle row (1) and its verify mode (2) leave what the plain one (0) leaves, bit
@@ -303,7 +308,7 @@ func _check_idle_gate(native_was: bool) -> void:
 
 
 ## The arsenal's context tick under the gate: tick_framed (gates 1 and 2) leaves what the plain tick (gate 0) leaves on
-## random weapons, edits, script ticks and uses between, and the gate holds on most ticks with nothing found by verify.
+## random weapons, edits, script ticks and uses between, and the gate holds on most ticks with verify finding nothing.
 func _check_tick_framed(native_was: bool) -> void:
 	var gate_was := GSWeaponBehaviour.idle_gate
 	var misses_was := GSWeaponBehaviour.idle_gate_misses

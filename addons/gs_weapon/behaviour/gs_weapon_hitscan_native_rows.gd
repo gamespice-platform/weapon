@@ -3,10 +3,9 @@
 extends RefCounted
 
 
-## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code]: the ballistics numbers the tick reads, its per-tick and
-## tick-count terms at the running rate, and each accuracy term already the field when 0 or more, else the class preset.
-## Written into [param row] (16 long), one of the two rows the behaviour keeps, so a re-send allocates nothing.
-## [param h] is the [GSWeaponHitscan] whose class presets fill the terms left at -1.
+## The tuning row of [code]GSSimWeaponSpread.set_tuning[/code], written into [param row] (16 long, kept by the
+## behaviour, so a re-send allocates nothing); [param h] is the [GSWeaponHitscan] whose class presets fill the terms
+## left at -1. What the row holds: docs/native-tick.md#the-tuning-row.
 static func tuning_into(h: Object, b: GSWeaponBallistics, row: PackedFloat64Array) -> void:
 	h._class_of(b)
 	row[0] = b.spread
