@@ -54,6 +54,7 @@ static var steady_skip: bool = true
 ## Results agree to the bit, so it is only an A/B switch. Named through [ClassDB] only, so this parses without GameSpice Sim.
 static var native_tick: bool = true
 const _NATIVE_CLASS := &"GSSimWeaponSpread"
+const _Rows := preload("gs_weapon_hitscan_native_rows.gd")
 # -1 unknown, 0 absent, 1 present: whether GameSpice Sim registered the class, asked once a process.
 static var _native_present: int = -1
 
@@ -75,8 +76,8 @@ var _native_cone: bool = false
 var _native_frame_rate: int = 0
 var _native_row := PackedFloat64Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 # The tuning row last sent to the twin, and the one a field write is built into to be compared with it (both 16 long).
-var _native_sent := _tuning_row()
-var _native_check := _tuning_row()
+var _native_sent := _Rows.tuning_row()
+var _native_check := _Rows.tuning_row()
 # How many field writes left the sent row standing (the selftest proves the skip runs).
 var _native_kept: int = 0
 # -1 unknown, 0 no, 1 yes: whether the twin has `idle` (a GameSpice Sim older than it has only `tick`).
@@ -196,18 +197,11 @@ func _tick(ctx: GSWeaponContext) -> void:
 ## tuning and frame rows accepted. Re-sends the tuning row when the ballistics (object or a field), the definition's
 ## tick fields, the accuracy class or the running rate changed, and the frame row when the rules (object or a field),
 ## the crosshair setting or the rate did.
-static func _gs_sim_loaded() -> bool:
-	for path in GDExtensionManager.get_loaded_extensions():
-		if path.get_file() == "gs_sim.gdextension":
-			return true
-	return false
-
-
 func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, cone: bool) -> bool:
 	if _native == null:
 		if _native_present < 0:
 			_native_present = 1 if ClassDB.class_exists(_NATIVE_CLASS) else 0
-			if _native_present == 0 and _gs_sim_loaded():
+			if _native_present == 0 and _Rows.gs_sim_loaded():
 				# GameSpice Sim is there but predates its weapon module (a stale build): every tick falls back to script.
 				push_warning("gs-weapon: gs-sim is loaded without %s, so the hitscan tick runs in GDScript; rebuild or update gs-sim" % _NATIVE_CLASS)
 		if _native_present == 0:
@@ -257,7 +251,7 @@ func _native_ready(b: GSWeaponBallistics, rules_object: GSWeaponSpreadRules, con
 		or (rules_object != null and rules_object.revision[0] != _native_rules_rev)
 	):
 		_native_framed = false
-		if not _native.call(&"set_frame", _native_rules_row(rules_object, rate), cone, rate):
+		if not _native.call(&"set_frame", _Rows.rules_row(rules_object, rate), cone, rate):
 			return false
 		_native_framed = true
 		_native_rules = rules_object
@@ -290,35 +284,9 @@ func _native_tuning_into(b: GSWeaponBallistics, row: PackedFloat64Array) -> void
 	row[15] = b.spread_aim if b.spread_aim >= 0.0 else _pre_aim
 
 
-static func _tuning_row() -> PackedFloat64Array:
-	var row := PackedFloat64Array()
-	row.resize(16)
-	return row
-
-
-## The frame's rules row of [code]GSSimWeaponSpread.set_frame[/code]; empty for no rules object.
-static func _native_rules_row(r: GSWeaponSpreadRules, rate: int) -> PackedFloat64Array:
-	if r == null:
-		return PackedFloat64Array()
-	return PackedFloat64Array([
-		1.0 if r.enabled else 0.0, r.scale, r.mult_hip, r.mult_aim, r.mult_stand, r.mult_walk, r.mult_run, r.mult_air,
-		r.mult_sprint, r.mult_slide, r.mult_crouch, r.walk_speed, r.run_speed, r.recovery_per_tick(rate), r.max_spread,
-	])
-
-
 ## This context as the native posture row, written into the one row the behaviour keeps.
 func _native_posture(ctx: GSWeaponContext) -> PackedFloat64Array:
-	var row := _native_row
-	row[0] = ctx.speed
-	row[1] = 1.0 if ctx.airborne else 0.0
-	row[2] = 1.0 if ctx.crouched else 0.0
-	row[3] = 1.0 if ctx.aiming else 0.0
-	row[4] = 1.0 if ctx.sliding else 0.0
-	row[5] = 1.0 if ctx.sprinting else 0.0
-	row[6] = 1.0 if ctx.wall_running else 0.0
-	row[7] = ctx.tick
-	row[8] = ctx.hurt_tick
-	return row
+	return _Rows.posture_into(ctx, _native_row)
 
 
 ## A context tick with the inputs of the kept fixed point: the same ballistics, rules and tuning, the same posture, a
@@ -484,7 +452,7 @@ func idle_row_framed(row: PackedFloat64Array, rest: bool, rules: GSWeaponSpreadR
 	var cone := crosshair and rules != null
 	var held := _idle_gate_holds(rules, cone, rate)
 	if idle_gate == 2:
-		_idle_gate_verify(held, rules, cone, rate)
+		_Rows.verify_gate(self, held, rules, cone, rate)
 	if not held:
 		return idle_row(row, rest)
 	if cone and _steady:
@@ -507,7 +475,7 @@ func tick_framed(ctx: GSWeaponContext, rules: GSWeaponSpreadRules, crosshair: bo
 	var cone := crosshair and rules != null
 	var held := _tick_gate_holds(rules, cone, rate)
 	if idle_gate == 2:
-		_idle_gate_verify(held, rules, cone, rate)
+		_Rows.verify_gate(self, held, rules, cone, rate)
 	if not held:
 		tick(ctx)
 		return
@@ -543,34 +511,6 @@ func _tick_gate_holds(rules: GSWeaponSpreadRules, cone: bool, rate: int) -> bool
 	if rules != _native_rules or cone != _native_cone:
 		return false
 	return rules == null or rules.revision[0] == _native_rules_rev
-
-
-# Idle gate 2: what the arsenal handed in must be what idle_row reads, and a gate that held must leave _native_ready
-# nothing to send.
-func _idle_gate_verify(held: bool, rules: GSWeaponSpreadRules, cone: bool, rate: int) -> void:
-	var read_rules := _rules_object()
-	var read_cone := read_rules != null and bool(arsenal.get(&"crosshair_cone"))
-	var miss := ""
-	if read_rules != rules or read_cone != cone or running_tick_rate() != rate:
-		miss = "the arsenal handed rules %s cone %s rate %d, idle_row reads %s %s %d" % [rules, cone, rate, read_rules, read_cone, running_tick_rate()]
-	elif held:
-		var before := _native_cache()
-		var b := _ballistics()
-		if b == null or not _native_ready(b, read_rules, read_cone):
-			miss = "the gate held but the native rows are not ready"
-		elif _native_cache() != before:
-			miss = "the gate held but _native_ready re-sent a row: %s -> %s" % [before, _native_cache()]
-	if miss != "":
-		idle_gate_misses += 1
-		push_error("gs-weapon idle gate (%s): %s" % [def.id if def != null else &"", miss])
-
-
-func _native_cache() -> Array:
-	return [
-		_native_b, _native_b_rev, _native_def, _native_rate, _native_interval, _native_authored, _native_class,
-		_native_framed, _native_rules, _native_rules_rev, _native_cone, _native_frame_rate, _class_key_set, _class_key,
-		_class_id, _class,
-	]
 
 
 func _native_idle_call(row: PackedFloat64Array, rest: bool, cone: bool) -> int:
