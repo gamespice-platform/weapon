@@ -7,7 +7,6 @@ extends RefCounted
 ## Q goes. Knife, pistol, Q is the knife; Q again is the pistol. A slot that cannot be drawn now
 ## (a weapon dropped, a kit that ran out) is skipped, and stays in the list for later.
 
-## Slots 1 to 5 are the weapon pack's; these two are the kit slots.
 ## The most slots remembered, which is every slot there is.
 const DEPTH := 8
 
