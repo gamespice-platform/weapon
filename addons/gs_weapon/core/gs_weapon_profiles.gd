@@ -303,6 +303,7 @@ static func apply_flat(def: GSWeaponDef, values: Dictionary) -> void:
 		else:
 			common[key] = values[key]
 	apply_common(def, common)
+	def.touch()
 
 
 static func _set_tuning(def: GSWeaponDef, name: String, value: Variant) -> void:

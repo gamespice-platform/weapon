@@ -289,6 +289,16 @@ var _modes_cache: Array[Fire] = []
 var _modes_from: PackedStringArray = PackedStringArray()
 var _modes_from_fire: int = -1
 
+## Bumped by [method touch]. [method GSWeaponAttachments.apply] memoes the fitted copy per
+## (definition, revision, fitting), so code that edits a shared definition in place after
+## fits were made calls [method touch] (the profile overlay does). Not saved, not copied.
+var revision: int = 0
+
+
+## Marks the definition edited in place, so fitted copies made from it are rebuilt.
+func touch() -> void:
+	revision += 1
+
 
 static func fire_mode_named(n: String) -> int:
 	match n.to_lower():

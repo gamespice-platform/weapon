@@ -17,6 +17,9 @@ const KIND := "attachment"
 
 var _by_id: Dictionary = {}  ## StringName -> GSWeaponAttachment
 var _layouts: Dictionary = {}  ## [id, slot, mounts, tags] -> [method _layout]'s entry
+## [base def, its revision, fitting key] -> fitted copy, see [method apply]. [method add] and
+## [method forget_fitted] drop them all.
+var _fitted: Dictionary = {}
 
 
 ## Fields of an `attachment` profile; a pack ships these as data. Lists are comma-separated.
@@ -79,6 +82,7 @@ func add(att: GSWeaponAttachment) -> GSResult:
 		)
 	_by_id[att.id] = att
 	_layouts.clear()
+	_fitted.clear()
 	return GSResult.success(att)
 
 
@@ -223,15 +227,42 @@ static func _numbers(def: GSWeaponDef) -> Dictionary:
 	return out
 
 
-## The definition with [param fitting] applied: a NEW definition, so the shared one and its
-## tuning are never mutated (thirty players, one rifle). An empty fitting returns [param def]
-## itself. Attachments apply in mount text order so every machine gets the same numbers.
+## The definition with [param fitting] applied: a separate definition, so the shared one and
+## its tuning are never mutated (thirty players, one rifle). An empty fitting returns
+## [param def] itself. Attachments apply in mount text order so every machine gets the same
+## numbers. The fitted copy is memoed per (definition, [member GSWeaponDef.revision], fitting),
+## so every holder of the same fitting shares one copy: [b]read it, never edit it[/b] (as with
+## the unfitted one). A deep copy plus the attachments cost about 0.3 ms, and a 32-player round
+## start fits every bot. Edit a base definition in place, then [method GSWeaponDef.touch] it.
 func apply(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSResult:
 	var res := validate_fitting(def, fitting)
 	if not res.ok:
 		return res
 	if fitting.is_empty():
 		return GSResult.success(def)
+	var key := [def, def.revision, fitting.key()]
+	var hit: GSWeaponDef = _fitted.get(key, null)
+	if hit != null:
+		return GSResult.success(hit)
+	var made := fit_fresh(def, fitting)
+	if made.ok:
+		_fitted[key] = made.value
+	return made
+
+
+## Drops every memoed fitted copy (see [method apply]), e.g. after an attachment was edited in place.
+func forget_fitted() -> void:
+	_fitted.clear()
+
+
+## How many fitted copies [method apply] holds.
+func fitted_count() -> int:
+	return _fitted.size()
+
+
+## [method apply] without the memo or the checks: always a new copy. For a check that a memoed
+## copy still matches, or a caller that means to edit what it gets ([param fitting] must be valid).
+func fit_fresh(def: GSWeaponDef, fitting: GSWeaponFitting) -> GSResult:
 	var copy := def.duplicate_deep(Resource.DEEP_DUPLICATE_ALL) as GSWeaponDef
 	for m in fitting.mounts():
 		var applied := (_by_id[fitting.attachment_on(m)] as GSWeaponAttachment).apply_to(copy)

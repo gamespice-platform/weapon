@@ -104,5 +104,6 @@ extends RefCounted
 ## 50: `view/gs_weapon_inspect.gd` (by path, no class_name): the first-person look-over's progress, cancel fade and default keys, shared by view-model poses. Additive. OLDEST stays 1.
 ## 51: `GSWeaponArsenal.revision()`: a counter that moves when the held weapons, a magazine or the reserve may have changed (`GSWeaponSlot.revision_box` / `GSWeaponAmmo.revision_box` share it), so a bot loadout or HUD rebuilds only on a change. Additive. OLDEST stays 1.
 ## 52: [method GSWeaponBehaviour.tick_framed]: the arsenal's context tick handed its rules, crosshair and rate while [member GSWeaponBehaviour.idle_gate] is on, so a stock hitscan whose native rows provably hold ticks in gs-sim with no re-checks; a hitscan [method GSWeaponBehaviour.use] takes its cones from gs-sim's spread under [member GSWeaponHitscan.native_tick]. Same bits. Additive. OLDEST stays 1.
-const LEVEL := 52
+## 53: [method GSWeaponAttachments.apply] memoes the fitted copy per (definition, [member GSWeaponDef.revision], fitting), so holders of the same fitting share one read-only copy (a 32-bot round start deep-copied every gun); [method GSWeaponDef.touch] after an in-place edit (the profile overlay does it), [method GSWeaponAttachments.forget_fitted], [method GSWeaponAttachments.fit_fresh] for an always-new copy. Same numbers. Additive. OLDEST stays 1.
+const LEVEL := 53
 const OLDEST := 1

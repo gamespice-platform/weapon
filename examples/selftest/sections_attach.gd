@@ -129,6 +129,7 @@ func _test_attach_profiles() -> void:
 	_check(d != null and bool(d.params[GSWeaponAttachment.PARAM_SUPPRESSED]) and d.params["muzzle_flash"] == "none" and d.has_tag(&"quiet"), "the suppressor sets its params and tag")
 	_check(d != null and is_equal_approx(float(d.params["ads_seconds"]), 0.45) and float(d.params[GSWeaponAttachment.PARAM_ZOOM]) == 4.0, "the scope slows aiming and sets the zoom")
 	_check(d != null and is_equal_approx((d.tuning as GSWeaponBallistics).damage, 22.5), "damage scales")
+	_check_fit_memo(c, rifle, f, d)
 	var gun := Node3D.new()
 	for m: String in ["muzzle", "optic", "side"]:
 		var socket := Node3D.new()
@@ -140,6 +141,41 @@ func _test_attach_profiles() -> void:
 	_check(GSWeaponAttachmentModels.dress(gun, c, GSWeaponFitting.make(&"rifle")) == 0 and count.call() == 0, "an empty fitting takes them off")
 	gun.free()
 	_done()
+
+
+## The fitted-copy memo (API 53): a second apply is the same copy, equal field for field to a
+## fresh one; a touched base, a new attachment or forget_fitted rebuilds it.
+func _check_fit_memo(c: GSWeaponAttachments, rifle: GSWeaponDef, f: GSWeaponFitting, d: GSWeaponDef) -> void:
+	var again: GSWeaponDef = c.apply(rifle, f.duplicate_fitting()).value
+	_check(d != null and again == d and c.fitted_count() == 1, "an equal fitting gets the memoed copy", str(c.fitted_count()))
+	var fresh: GSWeaponDef = c.fit_fresh(rifle, f).value
+	_check(fresh != d and _def_text(fresh) == _def_text(d), "and it equals a fresh copy field for field", "%s\nvs\n%s" % [_def_text(fresh), _def_text(d)])
+	_check(c.apply(rifle, GSWeaponFitting.make(&"rifle")).value == rifle and c.fitted_count() == 1, "an empty fitting is still the base itself, not memoed")
+	(rifle.tuning as GSWeaponBallistics).damage = 40.0
+	var stale: GSWeaponDef = c.apply(rifle, f).value
+	_check(stale == d, "an untouched in-place edit is not seen (touch() is the contract)")
+	rifle.touch()
+	var redone: GSWeaponDef = c.apply(rifle, f).value
+	_check(redone != d and (redone.tuning as GSWeaponBallistics).damage > (d.tuning as GSWeaponBallistics).damage and _def_text(redone) == _def_text(c.fit_fresh(rifle, f).value), "touch() rebuilds it from the edited base", str((redone.tuning as GSWeaponBallistics).damage))
+	var flat := {"magazine": 12}
+	GSWeaponProfiles.apply_flat(rifle, flat)
+	_check(c.apply(rifle, f).value != redone and (c.apply(rifle, f).value as GSWeaponDef).magazine == 12, "a profile overlay touches the def itself")
+	c.forget_fitted()
+	_check(c.fitted_count() == 0 and c.apply(rifle, f).value != redone, "forget_fitted drops them all")
+	c.add(_att("memo_probe", &"side", {"spread": 0.9}))
+	_check(c.fitted_count() == 0, "adding an attachment drops them all")
+
+
+## Every saved field of [param d] and of its tuning, as text, for a field-for-field compare.
+func _def_text(d: GSWeaponDef) -> String:
+	var parts := PackedStringArray()
+	for r: Resource in [d, d.tuning]:
+		if r == null:
+			continue
+		for prop: Dictionary in r.get_property_list():
+			if int(prop["usage"]) & PROPERTY_USAGE_STORAGE and String(prop["name"]) not in ["tuning", "script", "resource_local_to_scene", "resource_name", "resource_path"]:
+				parts.append("%s=%s" % [prop["name"], var_to_str(r.get(prop["name"]))])
+	return "\n".join(parts)
 
 
 func _test_attach_request() -> void:
