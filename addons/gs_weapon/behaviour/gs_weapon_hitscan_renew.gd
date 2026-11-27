@@ -7,21 +7,21 @@ const _Rows := preload("gs_weapon_hitscan_native_rows.gd")
 
 
 ## Whether [param h] is the stock hitscan, not a subclass (which may declare members this does not know); caches it in [code]_plain[/code].
-static func plain(h) -> bool:
+static func plain(h: GSWeaponHitscan) -> bool:
 	var script := h.get_script() as Script
 	h._plain = 1 if script != null and script.resource_path.get_file() == "gs_weapon_hitscan.gd" else 0
 	return h._plain == 1
 
 
 ## Renews [param h] when it is the stock hitscan; false (nothing touched) for a subclass.
-static func renew(h) -> bool:
+static func renew(h: GSWeaponHitscan) -> bool:
 	if not (h._plain == 1 if h._plain >= 0 else plain(h)):
 		return false
 	reset(h)
 	return true
 
 
-static func reset(h) -> void:
+static func reset(h: GSWeaponHitscan) -> void:
 	h._class_key = ""
 	h._class_id = &""
 	h._class_key_set = false

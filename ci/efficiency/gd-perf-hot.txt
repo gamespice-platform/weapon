@@ -1,0 +1,14 @@
+# Server tick scripts checked by gs-ci scripts/check-gd-perf.py (tools/gd_perf_lint.py).
+# One fnmatch glob per line over tracked paths. Baseline: ci/efficiency/gd-perf.tsv.
+addons/gs_weapon/runtime/*.gd
+addons/gs_weapon/behaviour/*.gd
+addons/gs_weapon/thrown/*.gd
+addons/gs_weapon/drops/*.gd
+addons/gs_weapon/core/gs_weapon_command.gd
+addons/gs_weapon/net/*.gd
+addons/gs_weapon/math/*.gd
+addons/gs_weapon/tuning/*.gd
+addons/gs_weapon/bridge/*.gd
+addons/gs_weapon/spawner/*.gd
+# Run once (config, save/restore, HUD prompt text), not per tick:
+cold+: ^(from_.*|describe.*|specs|cvar_specs|set_cvar|validate|presets|properties|resolve|restore|_restore_.*|prompt_for|text_for)$
