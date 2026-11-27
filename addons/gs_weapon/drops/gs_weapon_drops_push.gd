@@ -19,6 +19,10 @@ var _clock: float = 0.0
 ## Optional [code]func(from: Vector3, to: Vector3) -> bool[/code] that says whether an explosion at [code]from[/code]
 ## reaches [code]to[/code]; a game assigns its combat trace's [code]line_of_sight[/code] so walls shield drops as they do players.
 var can_see: Callable = Callable()
+## [method raycast] passes over a drop whose bounding sphere the ray misses before inverting its frame (API 60). Same hits;
+## false tests every box, for A/B.
+var ray_prefilter: bool = true
+const NO_SPHERE := Vector4(0.0, 0.0, 0.0, -1.0)
 
 
 ## Seeds [member rng] from a match or sim seed: the same seed and the same calls give the same drops, rolls and evictions.
@@ -34,42 +38,88 @@ static func _fresh_rng() -> RandomNumberGenerator:
 
 ## The drop a segment from [param from] to [param to] crosses first, as {id, point, distance}, or empty.
 ## Boxes are tested in their own frame, so no physics layer is needed and the shot trace stays untouched.
+## A drop whose bounding sphere the segment misses, or starts past the best hit so far, is passed over before its frame is
+## inverted ([member ray_prefilter]); the answer is the same as testing every box.
 func raycast(from: Vector3, to: Vector3) -> Dictionary:
+	if not ray_prefilter:
+		return _raycast_all(from, to)
 	var best := {}
 	var best_t := INF
 	var seg := to - from
 	var length := seg.length()
 	if length < 0.0001:
 		return best
+	var dir := seg / length
+	for id: int in _entries:
+		var e: Dictionary = _entries[id]
+		var body: RigidBody3D = e["body"]
+		var xf := body.global_transform
+		var sphere: Vector4 = e.get("ray_sphere", NO_SPHERE)
+		if sphere.w < 0.0:
+			sphere = _ray_sphere(body)
+			e["ray_sphere"] = sphere
+		var centre := xf * Vector3(sphere.x, sphere.y, sphere.z)
+		var r := sphere.w
+		var along := clampf((centre - from).dot(dir), 0.0, length)
+		if along - r > best_t or (from + dir * along).distance_squared_to(centre) > r * r:
+			continue
+		var t := _box_entry(xf.affine_inverse(), from, dir, length, body)
+		if t < best_t:
+			best_t = t
+			best = {"id": id, "point": from + dir * t, "distance": t}
+	return best
+
+
+## [method raycast] without the bounding-sphere pass: every drop's frame is inverted. Kept for A/B and the parity check.
+func _raycast_all(from: Vector3, to: Vector3) -> Dictionary:
+	var best := {}
+	var best_t := INF
+	var seg := to - from
+	var length := seg.length()
+	if length < 0.0001:
+		return best
+	var dir := seg / length
 	for id: int in _entries:
 		var body: RigidBody3D = _entries[id]["body"]
-		var inv := body.global_transform.affine_inverse()
-		var o := inv * from
-		var d := inv.basis * (seg / length)
-		var half := _half_extents(body)
-		var centre := _centre(body)
-		var tmin := 0.0
-		var tmax := length
-		var ok := true
-		for axis in 3:
-			var lo := centre[axis] - half[axis]
-			var hi := centre[axis] + half[axis]
-			if absf(d[axis]) < 0.00001:
-				if o[axis] < lo or o[axis] > hi:
-					ok = false
-					break
-			else:
-				var t1 := (lo - o[axis]) / d[axis]
-				var t2 := (hi - o[axis]) / d[axis]
-				tmin = maxf(tmin, minf(t1, t2))
-				tmax = minf(tmax, maxf(t1, t2))
-				if tmin > tmax:
-					ok = false
-					break
-		if ok and tmin < best_t:
-			best_t = tmin
-			best = {"id": id, "point": from + seg / length * tmin, "distance": tmin}
+		var t := _box_entry(body.global_transform.affine_inverse(), from, dir, length, body)
+		if t < best_t:
+			best_t = t
+			best = {"id": id, "point": from + dir * t, "distance": t}
 	return best
+
+
+## Where the segment ([param from], unit [param dir], [param length]) enters [param body]'s box, given the inverse of its
+## frame; INF when it misses.
+func _box_entry(inv: Transform3D, from: Vector3, dir: Vector3, length: float, body: RigidBody3D) -> float:
+	var o := inv * from
+	var d := inv.basis * dir
+	var half := _half_extents(body)
+	var centre := _centre(body)
+	var tmin := 0.0
+	var tmax := length
+	for axis in 3:
+		var lo := centre[axis] - half[axis]
+		var hi := centre[axis] + half[axis]
+		if absf(d[axis]) < 0.00001:
+			if o[axis] < lo or o[axis] > hi:
+				return INF
+		else:
+			var t1 := (lo - o[axis]) / d[axis]
+			var t2 := (hi - o[axis]) / d[axis]
+			tmin = maxf(tmin, minf(t1, t2))
+			tmax = minf(tmax, maxf(t1, t2))
+			if tmin > tmax:
+				return INF
+	return tmin
+
+
+## A drop's box as a sphere in its own frame: centre in xyz, radius in w (the half-diagonal, scaled by the frame's largest
+## axis, plus a millimetre so float rounding never drops a grazing hit). A drop's box and scale never change, so it is kept.
+func _ray_sphere(body: RigidBody3D) -> Vector4:
+	var c := _centre(body)
+	var s := body.global_transform.basis.get_scale().abs()
+	var r := _half_extents(body).length() * maxf(s.x, maxf(s.y, s.z)) + 0.001
+	return Vector4(c.x, c.y, c.z, r)
 
 
 ## A shot or melee hit along [param direction] at [param point] shoves drop [param drop_id] with

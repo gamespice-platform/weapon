@@ -397,3 +397,52 @@ func _until_still(drops: GSWeaponDrops) -> void:
 		if drops.active_count() == 0:
 			return
 		await get_tree().physics_frame
+
+
+## The bounding-sphere pass in [method GSWeaponDrops.raycast] against testing every box: a seeded field of tumbled drops,
+## 3000 seeded segments, identical id, point and distance. Prints microseconds per ray for both.
+func _test_ray_parity() -> void:
+	_section("drop raycast: sphere pass matches every-box test")
+	var drops := _drops()
+	drops.rules.max_count = 0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5907
+	for i in 32:
+		var at := Vector3(rng.randf_range(-12.0, 12.0), rng.randf_range(0.0, 3.0), rng.randf_range(-12.0, 12.0))
+		var id := drops.spawn({"id": &"rifle", "magazine": 5, "reserve": 0}, at, Vector3.ZERO, 1)
+		var body: RigidBody3D = drops._entries[id]["body"]
+		body.global_basis = Basis.from_euler(Vector3(rng.randf_range(-PI, PI), rng.randf_range(-PI, PI), rng.randf_range(-PI, PI)))
+		drops._rest(id, drops._entries[id], body)
+	var rays: Array[PackedVector3Array] = []
+	for i in 3000:
+		var from := Vector3(rng.randf_range(-14.0, 14.0), rng.randf_range(0.0, 3.0), rng.randf_range(-14.0, 14.0))
+		var to := Vector3(rng.randf_range(-14.0, 14.0), rng.randf_range(0.0, 3.0), rng.randf_range(-14.0, 14.0))
+		if i % 3 == 0:
+			# aimed through a drop, so a good share of rays hit
+			var target: RigidBody3D = drops._entries[drops._entries.keys()[i % 32]]["body"]
+			to = from + (target.global_position - from) * rng.randf_range(1.0, 2.5)
+		rays.append(PackedVector3Array([from, to]))
+	var hits := 0
+	var mismatch := 0
+	var first_bad := ""
+	for ray in rays:
+		var a := drops.raycast(ray[0], ray[1])
+		var b := drops._raycast_all(ray[0], ray[1])
+		if a != b:
+			mismatch += 1
+			if first_bad == "":
+				first_bad = "%s -> %s: %s vs %s" % [ray[0], ray[1], a, b]
+		elif not a.is_empty():
+			hits += 1
+	_check(mismatch == 0, "3000 seeded rays over 32 tumbled drops: same id, point and distance", first_bad)
+	_check(hits > 300, "and enough of them hit to mean something (%d)" % hits)
+	var t0 := Time.get_ticks_usec()
+	for ray in rays:
+		drops.raycast(ray[0], ray[1])
+	var t1 := Time.get_ticks_usec()
+	for ray in rays:
+		drops._raycast_all(ray[0], ray[1])
+	var t2 := Time.get_ticks_usec()
+	print("[bench] drop raycast, 32 drops: sphere pass %.2f us per ray, every box %.2f us per ray (%d hits of 3000)" % [(t1 - t0) / 3000.0, (t2 - t1) / 3000.0, hits])
+	drops.queue_free()
+	_done()
