@@ -27,9 +27,6 @@ addons/gs_weapon/behaviour/gs_weapon_hitscan_native_rows.gd::verify_gate::dynami
 addons/gs_weapon/behaviour/gs_weapon_hitscan_native_rows.gd::verify_gate::string_build	3
 addons/gs_weapon/behaviour/gs_weapon_hitscan_native_shot.gd::<members>::untyped_array	1
 addons/gs_weapon/behaviour/gs_weapon_hitscan_native_shot.gd::aim::dynamic_call	3
-addons/gs_weapon/behaviour/gs_weapon_hitscan_renew.gd::plain::untyped_param	1
-addons/gs_weapon/behaviour/gs_weapon_hitscan_renew.gd::renew::untyped_param	1
-addons/gs_weapon/behaviour/gs_weapon_hitscan_renew.gd::reset::untyped_param	1
 addons/gs_weapon/behaviour/gs_weapon_projectile.gd::_use::alloc	1
 addons/gs_weapon/behaviour/gs_weapon_thrown.gd::_use::alloc	2
 addons/gs_weapon/bridge/gs_weapon_bullet_bridge.gd::<members>::untyped_array	4
@@ -78,13 +75,9 @@ addons/gs_weapon/core/gs_weapon_command.gd::button_names::string_build	1
 addons/gs_weapon/core/gs_weapon_command.gd::describe::untyped_array	1
 addons/gs_weapon/drops/gs_weapon_drop_key.gd::_current_id::dynamic_call	2
 addons/gs_weapon/drops/gs_weapon_drop_rules.gd::bind_cvars::untyped_array	2
-addons/gs_weapon/drops/gs_weapon_drop_rules.gd::cvar_specs::alloc	2
-addons/gs_weapon/drops/gs_weapon_drop_rules.gd::cvar_specs::string_build	1
 addons/gs_weapon/drops/gs_weapon_drop_rules.gd::describe::untyped_array	1
 addons/gs_weapon/drops/gs_weapon_drop_rules.gd::follow_cvars::dynamic_call	2
 addons/gs_weapon/drops/gs_weapon_drop_rules.gd::problems::string_build	2
-addons/gs_weapon/drops/gs_weapon_drop_rules.gd::set_cvar::alloc	2
-addons/gs_weapon/drops/gs_weapon_drop_rules.gd::set_cvar::emit_in_loop	1
 addons/gs_weapon/drops/gs_weapon_drops.gd::_ammo_fits::dynamic_call	5
 addons/gs_weapon/drops/gs_weapon_drops.gd::_ammo_fits::untyped_array	2
 addons/gs_weapon/drops/gs_weapon_drops.gd::_ground::alloc	1
@@ -130,8 +123,6 @@ addons/gs_weapon/drops/gs_weapon_drops.gd::mirror_settled::untyped_array	1
 addons/gs_weapon/drops/gs_weapon_drops.gd::pose_of::alloc	2
 addons/gs_weapon/drops/gs_weapon_drops.gd::pose_of::dynamic_call	1
 addons/gs_weapon/drops/gs_weapon_drops.gd::pose_of::untyped_array	2
-addons/gs_weapon/drops/gs_weapon_drops.gd::prompt_for::alloc	5
-addons/gs_weapon/drops/gs_weapon_drops.gd::prompt_for::dynamic_call	9
 addons/gs_weapon/drops/gs_weapon_drops.gd::prompt_for::untyped_array	2
 addons/gs_weapon/drops/gs_weapon_drops.gd::scan::untyped_array	1
 addons/gs_weapon/drops/gs_weapon_drops.gd::snapshot::alloc	2
@@ -165,9 +156,6 @@ addons/gs_weapon/drops/gs_weapon_pickup_view.gd::_crossed::string_build	1
 addons/gs_weapon/drops/gs_weapon_pickup_view.gd::_t::dynamic_call	1
 addons/gs_weapon/drops/gs_weapon_pickup_view.gd::show_prompt::alloc	1
 addons/gs_weapon/drops/gs_weapon_pickup_view.gd::show_prompt::untyped_array	1
-addons/gs_weapon/drops/gs_weapon_pickup_view.gd::text_for::alloc	2
-addons/gs_weapon/drops/gs_weapon_pickup_view.gd::text_for::dynamic_call	9
-addons/gs_weapon/drops/gs_weapon_pickup_view.gd::text_for::string_build	4
 addons/gs_weapon/drops/gs_weapon_pickup_view.gd::text_for::untyped_array	1
 addons/gs_weapon/drops/gs_weapon_use_key.gd::_holds::dynamic_call	1
 addons/gs_weapon/drops/gs_weapon_use_key.gd::_holds::untyped_array	1
@@ -181,7 +169,6 @@ addons/gs_weapon/math/gs_weapon_cvar_rules.gd::describe::untyped_array	1
 addons/gs_weapon/math/gs_weapon_cvar_rules.gd::fields::alloc	1
 addons/gs_weapon/math/gs_weapon_cvar_rules.gd::fields::untyped_array	1
 addons/gs_weapon/math/gs_weapon_cvar_rules.gd::follow_cvars::dynamic_call	2
-addons/gs_weapon/math/gs_weapon_cvar_rules.gd::set_cvar::emit_in_loop	1
 addons/gs_weapon/math/gs_weapon_cvar_rules.gd::set_cvar::untyped_array	1
 addons/gs_weapon/math/gs_weapon_recoil.gd::describe::untyped_array	1
 addons/gs_weapon/math/gs_weapon_recoil_rules.gd::apply::untyped_array	1
@@ -191,7 +178,6 @@ addons/gs_weapon/math/gs_weapon_spread_rules.gd::bind_cvars::untyped_array	3
 addons/gs_weapon/math/gs_weapon_spread_rules.gd::cvar_name::string_build	1
 addons/gs_weapon/math/gs_weapon_spread_rules.gd::describe::untyped_array	1
 addons/gs_weapon/math/gs_weapon_spread_rules.gd::follow_cvars::dynamic_call	2
-addons/gs_weapon/math/gs_weapon_spread_rules.gd::set_cvar::emit_in_loop	1
 addons/gs_weapon/math/gs_weapon_spread_rules.gd::set_cvar::untyped_array	1
 addons/gs_weapon/math/gs_weapon_trajectory.gd::drop_at::alloc	1
 addons/gs_weapon/math/gs_weapon_trajectory.gd::drop_at::untyped_array	1
@@ -209,10 +195,8 @@ addons/gs_weapon/net/gs_weapon_net_sync.gd::correct_fire_mode::dynamic_call	2
 addons/gs_weapon/net/gs_weapon_net_sync.gd::fire_mode_specs::alloc	2
 addons/gs_weapon/net/gs_weapon_net_sync.gd::fire_mode_will_change::dynamic_call	2
 addons/gs_weapon/net/gs_weapon_net_sync.gd::fitting_specs::alloc	2
-addons/gs_weapon/net/gs_weapon_net_sync.gd::properties::alloc	1
 addons/gs_weapon/net/gs_weapon_net_sync.gd::pull::dynamic_call	5
 addons/gs_weapon/net/gs_weapon_net_sync.gd::push::dynamic_call	3
-addons/gs_weapon/net/gs_weapon_net_sync.gd::specs::alloc	4
 addons/gs_weapon/runtime/gs_weapon_arsenal.gd::_cooling_posed_tick::dynamic_call	1
 addons/gs_weapon/runtime/gs_weapon_arsenal.gd::cooling_batch_add::alloc	1
 addons/gs_weapon/runtime/gs_weapon_arsenal.gd::cooling_batch_add::untyped_array	1
@@ -238,17 +222,9 @@ addons/gs_weapon/runtime/gs_weapon_arsenal_carry.gd::fire_modes_available::alloc
 addons/gs_weapon/runtime/gs_weapon_arsenal_carry.gd::fit::string_build	1
 addons/gs_weapon/runtime/gs_weapon_arsenal_carry.gd::set_fire_mode::alloc	1
 addons/gs_weapon/runtime/gs_weapon_arsenal_carry.gd::take::string_build	1
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_scalars::alloc	1
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_scalars::dynamic_call	14
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_scalars::untyped_array	1
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_shelf::alloc	5
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_shelf::dynamic_call	2
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_shelf::string_build	1
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::_restore_shelf::untyped_array	5
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::describe::untyped_array	1
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::restore::alloc	4
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::restore::dynamic_call	4
-addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::restore::string_build	1
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::restore::untyped_array	4
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::snapshot::alloc	4
 addons/gs_weapon/runtime/gs_weapon_arsenal_io.gd::snapshot::untyped_array	4
@@ -274,9 +250,6 @@ addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::add::untyped_array	1
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::candidates::alloc	1
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::candidates::dynamic_call	4
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::candidates::untyped_array	1
-addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::from_dictionary::alloc	7
-addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::from_dictionary::dynamic_call	13
-addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::from_dictionary::string_build	7
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::from_dictionary::untyped_array	3
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::pick::alloc	1
 addons/gs_weapon/spawner/gs_weapon_spawn_pool.gd::pick::untyped_array	1
@@ -333,9 +306,6 @@ addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::load_dictionary::untyped_a
 addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::map_keys::untyped_array	1
 addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::pool_override::alloc	1
 addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::pool_override::string_build	1
-addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::resolve::alloc	14
-addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::resolve::dynamic_call	7
-addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::resolve::string_build	4
 addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::resolve::untyped_array	2
 addons/gs_weapon/spawner/gs_weapon_spawner_config.gd::set_setting::string_build	2
 addons/gs_weapon/thrown/gs_weapon_knife_cvars.gd::bind::untyped_array	2
@@ -387,8 +357,6 @@ addons/gs_weapon/thrown/gs_weapon_knives.gd::power_fraction::dynamic_call	2
 addons/gs_weapon/thrown/gs_weapon_knives.gd::power_fraction::untyped_array	1
 addons/gs_weapon/thrown/gs_weapon_knives.gd::throw::dynamic_call	1
 addons/gs_weapon/thrown/gs_weapon_knives.gd::throw::untyped_array	1
-addons/gs_weapon/tuning/gs_weapon_accuracy_class.gd::resolve::alloc	1
-addons/gs_weapon/tuning/gs_weapon_accuracy_class.gd::resolve::string_build	1
 addons/gs_weapon/tuning/gs_weapon_accuracy_class.gd::resolve::untyped_array	1
 addons/gs_weapon/tuning/gs_weapon_ballistics.gd::class_crosshair_scale::untyped_array	1
 addons/gs_weapon/tuning/gs_weapon_ballistics.gd::crosshair_scale_for::untyped_array	1

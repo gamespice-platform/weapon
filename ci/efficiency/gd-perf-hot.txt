@@ -10,3 +10,5 @@ addons/gs_weapon/math/*.gd
 addons/gs_weapon/tuning/*.gd
 addons/gs_weapon/bridge/*.gd
 addons/gs_weapon/spawner/*.gd
+# Run once (config, save/restore, HUD prompt text), not per tick:
+cold+: ^(from_.*|describe.*|specs|cvar_specs|set_cvar|validate|presets|properties|resolve|restore|_restore_.*|prompt_for|text_for)$
