@@ -24,7 +24,7 @@ func _test_native_tick() -> void:
 		# The case checks, twice each rest stream's (the bridge check but for explicit_still, the skip, the steady skip of
 		# a cone mode) and the streams' agreement (the native tick, then the idle row), and the missing-class fallback.
 		# Then the idle gate's four, the batch streams', the framed tick's two, the seeded uses' three and the recoil posture's one.
-		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + _batch_stream_checks() + 2 + 3 + 1):
+		for i in range(4 + 1 + (_MODES.size() * 2 - 1 + _CONE_MODES.size() + 1) * 2 + 1 + 4 + _batch_stream_checks() + 2 + 3 + 1 + _cooling_stream_checks()):
 			_check(true, "skip: GSSimWeaponSpread not loaded")
 		_done()
 		return
@@ -90,6 +90,7 @@ func _test_native_tick() -> void:
 	_check_native_missing_class(native_was)
 	_check_idle_gate(native_was)
 	_check_native_batch_streams(native_was)
+	_check_native_cooling_streams(native_was)
 	_check_tick_framed(native_was)
 	_check_native_use(native_was)
 	_check_recoil_posture()
@@ -228,6 +229,45 @@ func _check_native_batch_streams(native_was: bool) -> void:
 ## native cone mode's two, then its own two. A skip makes as many, so the total holds with or without GameSpice Sim.
 func _batch_stream_checks() -> int:
 	return _MODES.size() - 1 + _CONE_MODES.size() * 2 + 2
+
+
+## The rest streams again with arsenal 0's held-trigger ticks inside the cadence through the cooling row (API 59:
+## cooling_row_for, then cooling_tick_row; a second pass joins them to GSSimWeaponIdleBatch with cooling_batch_add): the
+## same outcomes, snapshots, state and cone as the script arsenal's full context tick, over every mode.
+func _check_native_cooling_streams(native_was: bool) -> void:
+	for batched in [false, true]:
+		if batched and not ClassDB.class_exists(&"GSSimWeaponIdleBatch"):
+			for i in range(_batch_stream_checks()):
+				_check(true, "skip: GSSimWeaponIdleBatch not loaded")
+			continue
+		_rest_native = true
+		_rest_cool = true
+		_rest_cooled = 0
+		_rest_batched = 0
+		_rest_row = not batched
+		_rest_batch = ClassDB.instantiate(&"GSSimWeaponIdleBatch") if batched else null
+		var all_same := true
+		var detail := ""
+		for mode: String in _MODES:
+			var res := _rest_stream(mode)
+			if not res["same"] or not res["spread_same"]:
+				all_same = false
+				detail = res["detail"]
+		_rest_batch = null
+		_rest_row = false
+		_rest_cool = false
+		_rest_native = false
+		GSWeaponHitscan.native_tick = native_was
+		GSWeaponHitscan.steady_skip = true
+		var how := "joined to the idle batch" if batched else "one row each"
+		_check(all_same, "the rest streams agree with the cooling row (%s) on one arsenal: outcomes, snapshots, state and cone" % how, detail)
+		_check(_rest_cooled > 300, "the cooling row took many held-trigger ticks (%d, %s)" % [_rest_cooled, how])
+
+
+## The checks [method _check_native_cooling_streams] makes: the row pass's streams (as the row streams) and its two,
+## then the batch pass's (as [method _batch_stream_checks]).
+func _cooling_stream_checks() -> int:
+	return _MODES.size() * 2 - 1 + _CONE_MODES.size() + 2 + _batch_stream_checks()
 
 
 ## GSWeaponBehaviour.idle_gate: the gated idle row (1) and its verify mode (2) leave what the plain one (0) leaves, bit

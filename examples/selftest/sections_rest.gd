@@ -16,6 +16,11 @@ var _rest_row := false
 var _rest_batch: Object = null
 ## Idle ticks the batch took for arsenal 0 (an entry it ran, declined or not).
 var _rest_batched := 0
+## The rest streams' arsenal 0 takes a trigger held inside its cadence through the cooling row (API 59) when on: with
+## [member _rest_batch] joined to the batch, else [method GSWeaponArsenal.cooling_tick_row].
+var _rest_cool := false
+## Ticks arsenal 0 took through the cooling row.
+var _rest_cooled := 0
 
 
 ## Eight postures a carrier moves through; index 0 is the settled one.
@@ -209,13 +214,16 @@ func _rest_roll(rng: RandomNumberGenerator, roll: Dictionary) -> void:
 		roll["buttons"] = 0
 		roll["slot"] = 0
 		var r := rng.randf()
-		if r < 0.12:
+		if r < (0.3 if _rest_cool else 0.12):
 			roll["buttons"] = GSWeaponCommand.BUTTON_ATTACK
 		elif r < 0.15:
 			roll["buttons"] = GSWeaponCommand.BUTTON_RELOAD
 		elif r < 0.19:
 			roll["slot"] = rng.randi_range(1, 4)
 		roll["command_left"] = rng.randi_range(1, 12) if roll["buttons"] != 0 or roll["slot"] != 0 else rng.randi_range(5, 200)
+		# The cooling streams hold the trigger long enough to sit between uses.
+		if _rest_cool and roll["buttons"] == GSWeaponCommand.BUTTON_ATTACK:
+			roll["command_left"] = rng.randi_range(1, 60)
 	roll["command_left"] -= 1
 
 
@@ -279,6 +287,8 @@ func _rest_pair_tick(mode: String, tick: int, st: Dictionary, roll: Dictionary, 
 				out = a.idle_tick()
 			if i == 0 and GSWeaponArsenal.phase_calls[2] != rests:
 				res["skipped"] += 1
+		elif _rest_cool and i == 0 and a.cooling_row_for(cmd, previous, tick, hit.sprinting, hit.sprint_blocks_fire):
+			out = _rest_cool_tick(a, tick)
 		else:
 			out = a.simulate_tick(cmd, hit, previous)
 		if i == 0 and was_steady and a.current().behaviour.get("_steady") == true:
@@ -307,6 +317,30 @@ func _rest_batch_tick(a: GSWeaponArsenal) -> GSWeaponOutcome:
 	var declined: PackedInt32Array = _rest_batch.call(&"run", entries, row, 10)
 	if not declined.is_empty():
 		return a.idle_tick()
+	return out
+
+
+## One cooling tick as a server takes it: the posture row at [param tick], joined to the batch when [member _rest_batch]
+## holds one ([method GSWeaponArsenal.cooling_batch_add], a declined entry [method GSWeaponArsenal.cooling_batch_declined]),
+## else [method GSWeaponArsenal.cooling_tick_row].
+func _rest_cool_tick(a: GSWeaponArsenal, tick: int) -> GSWeaponOutcome:
+	_rest_cooled += 1
+	var row := _idle_row_of(a)
+	row[7] = tick
+	if _rest_batch == null:
+		return a.cooling_tick_row(tick, row)
+	var entries: Array = []
+	var timers := GSWeaponArsenal.phase_timers
+	GSWeaponArsenal.phase_timers = false
+	var out := a.cooling_batch_add(entries, 0, tick)
+	GSWeaponArsenal.phase_timers = timers
+	if out == null:
+		return a.cooling_tick_row(tick, row)
+	_rest_batched += 1
+	row.append(0.0)
+	var declined: PackedInt32Array = _rest_batch.call(&"run", entries, row, 10)
+	if not declined.is_empty():
+		a.cooling_batch_declined()
 	return out
 
 
