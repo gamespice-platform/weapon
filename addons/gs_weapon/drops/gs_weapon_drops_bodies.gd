@@ -36,36 +36,46 @@ var _overlap_r: PhysicsTestMotionResult3D = null
 var _rids_gen: int = 0
 var _sweep_gen: int = -1
 var _overlap_gen: int = -1
+## The floor ray, reused (a moving drop asks every tick); its exclusion list is emptied per ask.
+var _floor_q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+var _floor_skip: Array[RID] = []
+## What [method _floor_hit] returns for no floor: shared and read-only.
+const _NO_FLOOR := {}
 
 
 ## The first floor (an upward face of a static body) the ray [param from]->[param to] passes down through, as [code]{position,
 ## normal}[/code] with the normal towards [param from]; empty for none. Back faces count (a trimesh wound the other way is still a
 ## floor; front-faces-only rays missed every tunnel). Walls, ceilings and moving bodies are passed through.
 func _floor_hit(from: Vector3, to: Vector3) -> Dictionary:
-	var q := PhysicsRayQueryParameters3D.create(from, to, collision_mask)
+	var q := _floor_q
+	q.from = from
+	q.to = to
+	q.collision_mask = collision_mask
 	q.hit_back_faces = true
+	if not _floor_skip.is_empty():
+		_floor_skip.clear()
+		q.exclude = _floor_skip
 	var dir := (to - from).normalized()
 	var space := get_world_3d().direct_space_state
 	for _i in 6:
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
-			return {}
+			return _NO_FLOOR
 		var n: Vector3 = hit["normal"]
 		if n.dot(dir) > 0.0:
 			n = -n
 		var other: Object = hit["collider"]
 		if other is CharacterBody3D or other is RigidBody3D or other is AnimatableBody3D:
-			var skip: Array[RID] = q.exclude
-			skip.append(hit["rid"])
-			q.exclude = skip
+			_floor_skip.append(hit["rid"])
+			q.exclude = _floor_skip
 			continue
 		if n.y < 0.3:
 			q.from = (hit["position"] as Vector3) + dir * 0.002
 			if (to - q.from).dot(dir) <= 0.0:
-				return {}
+				return _NO_FLOOR
 			continue
 		return {"position": hit["position"], "normal": n}
-	return {}
+	return _NO_FLOOR
 
 
 ## Where [param body], in its current pose, lies [param gap] above [param floor_at] along [param n].

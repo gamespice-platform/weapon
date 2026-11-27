@@ -21,6 +21,10 @@ var _shots: Dictionary = {}
 var _ammo: Dictionary = {}
 var _flight: Dictionary = {}
 var _ids_by_shot: Dictionary = {}
+## The trace exclusion list [method _cast] hands gs-combat, reused (only the shooter's set; refilled per cast).
+var _exclude: Array[GSHitboxSet] = []
+## What [method _cast] returns for no hit: shared and read-only.
+const _NO_CAST := {}
 
 
 ## [param rules] is the shared [GSWeaponBallisticsRules]; call once the manager is set up.
@@ -79,12 +83,15 @@ func _cast(from: Vector3, to: Vector3, owner_id: int) -> Dictionary:
 	var offset := to - from
 	var dist := offset.length()
 	if dist <= 0.0:
-		return {}
+		return _NO_CAST
 	var shooter := combat.hitboxes_of(owner_id)
-	combat.trace.exclude = [shooter] if shooter != null else []
+	_exclude.clear()
+	if shooter != null:
+		_exclude.append(shooter)
+	combat.trace.exclude = _exclude
 	var hit := combat.trace.ray(from, offset / dist, dist, combat.hitbox_sets())
 	if not hit.ok():
-		return {}
+		return _NO_CAST
 	return {"position": hit.point, "trace": hit}
 
 
