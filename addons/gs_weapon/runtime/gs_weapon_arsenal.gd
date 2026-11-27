@@ -1,6 +1,6 @@
 @tool
 class_name GSWeaponArsenal
-extends "gs_weapon_arsenal_carry.gd"
+extends "gs_weapon_arsenal_reload.gd"
 
 ## What one carrier holds, and the state machine that drives it.
 ##
@@ -125,10 +125,6 @@ func give(id: StringName, full: bool = true) -> GSResult:
 	return GSResult.success(slot)
 
 
-func is_switching() -> bool:
-	return _switch_done_tick >= 0
-
-
 ## Puts [param slot] in the hand at once, for a hand-out (spawn loadout). Unlike [method select] it works
 ## while [member disabled] (a round's freeze), so a spawn is not left holding the first weapon given.
 func equip(slot: int) -> bool:
@@ -184,97 +180,6 @@ func select_previous(tick: int) -> bool:
 
 func select_last(tick: int) -> bool:
 	return select(_previous, tick) if _slots.has(_previous) else false
-
-
-func is_reloading() -> bool:
-	return _reloading
-
-
-## Begins a reload. Returns false when there is nothing to do.
-func begin_reload(tick: int) -> bool:
-	var slot := current()
-
-	if disabled or slot == null or _reloading or is_switching():
-		return false
-
-	if not slot.def.uses_magazine() or slot.magazine_space() <= 0:
-		return false
-
-	if slot.def.ammo_type != &"" and not _ammo.has(slot.def.ammo_type, 1):
-		return false
-
-	_reloading = true
-	_reload_done_tick = tick + ticks_for(
-		slot.def,
-		slot.def.reload_start_ticks if slot.def.reload_per_round
-		else slot.def.reload_ticks
-	)
-	reload_started.emit(_current)
-	return true
-
-
-func cancel_reload() -> void:
-	_reloading = false
-	_reload_done_tick = -1
-
-
-func _finish_reload(tick: int) -> void:
-	var slot := current()
-	if slot == null:
-		_reloading = false
-		return
-
-	var def := slot.def
-	var want := def.magazine - slot.magazine
-
-	if def.reload_per_round:
-		want = 1
-
-	var took := want
-	if def.ammo_type != &"":
-		took = _ammo.take(def.ammo_type, want) if not def.infinite_reserve else want
-		if def.infinite_reserve:
-			took = want
-
-	if took <= 0:
-		_reloading = false
-		_reload_done_tick = -1
-		return
-
-	slot.magazine += took
-	slot.behaviour.reloaded(took)
-
-	if def.ammo_type != &"":
-		ammo_changed.emit(def.ammo_type, _ammo.count(def.ammo_type))
-
-	# A per-round reload keeps going until the magazine is full or the reserve is dry.
-	if (
-		def.reload_per_round
-		and slot.magazine_space() > 0
-		and (def.infinite_reserve or _ammo.has(def.ammo_type, 1) or def.ammo_type == &"")
-	):
-		_reload_done_tick = tick + ticks_for(def, def.reload_ticks)
-	else:
-		_reloading = false
-		_reload_done_tick = -1
-		reload_finished.emit(_current, slot.magazine)
-
-
-## Marks the start of a reconciliation replay.
-##
-## Everything still simulates; what changes is that every context is marked
-## [member GSWeaponContext.replayed], so a behaviour and a listener can decline to
-## make a sound, spawn an effect or bill a statistic a second time.
-func begin_replay() -> void:
-	_replaying = true
-
-
-func end_replay() -> void:
-	_replaying = false
-
-
-func is_replaying() -> bool:
-	return _replaying
 
 
 ## Microseconds per part of [method simulate_tick] and [method idle_tick], summed while [member phase_timers] is on (a
@@ -477,6 +382,101 @@ func idle_batch_add(entries: Array, k: int) -> GSWeaponOutcome:
 	return _idle_nothing()
 
 
+## The buttons a cooling tick ([method cooling_row_for]) must not hold: each one would make [method simulate_tick] do
+## more than count the cadence down (a reload, a switch, a fire-mode change, the aim), or a rig read the aim.
+const COOLING_REFUSED := GSWeaponCommand.BUTTON_ALT | GSWeaponCommand.BUTTON_RELOAD | GSWeaponCommand.BUTTON_USE \
+		| GSWeaponCommand.BUTTON_NEXT | GSWeaponCommand.BUTTON_PREVIOUS | GSWeaponCommand.BUTTON_LAST \
+		| GSWeaponCommand.BUTTON_DROP | GSWeaponCommand.BUTTON_AIM | GSWeaponCommand.BUTTON_FIRE_MODE
+
+
+## Whether [method simulate_tick] with this command would only tick the weapon in hand with the [member idle_posture]
+## context and count a held trigger inside its cadence (API 59): the attack held now and on [param previous] with no other
+## arsenal button, no other slot asked for, nothing switching, charging or bursting, [param tick] before the next use, a
+## carrier not stopped from firing by a sprint, and a behaviour whose tick reads no more than the posture. Then
+## [method cooling_tick_row] (or [method cooling_batch_add]) does the same tick without a context.
+func cooling_row_for(command: GSWeaponCommand, previous: GSWeaponCommand, tick: int, sprinting: bool, blocks_fire: bool) -> bool:
+	if not _ready_for_use or disabled or _switch_done_tick >= 0 or tick >= _next_use_tick or not idle_posture.is_valid():
+		return false
+	if (command.buttons & (GSWeaponCommand.BUTTON_ATTACK | COOLING_REFUSED)) != GSWeaponCommand.BUTTON_ATTACK:
+		return false
+	if (command.slot > 0 and command.slot != _current) or previous == null \
+			or not previous.is_pressed(GSWeaponCommand.BUTTON_ATTACK) or (sprinting and blocks_fire):
+		return false
+	if _charge_started >= 0 or _burst_left > 0:
+		return false
+	var slot := current()
+	if slot == null:
+		return false
+	var mode := slot.fire_mode()
+	if mode == GSWeaponDef.Fire.CHARGE or mode == GSWeaponDef.Fire.BURST:
+		return false
+	if GSWeaponBehaviour.idle_gate == 0:
+		return not slot.behaviour.tick_needs_context()
+	return not slot.behaviour.tick_needs_context_posed()
+
+
+## The tick [method cooling_row_for] promised, with the [member idle_posture] context as a row (what it would say this
+## [param tick]): a finished reload, the behaviour's tick (one gs-sim call on a native hitscan), the held count and the
+## fire buffer's expiry, as [method simulate_tick] does them. Returns the empty outcome a use inside the cadence does.
+func cooling_tick_row(tick: int, row: PackedFloat64Array) -> GSWeaponOutcome:
+	_advance_reload(tick)
+	var lap := Time.get_ticks_usec() if phase_timers else 0
+	var slot := current()
+	if slot.behaviour.idle_row_framed(row, false, spread_rules, crosshair_cone, tick_rate) == GSWeaponBehaviour.IDLE_ROW_DECLINED:
+		_cooling_posed_tick(slot, tick)
+	if lap != 0:
+		phase_calls[0] += 1
+		_lap(1, lap)
+	_cooled(tick)
+	return _idle_nothing()
+
+
+## [method cooling_tick_row] joined to a native batch, as [method idle_batch_add] is for an idle tick (never resting):
+## appends [code][twin, state, behaviour, k, false][/code] and does the rest of the tick, or returns null (nothing done)
+## when the behaviour has no twin that provably holds, phase timers are on or a reload finishes this tick (its refill
+## must come before the behaviour's tick): then call [method cooling_tick_row]. An entry the batch declines must run
+## [method cooling_batch_declined].
+func cooling_batch_add(entries: Array, k: int, tick: int) -> GSWeaponOutcome:
+	if phase_timers or (_reloading and _reload_done_tick >= 0 and tick >= _reload_done_tick):
+		return null
+	var behaviour := current().behaviour
+	var twin := behaviour.idle_native(spread_rules, crosshair_cone, tick_rate)
+	if twin == null:
+		return null
+	entries.append_array([twin, behaviour.state, behaviour, k, false])
+	_cooling_tick = tick
+	_cooled(tick)
+	return _idle_nothing()
+
+
+## The script step for an entry [method cooling_batch_add] joined and the batch declined (a decline changed nothing):
+## the behaviour's tick with the posture context and the held count it would have read.
+func cooling_batch_declined() -> void:
+	_held_ticks -= 1
+	_cooling_posed_tick(current(), _cooling_tick)
+	_held_ticks += 1
+
+
+var _cooling_tick := -1
+
+
+## The context tick [method simulate_tick] would run, with the posture for the context.
+func _cooling_posed_tick(slot: GSWeaponSlot, tick: int) -> void:
+	var ctx := idle_posture.call() as GSWeaponContext
+	ctx.tick = tick
+	ctx.replayed = _replaying
+	ctx.authority = authority
+	ctx.aiming = false
+	_run_behaviour_tick(slot, ctx)
+
+
+## [method _advance_use]'s writes for a held trigger inside the cadence.
+func _cooled(tick: int) -> void:
+	_held_ticks += 1
+	if _buffer_until >= 0 and tick > _buffer_until:
+		_buffer_until = -1
+
+
 ## [method idle_tick]'s empty outcome: one per arsenal, read before the next tick. A new one each idle player each tick
 ## was an object and three typed arrays; one a caller wrote to is replaced, never handed out again.
 func _idle_nothing() -> GSWeaponOutcome:
@@ -514,11 +514,6 @@ func _advance_switch(ctx: GSWeaponContext) -> void:
 	if deployed != null:
 		deployed.behaviour.deploy(ctx)
 		_next_use_tick = maxi(_next_use_tick, ctx.tick)
-
-
-func _advance_reload(tick: int) -> void:
-	if _reloading and _reload_done_tick >= 0 and tick >= _reload_done_tick:
-		_finish_reload(tick)
 
 
 func _apply_slot_request(command: GSWeaponCommand, tick: int) -> void:
