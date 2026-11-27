@@ -2,6 +2,8 @@
 
 What a player holds and uses: a catalogue of weapon definitions that each name a behaviour script by path. Guns, bows, melee, thrown charges, beams, and anything your game writes that none of those describe. Adding a weapon is a script, a definition and a row in a table, never an edit to the addon.
 
+GameSpice addon, MIT licence, built with Claude Code; run `examples/weapon_selftest.tscn` headless for the tests. Weapons in the games of [Zee's Games](https://zeesgames.com) are defined and fired through it on live servers. Bug reports go to the [issue tracker](https://github.com/gamespice-platform/weapon/issues).
+
 ## Install
 
 1. Get [Godot 4.7](https://godotengine.org/download).
@@ -94,8 +96,27 @@ A weapon lists its mount points. A `GSWeaponAttachment` names a mount and the nu
 
 Import the project once, then run `examples/weapon_selftest.tscn` headless with Godot.
 
-## Status and licence
+## Used by
 
-Part of the [**GameSpice**](https://gamespice.net) platform: a family of Godot addons. Written with Claude Code and maintained by `gamemann`. Every addon has headless tests, but little of this has been played by real users yet, so expect rough edges and please [open an issue](https://github.com/gamespice-platform/weapon/issues) when you hit one.
+All of these games from Zee's Games vendor this addon:
+
+- [Fatal Contact](https://zeesgames.com/fatal-contact)
+- [Airdrift](https://zeesgames.com/airdrift)
+- [Playlot](https://zeesgames.com/playlot)
+- [Hungario](https://zeesgames.com/hungario)
+- [Buses From Hell](https://zeesgames.com/buses-from-hell)
+- [Smash Copter](https://zeesgames.com/smash-copter)
+- [Zombie Zone](https://zeesgames.com/zombie-zone)
+- [Hide n Seek](https://zeesgames.com/hide-n-seek)
+- [Prop Hunt](https://zeesgames.com/prop-hunt)
+- [Murder Mystery](https://zeesgames.com/murder-mystery)
+- [Deathrun](https://zeesgames.com/deathrun)
+- [Wipeout](https://zeesgames.com/wipeout)
+- [Dangerous Delivery](https://zeesgames.com/dangerous-delivery)
+- [Look At Me](https://zeesgames.com/look-at-me)
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
+
+## Licence
 
 MIT licence, see [LICENSE](LICENSE). The only closed part of the [**GameSpice**](https://gamespice.net) platform is the web back end; you can use your own instead of GameSpice's.
