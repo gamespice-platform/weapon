@@ -198,6 +198,12 @@ func current() -> GSWeaponSlot:
 	return _slots.get(_current, null)
 
 
+## The tick the weapon in hand may next be used on (its cadence, a burst's interval or a switch's deploy); a use on an
+## earlier tick is refused or buffered. Read-only, for a server's refusal log or a client comparing its prediction.
+func next_use_tick() -> int:
+	return _next_use_tick
+
+
 func current_def() -> GSWeaponDef:
 	var slot := current()
 	return slot.def if slot != null else null

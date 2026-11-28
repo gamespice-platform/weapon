@@ -490,6 +490,13 @@ func _test_cadence() -> void:
 		str(fired[1].shots[0].tick - fired[0].shots[0].tick)
 	)
 
+	# next_use_tick (API 60) names the cadence's own deadline: an automatic rifle's next use after its first shot.
+	var paced := _arsenal()
+	paced.give(&"rifle")
+	var first := _drive(paced, 0, 1, true)
+	_check(first.size() == 1 and paced.next_use_tick() == 6,
+		"next_use_tick is the shot's tick plus the cadence", "fired %d, next use %d" % [first.size(), paced.next_use_tick()])
+
 	# Inside the cadence a held trigger reads no aim: every tick is_cooling_for says so is a tick without a use.
 	var cool := _arsenal()
 	cool.give(&"rifle")
