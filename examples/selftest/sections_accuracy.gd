@@ -176,6 +176,28 @@ func _test_accuracy_bloom() -> void:
 	_done()
 
 
+func _test_accuracy_rollback() -> void:
+	_section("a replay restored from rollback_state builds the same bloom (API 62)")
+	var a := _heavy_arsenal()
+	var _warm := _drive(a, 10, 20, true)
+	var saved := a.rollback_state()
+	var next_saved := a.next_use_tick()
+	var first := _drive(a, 30, 12, true)
+	var after_first := a.spread_now()
+	var next_first := a.next_use_tick()
+	_check(a.restore_rollback(saved), "a state saved with the same weapon in hand is restored")
+	_check(a.next_use_tick() == next_saved, "the cadence goes back to the saved tick", "%d vs %d" % [a.next_use_tick(), next_saved])
+	var again := _drive(a, 30, 12, true)
+	_check(
+		again.size() == first.size() and absf(a.spread_now() - after_first) < 0.0001 and a.next_use_tick() == next_first,
+		"the replayed ticks fire as often and end on the same cone and cadence as the first pass",
+		"%d/%d uses, %s vs %s" % [again.size(), first.size(), a.spread_now(), after_first]
+	)
+	_check(not a.restore_rollback({}), "an empty state restores nothing")
+	_drop(a)
+	_done()
+
+
 func _test_accuracy_settle_flinch() -> void:
 	_section("settling after a run, flinch on a hit")
 	var a := _heavy_arsenal()

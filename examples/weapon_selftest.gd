@@ -2,7 +2,7 @@ extends "selftest/sections_anim.gd"
 
 ## GameSpice Weapon's self-test. Headless, no network, no scene but this one.
 
-const CHECKS := 952
+const CHECKS := 956
 
 
 func _ready() -> void:
@@ -96,6 +96,7 @@ func _run_sections() -> void:
 	_test_ammo_hitzones()
 	_test_accuracy_classes()
 	_test_accuracy_bloom()
+	_test_accuracy_rollback()
 	_test_accuracy_settle_flinch()
 	_test_accuracy_cone_reads()
 	_test_accuracy_scale_profile()

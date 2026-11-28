@@ -32,6 +32,54 @@ func settle_in_hand(slot: int) -> bool:
 	return true
 
 
+## Moves the cadence deadline ([method next_use_tick]) by [param delta] ticks (API 62). A server that fires a command
+## late, on a tick after the one the client fired it on, counts the cadence from that command's own tick, as the client
+## did: `rebase_next_use(command_tick - fired_tick)` right after the late use. Unmoved, every follow-up tap the client
+## fired on time is refused for being as many ticks early as the late one was late. With no deadline yet (0) it does nothing.
+func rebase_next_use(delta: int) -> void:
+	if delta == 0 or _next_use_tick <= 0:
+		return
+	_next_use_tick = maxi(0, _next_use_tick + delta)
+
+
+## The clock state a client's replay of its own ticks has to start from (API 62): the cadence, the use count and the
+## held, burst, buffer and charge clocks, plus the in-hand weapon's behaviour state (bloom, settling motion). Small
+## next to [method snapshot]: a predicting client saves it before every tick it simulates and hands the one saved
+## for a replay's first tick to [method restore_rollback], so the replay sheds and piles bloom from where the first
+## pass did. Replayed from the newest state instead, every replay re-ran the recovery ticks on top of a cone already
+## recovered, and the cone the client drew a shot in drifted from the server's. Ammunition and the carried set are not
+## in it: those are the server's word on a client (owner-only state), and a correction to them must stand.
+func rollback_state() -> Dictionary:
+	var slot := current()
+	return {
+		"current": _current,
+		"next_use": _next_use_tick,
+		"use_index": _use_index,
+		"held": _held_ticks,
+		"burst_left": _burst_left,
+		"buffer": _buffer_until,
+		"charge_started": _charge_started,
+		"behaviour": slot.behaviour.state.duplicate(true) if slot != null and slot.behaviour != null else {},
+	}
+
+
+## Puts back a [method rollback_state]. False (nothing changed) when the slot in hand is not the one it was saved
+## with: the replay then starts from the state there is, as before API 62.
+func restore_rollback(d: Dictionary) -> bool:
+	if d.is_empty() or int(d.get("current", -1)) != _current:
+		return false
+	_next_use_tick = int(d.get("next_use", _next_use_tick))
+	_use_index = int(d.get("use_index", _use_index))
+	_held_ticks = int(d.get("held", _held_ticks))
+	_burst_left = int(d.get("burst_left", _burst_left))
+	_buffer_until = int(d.get("buffer", _buffer_until))
+	_charge_started = int(d.get("charge_started", _charge_started))
+	var slot := current()
+	if slot != null and slot.behaviour != null and d.has("behaviour"):
+		slot.behaviour.state = (d["behaviour"] as Dictionary).duplicate(true)
+	return true
+
+
 func is_reloading() -> bool:
 	return _reloading
 

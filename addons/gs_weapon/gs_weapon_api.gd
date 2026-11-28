@@ -113,5 +113,6 @@ extends RefCounted
 ## 59: [method GSWeaponArsenal.cooling_row_for], [method GSWeaponArsenal.cooling_tick_row], [method GSWeaponArsenal.cooling_batch_add] and [method GSWeaponArsenal.cooling_batch_declined]: a trigger held inside its cadence (no other arsenal button, no switch, charge or burst, a behaviour that reads only the posture) ticks with the [member GSWeaponArsenal.idle_posture] row like an idle weapon, alone or joined to the idle batch, instead of a full context tick. Same bits (proven in `_check_native_cooling_streams`). Additive. OLDEST stays 1.
 ## 60: [method GSWeaponArsenal.next_use_tick]: the tick the weapon in hand may next be used on, read-only (a server's refusal log names it). Additive. OLDEST stays 1.
 ## 61: [method GSWeaponArsenal.settle_in_hand]: the slot in hand and usable now, ending any pending switch (a server settling the hand a client fired with), and [method GSWeaponArsenal.in_hand_by]. Additive. OLDEST stays 1.
-const LEVEL := 61
+## 62: [method GSWeaponArsenal.rebase_next_use]: moves the cadence deadline, for a server firing a command late; [method GSWeaponArsenal.rollback_state] / [method GSWeaponArsenal.restore_rollback]: the cadence, use count and in-hand bloom a client's replay starts from. Additive. OLDEST stays 1.
+const LEVEL := 62
 const OLDEST := 1
