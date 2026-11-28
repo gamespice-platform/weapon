@@ -8,6 +8,23 @@ func is_switching() -> bool:
 	return _switch_done_tick >= 0
 
 
+## Puts [param slot] in hand ready to use now: [method bring_to_hand], and when it is already in hand, ends the switch
+## still pending on it (its deploy, or a holster away from it). A server whose copy of a switch runs behind the client
+## that fired settles the hand the shot was fired with before judging it. The cadence ([method next_use_tick]) is kept.
+## False when [param slot] is not carried or was already in hand with no switch pending.
+func settle_in_hand(slot: int) -> bool:
+	if not _slots.has(slot):
+		return false
+	if slot != _current:
+		_force_select(slot)
+		return true
+	if _switch_done_tick < 0:
+		return false
+	_switch_done_tick = -1
+	_holstering = false
+	return true
+
+
 func is_reloading() -> bool:
 	return _reloading
 
