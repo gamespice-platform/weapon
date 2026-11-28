@@ -8,6 +8,13 @@ func is_switching() -> bool:
 	return _switch_done_tick >= 0
 
 
+## Whether the weapon tick at [param tick] finds the slot now in hand ([method current_slot]) usable: no switch pending, or only its
+## deploy, ending by then (that tick finishes the deploy before it uses the weapon). A client naming the weapon its command fires
+## with asks this for the command's tick rather than [method is_switching], which is still true on the tick a deploy ends.
+func in_hand_by(tick: int) -> bool:
+	return _switch_done_tick < 0 or (not _holstering and tick >= _switch_done_tick)
+
+
 ## Puts [param slot] in hand ready to use now: [method bring_to_hand], and when it is already in hand, ends the switch
 ## still pending on it (its deploy, or a holster away from it). A server whose copy of a switch runs behind the client
 ## that fired settles the hand the shot was fired with before judging it. The cadence ([method next_use_tick]) is kept.

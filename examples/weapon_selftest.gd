@@ -2,7 +2,7 @@ extends "selftest/sections_anim.gd"
 
 ## GameSpice Weapon's self-test. Headless, no network, no scene but this one.
 
-const CHECKS := 949
+const CHECKS := 952
 
 
 func _ready() -> void:
@@ -447,6 +447,7 @@ func _test_equip_and_slot_requests() -> void:
 	settle.give(&"rifle")
 	settle.give(&"pistol")
 	settle.select(2, 0)
+	_check(not settle.in_hand_by(1 << 20), "in_hand_by is false while holstering")
 	_check(settle.settle_in_hand(1) and settle.current_slot() == 1 and not settle.is_switching(),
 		"settle_in_hand on the slot in hand ends a holster away from it")
 	settle.select(2, 0)
@@ -454,6 +455,8 @@ func _test_equip_and_slot_requests() -> void:
 		var _o := settle.simulate_tick(_cmd(false), _ctx(i, 1), null)
 	_check(settle.current_slot() == 2 and settle.is_switching(), "the pistol is deploying",
 		"slot %d, switching %s" % [settle.current_slot(), str(settle.is_switching())])
+	_check(not settle.in_hand_by(11), "in_hand_by is false while the deploy runs on")
+	_check(settle.in_hand_by(1 << 20), "in_hand_by is true on and after the tick the deploy ends")
 	_check(settle.settle_in_hand(2) and not settle.is_switching(), "settle_in_hand ends the deploy of the slot in hand")
 	_check(not settle.settle_in_hand(2) and not settle.settle_in_hand(9), "settle_in_hand is false when already settled or not carried")
 	_check(settle.settle_in_hand(1) and settle.current_slot() == 1 and not settle.is_switching(), "settle_in_hand holds another slot at once")
